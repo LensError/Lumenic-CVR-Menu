@@ -544,16 +544,7 @@ fn render_system_info_modal(
 ) {
     ui.overlay(|ui| {
         ui.zstack(|ui| {
-            if ui
-                .btn_with("qm_info_modal_scrim", |_| {})
-                .w_frac(1.0)
-                .h_frac(1.0)
-                .bg(Color::rgba(4, 7, 13, 175))
-                .hover_bg(Color::rgba(4, 7, 13, 175))
-                .borderless()
-                .r(0.0)
-                .clicked()
-            {
+            if crate::theme::modal_scrim(ui, "qm_info_modal_scrim_fx", "qm_info_modal_scrim") {
                 push_click(actions);
                 state.quick.show_info_modal = false;
             }
@@ -1688,21 +1679,6 @@ fn render_home_center(
     .gap(9.0);
 }
 
-const QM_MODAL_SCRIM_FRAG: &str = r#"
-#ifdef GL_ES
-precision mediump float;
-#endif
-varying vec2 v_uv;
-uniform vec4 u_bounds;
-uniform vec4 u_params[4];
-void main() {
-    float edge_x = smoothstep(0.0, 0.24, min(v_uv.x, 1.0 - v_uv.x));
-    float edge_y = smoothstep(0.0, 0.24, min(v_uv.y, 1.0 - v_uv.y));
-    float alpha = 0.78 * edge_x * edge_y;
-    gl_FragColor = vec4(0.016, 0.027, 0.051, alpha);
-}
-"#;
-
 fn render_qm_world_instance_modal(
     ui: &mut UiContext,
     state: &mut AppState,
@@ -1712,26 +1688,7 @@ fn render_qm_world_instance_modal(
     actions: &mut Vec<UiAction>,
 ) {
     ui.zstack(|ui| {
-        ui.viewport("qm_world_modal_scrim_fx", |c2d, _s3d| {
-            c2d.shader(0x4C55_4D02, QM_MODAL_SCRIM_FRAG, &[]);
-        })
-        .w_frac(1.0)
-        .h_frac(1.0)
-        .no_bg()
-        .borderless()
-        .r(0.0)
-        .passthrough();
-
-        if ui
-            .btn_with("qm_world_modal_scrim", |_| {})
-            .w_frac(1.0)
-            .h_frac(1.0)
-            .bg(Color::TRANSPARENT)
-            .hover_bg(Color::TRANSPARENT)
-            .borderless()
-            .r(0.0)
-            .clicked()
-        {
+        if crate::theme::modal_scrim(ui, "qm_world_modal_scrim_fx", "qm_world_modal_scrim") {
             push_click(actions);
             state.quick.qm_world_modal = None;
         }
@@ -2068,26 +2025,7 @@ pub fn render_group_mod_prompt_modal(
     let join_id = format!("{}_group_mod_join", id_prefix);
 
     ui.zstack(|ui| {
-        ui.viewport(&scrim_fx_id, |c2d, _s3d| {
-            c2d.shader(0x4C55_4D02, QM_MODAL_SCRIM_FRAG, &[]);
-        })
-        .w_frac(1.0)
-        .h_frac(1.0)
-        .no_bg()
-        .borderless()
-        .r(0.0)
-        .passthrough();
-
-        if ui
-            .btn_with(&scrim_id, |_| {})
-            .w_frac(1.0)
-            .h_frac(1.0)
-            .bg(Color::TRANSPARENT)
-            .hover_bg(Color::TRANSPARENT)
-            .borderless()
-            .r(0.0)
-            .clicked()
-        {
+        if crate::theme::modal_scrim(ui, &scrim_fx_id, &scrim_id) {
             push_click(actions);
             actions.push(UiAction::ContentResolveGroupModPrompt {
                 accept: false,

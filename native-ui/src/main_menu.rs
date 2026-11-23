@@ -1921,16 +1921,7 @@ fn render_game_instance_info_modal(
 ) {
     ui.overlay(|ui| {
         ui.zstack(|ui| {
-            if ui
-                .btn_with("mm_info_modal_scrim", |_| {})
-                .w_frac(1.0)
-                .h_frac(1.0)
-                .bg(Color::rgba(4, 7, 13, 175))
-                .hover_bg(Color::rgba(4, 7, 13, 175))
-                .borderless()
-                .r(0.0)
-                .clicked()
-            {
+            if crate::theme::modal_scrim(ui, "mm_info_modal_scrim_fx", "mm_info_modal_scrim") {
                 push_click(actions);
                 state.main_menu.info_modal_open = false;
             }

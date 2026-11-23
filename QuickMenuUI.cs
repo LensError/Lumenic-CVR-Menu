@@ -9,16 +9,16 @@ using MelonLoader;
 namespace LumenicMenu;
 
 /// <summary>
-/// Registers LumenicMenu controls under the shared LensErrorsMods Quick Menu page.
+/// Registers LumenicMenu controls under its own UILib Quick Menu tab.
 /// </summary>
 internal static class QuickMenuUI
 {
-    private const string SharedQuickMenuModName = "LensErrorsMods";
-    private const string SharedQuickMenuPageName = "Main";
-    private const string SharedQuickMenuIconName = "lumenic_menu";
+    private const string QuickMenuModName = "LumenicMenu";
+    private const string QuickMenuPageName = "Main";
+    private const string QuickMenuIconName = "lumenic_menu";
     private const string EmbeddedIconResource = "LumenicMenu.resources.lumenic_menu.png";
 
-    private static Page _sharedPage;
+    private static Page _page;
     private static Category _modCategory;
     private static ToggleButton _mainMenuToggle;
     private static ToggleButton _quickMenuToggle;
@@ -29,13 +29,13 @@ internal static class QuickMenuUI
     {
         try
         {
-            if (QuickMenuAPI.DoesIconExist(SharedQuickMenuModName, SharedQuickMenuIconName))
+            if (QuickMenuAPI.DoesIconExist(QuickMenuModName, QuickMenuIconName))
                 return;
 
             using Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(EmbeddedIconResource);
             if (stream != null)
             {
-                QuickMenuAPI.PrepareIcon(SharedQuickMenuModName, SharedQuickMenuIconName, stream);
+                QuickMenuAPI.PrepareIcon(QuickMenuModName, QuickMenuIconName, stream);
             }
             else
             {
@@ -44,7 +44,7 @@ internal static class QuickMenuUI
         }
         catch (Exception ex)
         {
-            MelonLogger.Warning($"[LumenicMenu] Could not prepare shared QM icon: {ex.Message}");
+            MelonLogger.Warning($"[LumenicMenu] Could not prepare QM icon: {ex.Message}");
         }
     }
 
@@ -55,16 +55,16 @@ internal static class QuickMenuUI
 
         try
         {
-            _sharedPage = Page.GetOrCreatePage(
-                SharedQuickMenuModName,
-                SharedQuickMenuPageName,
+            _page = Page.GetOrCreatePage(
+                QuickMenuModName,
+                QuickMenuPageName,
                 isRootPage: true,
-                tabIcon: SharedQuickMenuIconName);
+                tabIcon: QuickMenuIconName);
 
-            _sharedPage.MenuTitle = "LensError's Mods";
-            _sharedPage.MenuSubtitle = "Installed mod settings and actions";
+            _page.MenuTitle = "LumenicMenu";
+            _page.MenuSubtitle = "Native UI settings and diagnostics";
 
-            _modCategory = _sharedPage.AddCategory("LumenicMenu");
+            _modCategory = _page.AddCategory("Settings");
 
             _mainMenuToggle = _modCategory.AddToggle(
                 "Lumenic Main Menu",

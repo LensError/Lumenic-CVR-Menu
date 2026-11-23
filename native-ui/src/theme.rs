@@ -1,4 +1,4 @@
-use lumenic::Color;
+use lumenic::{Color, UiContext};
 
 use crate::state::{AppState, UiAction};
 
@@ -139,4 +139,41 @@ pub fn push_click(actions: &mut Vec<UiAction>) {
     actions.push(UiAction::PlayUiSound {
         sound: String::from("Click"),
     });
+}
+
+const MODAL_SCRIM_FRAG: &str = r#"
+#ifdef GL_ES
+precision mediump float;
+#endif
+varying vec2 v_uv;
+uniform vec4 u_bounds;
+uniform vec4 u_params[4];
+void main() {
+    float edge_x = smoothstep(0.0, 0.24, min(v_uv.x, 1.0 - v_uv.x));
+    float edge_y = smoothstep(0.0, 0.24, min(v_uv.y, 1.0 - v_uv.y));
+    float alpha = 0.78 * edge_x * edge_y;
+    gl_FragColor = vec4(0.016, 0.027, 0.051, alpha);
+}
+"#;
+
+/// Renders a full-viewport edge-faded dark modal scrim and returns true if clicked.
+pub fn modal_scrim(ui: &mut UiContext, fx_id: &str, hit_id: &str) -> bool {
+    ui.viewport(fx_id, |c2d, _s3d| {
+        c2d.shader(0x4C55_4D02, MODAL_SCRIM_FRAG, &[]);
+    })
+    .w_frac(1.0)
+    .h_frac(1.0)
+    .no_bg()
+    .borderless()
+    .r(0.0)
+    .passthrough();
+
+    ui.btn_with(hit_id, |_| {})
+        .w_frac(1.0)
+        .h_frac(1.0)
+        .bg(Color::TRANSPARENT)
+        .hover_bg(Color::TRANSPARENT)
+        .borderless()
+        .r(0.0)
+        .clicked()
 }

@@ -1118,17 +1118,7 @@ pub fn render_uilib_modal(
 
     ui.overlay(|ui| {
         ui.zstack(|ui| {
-            // Full-viewport hit-testable scrim blocking pointer/scroll pass-through to underlying menu.
-            if ui
-                .btn_with("uilib_modal_backdrop", |_| {})
-                .w_frac(1.0)
-                .h_frac(1.0)
-                .bg(Color::rgba(4, 7, 13, 175))
-                .hover_bg(Color::rgba(4, 7, 13, 175))
-                .borderless()
-                .r(0.0)
-                .clicked()
-            {
+            if crate::theme::modal_scrim(ui, "uilib_modal_backdrop_fx", "uilib_modal_backdrop") {
                 push_click(actions);
                 actions.push(UiAction::UiLibModalDismiss);
             }
