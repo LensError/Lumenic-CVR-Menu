@@ -1,0 +1,24 @@
+{
+  "_id": -1,
+  "name": "LumenicMenu",
+  "modversion": "0.2.0",
+  "gameversion": "2026r183",
+  "loaderversion": "0.7.2",
+  "modtype": "Mod",
+  "author": "LensError",
+  "description": "Replaces the ChilloutVR Main Menu and Quick Menu with a native Rust UI built on Lumenic. Includes live settings search, Quick Menu pinning, UILib/UIExpansionKit mod bridges, and independent menu toggles.",
+  "searchtags": [
+    "menu",
+    "ui",
+    "quickmenu",
+    "mainmenu",
+    "lumenic",
+    "search",
+    "pinning"
+  ],
+  "requirements": [],
+  "downloadlink": "https://github.com/LensError/Lumenic-CVR-Menu/releases/latest/download/LumenicMenu.dll",
+  "sourcelink": "https://github.com/LensError/Lumenic-CVR-Menu",
+  "changelog": "Initial release.",
+  "embedcolor": "#321D71"
+}

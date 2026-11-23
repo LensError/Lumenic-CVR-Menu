@@ -1,0 +1,9 @@
+bin/
+obj/
+.vs/
+*.user
+*.suo
+native-ui/target/
+native-ui/dist/
+AGENTS.md
+release.ps1
