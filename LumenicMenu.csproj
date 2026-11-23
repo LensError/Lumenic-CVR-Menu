@@ -1,0 +1,106 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <Platforms>x64</Platforms>
+    <Version>0.2.0</Version>
+    <AssemblyName>LumenicMenu</AssemblyName>
+    <RootNamespace>LumenicMenu</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <FailOnCVRDeployError>false</FailOnCVRDeployError>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <DebugType>embedded</DebugType>
+    <DebugSymbols>true</DebugSymbols>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="MelonLoader">
+      <HintPath>$(CVRPath)/MelonLoader/net35/MelonLoader.dll</HintPath>
+      <Private>false</Private>
+      <SpecificVersion>false</SpecificVersion>
+    </Reference>
+    <Reference Include="0Harmony">
+      <HintPath>$(CVRPath)/MelonLoader/net35/0Harmony.dll</HintPath>
+      <Private>false</Private>
+      <SpecificVersion>false</SpecificVersion>
+    </Reference>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(CVRPath)/ChilloutVR_Data/Managed/Assembly-CSharp.dll</HintPath>
+      <Private>false</Private>
+      <SpecificVersion>false</SpecificVersion>
+    </Reference>
+    <Reference Include="GameCommon">
+      <HintPath>$(CVRPath)/ChilloutVR_Data/Managed/GameCommon.dll</HintPath>
+      <Private>false</Private>
+      <SpecificVersion>false</SpecificVersion>
+    </Reference>
+    <Reference Include="ECM2">
+      <HintPath>$(CVRPath)/ChilloutVR_Data/Managed/ECM2.dll</HintPath>
+      <Private>false</Private>
+      <SpecificVersion>false</SpecificVersion>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>$(CVRPath)/ChilloutVR_Data/Managed/UnityEngine.dll</HintPath>
+      <Private>false</Private>
+      <SpecificVersion>false</SpecificVersion>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(CVRPath)/ChilloutVR_Data/Managed/UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+      <SpecificVersion>false</SpecificVersion>
+    </Reference>
+    <Reference Include="UnityEngine.AnimationModule">
+      <HintPath>$(CVRPath)/ChilloutVR_Data/Managed/UnityEngine.AnimationModule.dll</HintPath>
+      <Private>false</Private>
+      <SpecificVersion>false</SpecificVersion>
+    </Reference>
+    <Reference Include="UnityEngine.AudioModule">
+      <HintPath>$(CVRPath)/ChilloutVR_Data/Managed/UnityEngine.AudioModule.dll</HintPath>
+      <Private>false</Private>
+      <SpecificVersion>false</SpecificVersion>
+    </Reference>
+    <Reference Include="UnityEngine.PhysicsModule">
+      <HintPath>$(CVRPath)/ChilloutVR_Data/Managed/UnityEngine.PhysicsModule.dll</HintPath>
+      <Private>false</Private>
+      <SpecificVersion>false</SpecificVersion>
+    </Reference>
+    <Reference Include="UnityEngine.InputLegacyModule">
+      <HintPath>$(CVRPath)/ChilloutVR_Data/Managed/UnityEngine.InputLegacyModule.dll</HintPath>
+      <Private>false</Private>
+      <SpecificVersion>false</SpecificVersion>
+    </Reference>
+    <Reference Include="Cohtml.Runtime">
+      <HintPath>$(CVRPath)/ChilloutVR_Data/Managed/Cohtml.Runtime.dll</HintPath>
+      <Private>false</Private>
+      <SpecificVersion>false</SpecificVersion>
+    </Reference>
+    <Reference Include="cohtml.Net">
+      <HintPath>$(CVRPath)/ChilloutVR_Data/Managed/cohtml.Net.dll</HintPath>
+      <Private>false</Private>
+      <SpecificVersion>false</SpecificVersion>
+    </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>$(CVRPath)/ChilloutVR_Data/Managed/Newtonsoft.Json.dll</HintPath>
+      <Private>false</Private>
+      <SpecificVersion>false</SpecificVersion>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="resources\lumenic_menu.png" />
+    <EmbeddedResource Include="native-ui\target\release\lumenic_cvr_ui.dll">
+      <LogicalName>lumenic_cvr_ui.dll</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <Target Name="BuildNativeUi" BeforeTargets="BeforeBuild">
+    <Exec Command="cargo build --release" WorkingDirectory="$(MSBuildProjectDirectory)\native-ui" />
+  </Target>
+
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Condition="'$(FailOnCVRDeployError)' == 'true'" Command="copy /y &quot;$(TargetPath)&quot; &quot;$(CVRPath)/Mods/&quot;" />
+    <Exec Condition="'$(FailOnCVRDeployError)' != 'true'" Command="copy /y &quot;$(TargetPath)&quot; &quot;$(CVRPath)/Mods/&quot;" IgnoreExitCode="true" />
+  </Target>
+</Project>
