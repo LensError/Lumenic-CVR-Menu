@@ -541,21 +541,19 @@ fn render_home_dashboard(
                                         .ellipsis()
                                         .grow(1.0);
 
-                                    let rank_lbl = if state.host.user_rank.is_empty() {
-                                        "User"
-                                    } else {
-                                        &state.host.user_rank
-                                    };
-                                    ui.txt(rank_lbl)
-                                        .sz(9.5)
-                                        .mono()
-                                        .bold()
-                                        .fg(accent)
-                                        .bg(tint_alpha(accent, 34))
-                                        .bd(1.0, tint_alpha(accent, 130))
-                                        .px(6.0)
+                                    if crate::theme::is_special_rank(&state.host.user_rank) {
+                                        ui.row(|ui| {
+                                            ui.txt(&state.host.user_rank)
+                                                .sz(9.5)
+                                                .semibold()
+                                                .fg(TEXT_PRIMARY);
+                                        })
+                                        .px(6.5)
                                         .py(1.5)
-                                        .bevel_rounded(4.0, 1.2);
+                                        .bg(tint_alpha(accent, 42))
+                                        .bd(1.0, tint_alpha(accent, 145))
+                                        .bevel_rounded(4.5, 1.2);
+                                    }
                                 })
                                 .align_center()
                                 .gap(6.0);
@@ -785,7 +783,6 @@ fn render_home_dashboard(
                             ui.txt("FRAME RATE").sz(8.5).bold().fg(TEXT_DIM);
                             ui.txt(&format!("{fps_val} FPS"))
                                 .sz(12.5)
-                                .mono()
                                 .bold()
                                 .fg(fps_col);
                         })
@@ -802,7 +799,6 @@ fn render_home_dashboard(
                             ui.txt("GAME PING").sz(8.5).bold().fg(TEXT_DIM);
                             ui.txt(&format!("{g_ping} ms"))
                                 .sz(12.5)
-                                .mono()
                                 .bold()
                                 .fg(TEXT_PRIMARY);
                         })
@@ -822,7 +818,6 @@ fn render_home_dashboard(
                             ui.txt("VOICE PING").sz(8.5).bold().fg(TEXT_DIM);
                             ui.txt(&format!("{v_ping} ms"))
                                 .sz(12.0)
-                                .mono()
                                 .semibold()
                                 .fg(TEXT_PRIMARY);
                         })
@@ -884,7 +879,6 @@ fn render_home_dashboard(
                                         .grow(1.0);
                                     ui.txt(&format!("{pl_cnt} ppl"))
                                         .sz(10.0)
-                                        .mono()
                                         .bold()
                                         .fg(EMERALD)
                                         .bg(tint_alpha(EMERALD, 30))
@@ -903,7 +897,6 @@ fn render_home_dashboard(
                                         .grow(1.0);
                                     ui.txt(priv_txt)
                                         .sz(9.5)
-                                        .mono()
                                         .fg(accent)
                                         .bg(tint_alpha(accent, 26))
                                         .px(5.0)
@@ -1088,7 +1081,6 @@ fn render_home_dashboard(
                                         let cnt = format!("{}", w.player_count.max(0));
                                         ui.txt(&cnt)
                                             .sz(10.5)
-                                            .mono()
                                             .bold()
                                             .fg(accent)
                                             .bg(tint_alpha(accent, 30))
@@ -1302,7 +1294,7 @@ fn render_home_dashboard(
                                 .grow(1.0);
 
                                 if !item.time_text.is_empty() {
-                                    ui.txt(&item.time_text).sz(10.0).mono().fg(TEXT_DIM);
+                                    ui.txt(&item.time_text).sz(10.0).fg(TEXT_DIM);
                                 }
                             })
                             .align_center()
@@ -2005,7 +1997,6 @@ fn render_bottom_dock(
             };
             ui.txt(clock)
                 .sz(19.5)
-                .mono()
                 .bold()
                 .align(TextAlign::Center)
                 .fg(TEXT_PRIMARY);
@@ -2099,7 +2090,6 @@ fn modal_info_row(ui: &mut UiContext, label: &str, value: &str, value_col: Color
         ui.txt(label).sz(11.5).fg(TEXT_MUTED).grow(1.0);
         ui.txt(value)
             .sz(11.5)
-            .mono()
             .semibold()
             .align(TextAlign::Right)
             .fg(value_col);

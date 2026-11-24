@@ -89,6 +89,28 @@ internal sealed class PinnedContentService
         return pinnedNow;
     }
 
+    public void ClearAll()
+    {
+        lock (_lock)
+        {
+            _data = new PersistedPins();
+            _dirtyDisk = false;
+        }
+        try
+        {
+            lock (_fileLock)
+            {
+                if (File.Exists(_filePath))
+                    File.Delete(_filePath);
+            }
+        }
+        catch (Exception ex)
+        {
+            MelonLogger.Warning($"[LumenicMenu] Failed to delete pinned-items.json: {ex.Message}");
+        }
+        _onDirty?.Invoke();
+    }
+
     public void Unpin(string kind, string id)
     {
         if (string.IsNullOrWhiteSpace(kind) || string.IsNullOrWhiteSpace(id))

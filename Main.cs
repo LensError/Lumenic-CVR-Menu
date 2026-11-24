@@ -18,7 +18,7 @@ using LumenicMenu.Native;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(LumenicMenu.LumenicMenuMod), "LumenicMenu", "0.2.2", "LensError")]
+[assembly: MelonInfo(typeof(LumenicMenu.LumenicMenuMod), "LumenicMenu", "0.2.3", "LensError")]
 [assembly: MelonGame(null, "ChilloutVR")]
 
 namespace LumenicMenu;

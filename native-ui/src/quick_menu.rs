@@ -524,7 +524,6 @@ fn info_stat_row(ui: &mut UiContext, label: &str, value: &str, value_col: Color)
         ui.txt(label).sz(11.5).fg(TEXT_MUTED).grow(1.0);
         ui.txt(value)
             .sz(11.5)
-            .mono()
             .semibold()
             .align(TextAlign::Right)
             .fg(value_col);

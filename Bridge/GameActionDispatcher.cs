@@ -93,6 +93,37 @@ internal static class GameActionDispatcher
                 Settings.SetLinearTextureMode(!Settings.LinearTextureMode);
                 break;
 
+            case "SetEnableRecentHistory":
+                Settings.SetEnableRecentHistory(obj.Value<bool>("enabled"));
+                mod.MarkStateDirty();
+                break;
+
+            case "SetDesktopScrollMultiplier":
+                Settings.SetDesktopScrollMultiplier(obj.Value<float>("value"));
+                mod.MarkStateDirty();
+                break;
+
+            case "SetVrScrollMultiplier":
+                Settings.SetVrScrollMultiplier(obj.Value<float>("value"));
+                mod.MarkStateDirty();
+                break;
+
+            case "ClearRecentHistory":
+                mod.RecentHistory?.ClearAll();
+                mod.MarkStateDirty();
+                break;
+
+            case "ClearPinnedItems":
+                mod.PinnedContent?.ClearAll();
+                mod.MarkStateDirty();
+                break;
+
+            case "ResetTileLayouts":
+                Settings.SetQmQuickActionsOrder(string.Empty);
+                Settings.SetMmQuickToolsOrder(string.Empty);
+                mod.MarkStateDirty();
+                break;
+
             case "DummyPing":
                 MelonLogger.Msg(
                     $"[LumenicMenu] Rust -> C# DummyPing from {obj.Value<string>("source") ?? "unknown"} (count={obj.Value<int>("count")}).");

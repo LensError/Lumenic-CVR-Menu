@@ -99,9 +99,32 @@ internal sealed class RecentHistoryService
             || categoryKey == KeyPropsSeen;
     }
 
+    public void ClearAll()
+    {
+        lock (_lock)
+        {
+            _data = new PersistedHistory();
+            _attemptedHydrations.Clear();
+            _dirtyDisk = false;
+        }
+        try
+        {
+            lock (_fileLock)
+            {
+                if (File.Exists(_filePath))
+                    File.Delete(_filePath);
+            }
+        }
+        catch (Exception ex)
+        {
+            MelonLogger.Warning($"[LumenicMenu] Failed to delete recent-history.json: {ex.Message}");
+        }
+        _onDirty?.Invoke();
+    }
+
     public void RecordWorldVisited(string worldId, string worldName = null)
     {
-        if (string.IsNullOrWhiteSpace(worldId))
+        if (!Settings.EnableRecentHistory || string.IsNullOrWhiteSpace(worldId))
             return;
 
         string name = !string.IsNullOrWhiteSpace(worldName)
@@ -126,7 +149,7 @@ internal sealed class RecentHistoryService
 
     public void RecordAvatarUsed(string avatarId, string avatarName = null)
     {
-        if (string.IsNullOrWhiteSpace(avatarId))
+        if (!Settings.EnableRecentHistory || string.IsNullOrWhiteSpace(avatarId))
             return;
 
         bool needsHydrate;
@@ -147,7 +170,7 @@ internal sealed class RecentHistoryService
 
     public void RecordAvatarSeen(string avatarId, string avatarName = null)
     {
-        if (string.IsNullOrWhiteSpace(avatarId))
+        if (!Settings.EnableRecentHistory || string.IsNullOrWhiteSpace(avatarId))
             return;
 
         string myAvatarId = MetaPort.Instance?.currentAvatarGuid;
@@ -165,7 +188,7 @@ internal sealed class RecentHistoryService
 
     public void RecordPropSpawned(PropSoul prop)
     {
-        if (prop == null || string.IsNullOrWhiteSpace(prop.ObjectId))
+        if (!Settings.EnableRecentHistory || prop == null || string.IsNullOrWhiteSpace(prop.ObjectId))
             return;
 
         string id = prop.ObjectId.Trim();
@@ -204,7 +227,7 @@ internal sealed class RecentHistoryService
 
     public void RecordUserSeen(CVRPlayerEntity player)
     {
-        if (player == null || string.IsNullOrWhiteSpace(player.Uuid))
+        if (!Settings.EnableRecentHistory || player == null || string.IsNullOrWhiteSpace(player.Uuid))
             return;
 
         string myId = MetaPort.Instance?.ownerId ?? AuthManager.UserId;

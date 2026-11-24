@@ -22,7 +22,6 @@ internal static class QuickMenuUI
     private static Category _modCategory;
     private static ToggleButton _mainMenuToggle;
     private static ToggleButton _quickMenuToggle;
-    private static ToggleButton _perfLogToggle;
     private static bool _suppressCallbacks;
 
     public static void PrepareSharedIcon()
@@ -62,9 +61,9 @@ internal static class QuickMenuUI
                 tabIcon: QuickMenuIconName);
 
             _page.MenuTitle = "LumenicMenu";
-            _page.MenuSubtitle = "Native UI settings and diagnostics";
+            _page.MenuSubtitle = "Menu replacement toggles";
 
-            _modCategory = _page.AddCategory("Settings");
+            _modCategory = _page.AddCategory("Menus");
 
             _mainMenuToggle = _modCategory.AddToggle(
                 "Lumenic Main Menu",
@@ -85,16 +84,6 @@ internal static class QuickMenuUI
                 if (_suppressCallbacks) return;
                 Settings.SetEnableQuickMenu(val);
             };
-
-            _perfLogToggle = _modCategory.AddToggle(
-                "Perf Timing Log",
-                "Log Milestone 1 frame timings (step/readback/upload/blit) to MelonLoader console",
-                Settings.PerfLogging);
-            _perfLogToggle.OnValueUpdated += val =>
-            {
-                if (_suppressCallbacks) return;
-                Settings.SetPerfLogging(val);
-            };
         }
         catch (Exception ex)
         {
@@ -114,8 +103,6 @@ internal static class QuickMenuUI
                 _mainMenuToggle.ToggleValue = Settings.EnableMainMenu;
             if (_quickMenuToggle != null)
                 _quickMenuToggle.ToggleValue = Settings.EnableQuickMenu;
-            if (_perfLogToggle != null)
-                _perfLogToggle.ToggleValue = Settings.PerfLogging;
         }
         catch
         {

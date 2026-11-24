@@ -773,6 +773,9 @@ pub struct HostStateSnapshot {
     pub avatar_settings: AvatarSettingsSnapshot,
     pub ui_click_sounds: bool,
     pub ui_sound_pack: String,
+    pub enable_recent_history: bool,
+    pub desktop_scroll_multiplier: f32,
+    pub vr_scroll_multiplier: f32,
 
     // Diagnostics & surface info
     pub mm_width: u32,
@@ -859,7 +862,10 @@ impl Default for HostStateSnapshot {
             mm_quick_tools_order: Vec::new(),
             avatar_settings: AvatarSettingsSnapshot::default(),
             ui_click_sounds: true,
-            ui_sound_pack: String::from("Glass"),
+            ui_sound_pack: String::from("SoftSub"),
+            enable_recent_history: true,
+            desktop_scroll_multiplier: 24.0,
+            vr_scroll_multiplier: 3.0,
             mm_width: 2560,
             mm_height: 1440,
             qm_width: 2048,
@@ -1395,6 +1401,18 @@ pub enum UiAction {
     SetUiSoundPack {
         pack: String,
     },
+    SetEnableRecentHistory {
+        enabled: bool,
+    },
+    SetDesktopScrollMultiplier {
+        value: f32,
+    },
+    SetVrScrollMultiplier {
+        value: f32,
+    },
+    ClearRecentHistory,
+    ClearPinnedItems,
+    ResetTileLayouts,
     SetMaxRefreshHz {
         hz: i32,
     },

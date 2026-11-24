@@ -1024,6 +1024,73 @@ pub unsafe extern "C" fn lumenic_cvr_upload_image_bytes(
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn lumenic_cvr_register_font(
+    name_ptr: *const u8,
+    name_len: usize,
+    bytes_ptr: *const u8,
+    bytes_len: usize,
+) -> bool {
+    clear_last_error();
+    if bytes_ptr.is_null() || bytes_len == 0 {
+        set_last_error("lumenic_cvr_register_font: empty font bytes");
+        return false;
+    }
+    let res = catch_unwind(AssertUnwindSafe(|| -> Result<(), String> {
+        let raw_bytes = unsafe { checked_slice(bytes_ptr, bytes_len)? };
+        if name_ptr.is_null() || name_len == 0 {
+            lumenic::register_font_bytes(raw_bytes);
+        } else {
+            let name_bytes = unsafe { checked_slice(name_ptr, name_len)? };
+            let name = std::str::from_utf8(name_bytes)
+                .map_err(|e| format!("invalid font name utf8: {e}"))?;
+            lumenic::register_font(name, raw_bytes);
+        }
+        Ok(())
+    }));
+    match res {
+        Ok(Ok(())) => true,
+        Ok(Err(err)) => {
+            set_last_error(err);
+            false
+        }
+        Err(payload) => {
+            set_last_error(panic_payload_to_string(payload));
+            false
+        }
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn lumenic_cvr_set_default_font_family(
+    name_ptr: *const u8,
+    name_len: usize,
+) -> bool {
+    clear_last_error();
+    if name_ptr.is_null() || name_len == 0 {
+        set_last_error("lumenic_cvr_set_default_font_family: empty name");
+        return false;
+    }
+    let res = catch_unwind(AssertUnwindSafe(|| -> Result<(), String> {
+        let name_bytes = unsafe { checked_slice(name_ptr, name_len)? };
+        let name = std::str::from_utf8(name_bytes)
+            .map_err(|e| format!("invalid font family utf8: {e}"))?;
+        lumenic::set_default_font_family(name);
+        Ok(())
+    }));
+    match res {
+        Ok(Ok(())) => true,
+        Ok(Err(err)) => {
+            set_last_error(err);
+            false
+        }
+        Err(payload) => {
+            set_last_error(panic_payload_to_string(payload));
+            false
+        }
+    }
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn lumenic_cvr_push_state_json(
     handle: *mut HostHandle,
     utf8_ptr: *const u8,

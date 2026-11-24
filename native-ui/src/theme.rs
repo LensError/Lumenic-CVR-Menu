@@ -246,6 +246,12 @@ pub fn resolve_player_accent(state: &AppState) -> Color {
 }
 
 #[inline]
+pub fn is_special_rank(rank: &str) -> bool {
+    let trimmed = rank.trim();
+    !trimmed.is_empty() && !trimmed.eq_ignore_ascii_case("user")
+}
+
+#[inline]
 pub fn tint_alpha(c: Color, alpha: u8) -> Color {
     Color::rgba(c.r, c.g, c.b, alpha)
 }

@@ -764,7 +764,6 @@ pub fn render_avatar_settings_page(
                         } else {
                             ui.txt(&format!("{cur_h:.2}m ({mult:.2}x)"))
                                 .sz(10.5)
-                                .mono()
                                 .semibold()
                                 .fg(accent)
                                 .bg(tint_alpha(accent, 30))

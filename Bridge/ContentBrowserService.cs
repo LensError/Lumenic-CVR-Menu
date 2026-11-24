@@ -1208,24 +1208,27 @@ internal sealed class ContentBrowserService
             }
         }
 
-        var allWorldCats = new List<CategoryDto>
+        var allWorldCats = new List<CategoryDto>();
+        if (Settings.EnableRecentHistory)
         {
-            new CategoryDto { Key = RecentHistoryService.KeyWorldsVisited, Name = "Recently Visited", IsSystem = true, IsRecent = true }
-        };
+            allWorldCats.Add(new CategoryDto { Key = RecentHistoryService.KeyWorldsVisited, Name = "Recently Visited", IsSystem = true, IsRecent = true });
+        }
         allWorldCats.AddRange(worldCats);
 
-        var allAvatarCats = new List<CategoryDto>
+        var allAvatarCats = new List<CategoryDto>();
+        if (Settings.EnableRecentHistory)
         {
-            new CategoryDto { Key = RecentHistoryService.KeyAvatarsUsed, Name = "Recently Used", IsSystem = true, IsRecent = true },
-            new CategoryDto { Key = RecentHistoryService.KeyAvatarsSeen, Name = "Recently Seen", IsSystem = true, IsRecent = true }
-        };
+            allAvatarCats.Add(new CategoryDto { Key = RecentHistoryService.KeyAvatarsUsed, Name = "Recently Used", IsSystem = true, IsRecent = true });
+            allAvatarCats.Add(new CategoryDto { Key = RecentHistoryService.KeyAvatarsSeen, Name = "Recently Seen", IsSystem = true, IsRecent = true });
+        }
         allAvatarCats.AddRange(avatarCats);
 
-        var allPropCats = new List<CategoryDto>
+        var allPropCats = new List<CategoryDto>();
+        if (Settings.EnableRecentHistory)
         {
-            new CategoryDto { Key = RecentHistoryService.KeyPropsSpawned, Name = "Recently Spawned", IsSystem = true, IsRecent = true },
-            new CategoryDto { Key = RecentHistoryService.KeyPropsSeen, Name = "Recently Seen", IsSystem = true, IsRecent = true }
-        };
+            allPropCats.Add(new CategoryDto { Key = RecentHistoryService.KeyPropsSpawned, Name = "Recently Spawned", IsSystem = true, IsRecent = true });
+            allPropCats.Add(new CategoryDto { Key = RecentHistoryService.KeyPropsSeen, Name = "Recently Seen", IsSystem = true, IsRecent = true });
+        }
         allPropCats.AddRange(propCats);
 
         ImageLoaderService qmImg = quickImages ?? images;

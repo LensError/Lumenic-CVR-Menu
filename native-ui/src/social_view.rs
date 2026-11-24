@@ -35,7 +35,10 @@ pub fn render_friends_page(
         .count();
     let total_count = state.host.social.friends.len();
     let recent_count = state.host.social.recent_users.len();
-    let is_recent_tab = state.main_menu.friends_filter == 3;
+    if !state.host.enable_recent_history && state.main_menu.friends_filter == 3 {
+        state.main_menu.friends_filter = 0;
+    }
+    let is_recent_tab = state.host.enable_recent_history && state.main_menu.friends_filter == 3;
 
     ui.col(|ui| {
         // Header bar: Title + Filter + Search + Refresh
@@ -94,6 +97,9 @@ pub fn render_friends_page(
                 (2usize, "Offline"),
                 (3usize, "Recently Seen"),
             ] {
+                if idx == 3 && !state.host.enable_recent_history {
+                    continue;
+                }
                 let active = state.main_menu.friends_filter == idx;
                 if ui
                     .btn_with(&format!("mm_fr_f_{idx}"), |ui| {
@@ -353,24 +359,23 @@ fn render_recent_user_card(
                             .ellipsis()
                             .grow(1.0);
 
-                        if !u.rank.is_empty() {
+                        if crate::theme::is_special_rank(&u.rank) {
                             ui.row(|ui| {
                                 ui.txt(&u.rank)
                                     .sz(9.5)
                                     .semibold()
-                                    .fg(TEXT_MUTED);
+                                    .fg(TEXT_PRIMARY);
                             })
-                            .px(6.0)
+                            .px(6.5)
                             .py(2.0)
-                            .bg(tile_idle_bg())
-                            .bd(1.0, border_subtle())
-                            .bevel_rounded(4.0, 1.0);
+                            .bg(tint_alpha(accent, 36))
+                            .bd(1.0, tint_alpha(accent, 135))
+                            .bevel_rounded(4.5, 1.0);
                         }
 
                         if !u.last_seen_text.is_empty() {
                             ui.txt(&u.last_seen_text)
                                 .sz(10.0)
-                                .mono()
                                 .fg(TEXT_DIM);
                         }
                     })
@@ -668,7 +673,6 @@ pub fn render_current_instance_page(
             let cnt = format!("{} Players", state.host.social.instance_players.len().max(1));
             ui.txt(&cnt)
                 .sz(11.0)
-                .mono()
                 .bold()
                 .fg(EMERALD)
                 .bg(tint_alpha(EMERALD, 30))
@@ -764,13 +768,14 @@ pub fn render_current_instance_page(
                                                     .semibold()
                                                     .fg(TEXT_PRIMARY)
                                                     .ellipsis();
+                                                let special_rank = crate::theme::is_special_rank(&p.rank);
                                                 let sub = if p.is_friend {
-                                                    if p.rank.is_empty() {
+                                                    if !special_rank {
                                                         String::from("Friend")
                                                     } else {
                                                         format!("Friend  |  {}", p.rank)
                                                     }
-                                                } else if p.rank.is_empty() {
+                                                } else if !special_rank {
                                                     String::from("Player")
                                                 } else {
                                                     p.rank.clone()
@@ -927,7 +932,6 @@ pub fn render_messages_page(
                                     if !notif.category.is_empty() {
                                         ui.txt(&notif.category)
                                             .sz(9.5)
-                                            .mono()
                                             .fg(accent)
                                             .bg(tint_alpha(accent, 28))
                                             .px(6.0)
@@ -1067,62 +1071,6 @@ pub fn render_user_detail_view(
             .fg(TEXT_PRIMARY)
             .ellipsis()
             .grow(1.0);
-
-            if !detail.rank.is_empty() {
-                ui.txt(&detail.rank)
-                    .sz(10.5)
-                    .mono()
-                    .fg(accent)
-                    .bg(tint_alpha(accent, 30))
-                    .px(8.0)
-                    .py(3.5)
-                    .bevel_rounded(5.0, 1.3);
-            }
-
-            let badges_lbl = format!("Badges ({})", detail.badges.len());
-            let groups_lbl = format!("Groups ({})", detail.groups.len());
-            for (tab_idx, ic, lbl) in [
-                (0usize, icons::AVATAR, "Overview"),
-                (1usize, icons::STAR, badges_lbl.as_str()),
-                (2usize, icons::PLAYERS, groups_lbl.as_str()),
-            ] {
-                let active = state.main_menu.user_detail_tab == tab_idx;
-                if ui
-                    .btn_with(&format!("mm_ud_subtab_{tab_idx}"), |ui| {
-                        ui.row(|ui| {
-                            icons::icon(ui, ic, 12.5)
-                                .fg(if active { accent } else { TEXT_DIM });
-                            ui.txt(lbl)
-                                .sz(10.5)
-                                .semibold()
-                                .fg(if active { TEXT_PRIMARY } else { TEXT_MUTED });
-                        })
-                        .center()
-                        .gap(4.0);
-                    })
-                    .px(10.0)
-                    .py(5.5)
-                    .bg(if active {
-                        tint_alpha(accent, 48)
-                    } else {
-                        tile_idle_bg()
-                    })
-                    .hover_bg(tile_idle_hover())
-                    .bd(
-                        1.0,
-                        if active {
-                            tint_alpha(accent, 195)
-                        } else {
-                            border_subtle()
-                        },
-                    )
-                    .bevel_rounded(5.5, 1.3)
-                    .clicked()
-                {
-                    push_click(actions);
-                    state.main_menu.user_detail_tab = tab_idx;
-                }
-            }
         })
         .align_center()
         .px(12.0)
@@ -1159,7 +1107,65 @@ pub fn render_user_detail_view(
             .bd(1.0, border_subtle())
             .bevel_rounded(10.5, 2.0)
             .shadow(14.0, SHADOW_CARD);
-        } else if state.main_menu.user_detail_tab == 1 {
+        } else {
+            // Dedicated compact section switcher card (relocated out of top bar)
+            ui.row(|ui| {
+                let badges_lbl = format!("Badges ({})", detail.badges.len());
+                let groups_lbl = format!("Groups ({})", detail.groups.len());
+                for (tab_idx, ic, lbl) in [
+                    (0usize, icons::AVATAR, "Overview"),
+                    (1usize, icons::STAR, badges_lbl.as_str()),
+                    (2usize, icons::PLAYERS, groups_lbl.as_str()),
+                ] {
+                    let active = state.main_menu.user_detail_tab == tab_idx;
+                    if ui
+                        .btn_with(&format!("mm_ud_subtab_{tab_idx}"), |ui| {
+                            ui.row(|ui| {
+                                icons::icon(ui, ic, 12.5)
+                                    .fg(if active { accent } else { TEXT_DIM });
+                                ui.txt(lbl)
+                                    .sz(11.0)
+                                    .semibold()
+                                    .fg(if active { TEXT_PRIMARY } else { TEXT_MUTED });
+                            })
+                            .center()
+                            .gap(5.0)
+                            .grow(1.0);
+                        })
+                        .grow(1.0)
+                        .px(10.0)
+                        .py(6.0)
+                        .bg(if active {
+                            tint_alpha(accent, 48)
+                        } else {
+                            tile_idle_bg()
+                        })
+                        .hover_bg(tile_idle_hover())
+                        .bd(
+                            1.0,
+                            if active {
+                                tint_alpha(accent, 195)
+                            } else {
+                                border_subtle()
+                            },
+                        )
+                        .bevel_rounded(6.0, 1.3)
+                        .clicked()
+                    {
+                        push_click(actions);
+                        state.main_menu.user_detail_tab = tab_idx;
+                    }
+                }
+            })
+            .align_center()
+            .p(6.0)
+            .gap(6.0)
+            .bg(card_bg())
+            .bd(1.0, border_subtle())
+            .bevel_rounded(9.0, 1.8)
+            .shadow(10.0, SHADOW_CARD);
+
+            if state.main_menu.user_detail_tab == 1 {
             // =================================================================
             // BADGES SUB-TAB
             // =================================================================
@@ -1215,7 +1221,6 @@ pub fn render_user_detail_view(
                                                 if b.featured {
                                                     ui.txt("FEATURED")
                                                         .sz(9.0)
-                                                        .mono()
                                                         .bold()
                                                         .fg(EMERALD)
                                                         .bg(tint_alpha(EMERALD, 32))
@@ -1364,7 +1369,6 @@ pub fn render_user_detail_view(
                                                 if !g.tag.is_empty() {
                                                     ui.txt(&format!("[{}]", g.tag))
                                                         .sz(9.5)
-                                                        .mono()
                                                         .fg(accent)
                                                         .bg(tint_alpha(accent, 28))
                                                         .px(5.0)
@@ -1374,7 +1378,6 @@ pub fn render_user_detail_view(
                                                 if g.is_featured {
                                                     ui.txt("FEATURED")
                                                         .sz(9.0)
-                                                        .mono()
                                                         .bold()
                                                         .fg(EMERALD)
                                                         .bg(tint_alpha(EMERALD, 32))
@@ -1664,8 +1667,27 @@ pub fn render_user_detail_view(
                             })
                             .align_center()
                             .gap(6.0);
-                            if !detail.pronouns.is_empty() {
-                                ui.txt(&detail.pronouns).sz(11.0).fg(TEXT_MUTED);
+                            if !detail.pronouns.is_empty() || crate::theme::is_special_rank(&detail.rank) {
+                                ui.row(|ui| {
+                                    if !detail.pronouns.is_empty() {
+                                        ui.txt(&detail.pronouns).sz(11.0).fg(TEXT_MUTED);
+                                    }
+                                    if crate::theme::is_special_rank(&detail.rank) {
+                                        ui.row(|ui| {
+                                            ui.txt(&detail.rank)
+                                                .sz(10.0)
+                                                .semibold()
+                                                .fg(TEXT_PRIMARY);
+                                        })
+                                        .px(7.0)
+                                        .py(2.0)
+                                        .bg(tint_alpha(accent, 42))
+                                        .bd(1.0, tint_alpha(accent, 150))
+                                        .bevel_rounded(4.5, 1.2);
+                                    }
+                                })
+                                .align_center()
+                                .gap(6.0);
                             }
                             if !detail.featured_badge.is_empty() {
                                 ui.row(|ui| {
@@ -2165,6 +2187,7 @@ pub fn render_user_detail_view(
                         .bevel_rounded(10.5, 2.0)
                         .shadow(14.0, SHADOW_CARD);
                     } else {
+                        // Top Card: Actions (Invite, Request Invite, Voice Volume, Reload Avatar)
                         ui.col(|ui| {
                             ui.txt("Actions").sz(12.5).bold().fg(TEXT_PRIMARY);
 
@@ -2179,7 +2202,7 @@ pub fn render_user_detail_view(
                                             .grow(1.0);
                                     })
                                     .grow(1.0)
-                                    .py(8.0)
+                                    .py(7.5)
                                     .bg(tile_idle_bg())
                                     .hover_bg(tile_idle_hover())
                                     .bd(1.0, tint_alpha(accent, 150))
@@ -2202,7 +2225,7 @@ pub fn render_user_detail_view(
                                             .grow(1.0);
                                     })
                                     .grow(1.0)
-                                    .py(8.0)
+                                    .py(7.5)
                                     .bg(tile_idle_bg())
                                     .hover_bg(tile_idle_hover())
                                     .bd(1.0, border_subtle())
@@ -2214,56 +2237,24 @@ pub fn render_user_detail_view(
                                         user_id: detail.id.clone(),
                                     });
                                 }
-                            })
-                            .gap(7.0);
 
-                            ui.row(|ui| {
-                                if detail.is_friend {
-                                    let unfriend_armed =
-                                        state.main_menu.safety_confirm_action == "unfriend";
-                                    if ui
-                                        .btn_with("mm_ud_unfriend", |ui| {
-                                            ui.txt(if unfriend_armed { "Confirm Unfriend?" } else { "Unfriend" })
+                                if !detail.is_friend
+                                    && ui
+                                        .btn_with("mm_ud_addfriend", |ui| {
+                                            ui.txt("Add Friend")
                                                 .sz(11.0)
                                                 .semibold()
                                                 .align(TextAlign::Center)
-                                                .fg(if unfriend_armed { TEXT_PRIMARY } else { AMBER })
+                                                .fg(TEXT_PRIMARY)
                                                 .grow(1.0);
                                         })
                                         .grow(1.0)
-                                        .py(7.0)
-                                        .bg(if unfriend_armed { tint_alpha(AMBER, 75) } else { tile_idle_bg() })
-                                        .hover_bg(tint_alpha(AMBER, 95))
-                                        .bd(1.0, tint_alpha(AMBER, 165))
+                                        .py(7.5)
+                                        .bg(tint_alpha(accent, 48))
+                                        .hover_bg(tint_alpha(accent, 80))
+                                        .bd(1.0, tint_alpha(accent, 180))
                                         .bevel_rounded(6.5, 1.3)
                                         .clicked()
-                                    {
-                                        push_click(actions);
-                                        if unfriend_armed {
-                                            state.main_menu.safety_confirm_action.clear();
-                                            actions.push(UiAction::SocialUnfriend {
-                                                user_id: detail.id.clone(),
-                                            });
-                                        } else {
-                                            state.main_menu.safety_confirm_action = String::from("unfriend");
-                                        }
-                                    }
-                                } else if ui
-                                    .btn_with("mm_ud_addfriend", |ui| {
-                                        ui.txt("Add Friend")
-                                            .sz(11.0)
-                                            .semibold()
-                                            .align(TextAlign::Center)
-                                            .fg(TEXT_PRIMARY)
-                                            .grow(1.0);
-                                    })
-                                    .grow(1.0)
-                                    .py(7.0)
-                                    .bg(tint_alpha(accent, 48))
-                                    .hover_bg(tint_alpha(accent, 80))
-                                    .bd(1.0, tint_alpha(accent, 180))
-                                    .bevel_rounded(6.5, 1.3)
-                                    .clicked()
                                 {
                                     push_click(actions);
                                     state.main_menu.safety_confirm_action.clear();
@@ -2271,57 +2262,8 @@ pub fn render_user_detail_view(
                                         user_id: detail.id.clone(),
                                     });
                                 }
-
-                                let block_armed =
-                                    !detail.is_blocked && state.main_menu.safety_confirm_action == "block";
-                                let blk_lbl = if detail.is_blocked {
-                                    "Unblock"
-                                } else if block_armed {
-                                    "Confirm Block?"
-                                } else {
-                                    "Block User"
-                                };
-                                if ui
-                                    .btn_with("mm_ud_block", |ui| {
-                                        ui.txt(blk_lbl)
-                                            .sz(11.0)
-                                            .semibold()
-                                            .align(TextAlign::Center)
-                                            .fg(if detail.is_blocked || block_armed { TEXT_PRIMARY } else { RED })
-                                            .grow(1.0);
-                                    })
-                                    .grow(1.0)
-                                    .py(7.0)
-                                    .bg(if detail.is_blocked || block_armed {
-                                        tint_alpha(RED, 72)
-                                    } else {
-                                        tile_idle_bg()
-                                    })
-                                    .hover_bg(tint_alpha(RED, 95))
-                                    .bd(1.0, tint_alpha(RED, 165))
-                                    .bevel_rounded(6.5, 1.3)
-                                    .clicked()
-                                {
-                                    push_click(actions);
-                                    if detail.is_blocked || block_armed {
-                                        state.main_menu.safety_confirm_action.clear();
-                                        actions.push(UiAction::SocialSetBlocked {
-                                            user_id: detail.id.clone(),
-                                            blocked: !detail.is_blocked,
-                                        });
-                                    } else {
-                                        state.main_menu.safety_confirm_action = String::from("block");
-                                    }
-                                }
                             })
                             .gap(7.0);
-
-                            // Per-user Safety & Moderation controls
-                            ui.txt("SAFETY & MODERATION")
-                                .sz(9.5)
-                                .bold()
-                                .fg(TEXT_DIM)
-                                .pt(4.0);
 
                             // Mute + Voice Volume slider
                             ui.row(|ui| {
@@ -2330,7 +2272,11 @@ pub fn render_user_detail_view(
                                         ui.row(|ui| {
                                             icons::icon(
                                                 ui,
-                                                if detail.is_muted { icons::MIC_OFF } else { icons::VOLUME },
+                                                if detail.is_muted {
+                                                    icons::MIC_OFF
+                                                } else {
+                                                    icons::VOLUME
+                                                },
                                                 12.0,
                                             )
                                             .fg(if detail.is_muted { RED } else { EMERALD });
@@ -2344,9 +2290,20 @@ pub fn render_user_detail_view(
                                     })
                                     .px(9.0)
                                     .py(5.5)
-                                    .bg(if detail.is_muted { tint_alpha(RED, 52) } else { tile_idle_bg() })
+                                    .bg(if detail.is_muted {
+                                        tint_alpha(RED, 52)
+                                    } else {
+                                        tile_idle_bg()
+                                    })
                                     .hover_bg(tile_idle_hover())
-                                    .bd(1.0, if detail.is_muted { tint_alpha(RED, 180) } else { border_subtle() })
+                                    .bd(
+                                        1.0,
+                                        if detail.is_muted {
+                                            tint_alpha(RED, 180)
+                                        } else {
+                                            border_subtle()
+                                        },
+                                    )
                                     .bevel_rounded(5.5, 1.3)
                                     .clicked()
                                 {
@@ -2398,10 +2355,49 @@ pub fn render_user_detail_view(
                             .align_center()
                             .gap(6.0);
 
+                            // Reload Avatar
+                            if ui
+                                .btn_with("mm_ud_reload_av", |ui| {
+                                    ui.txt("Reload Avatar")
+                                        .sz(10.5)
+                                        .semibold()
+                                        .align(TextAlign::Center)
+                                        .fg(TEXT_PRIMARY)
+                                        .grow(1.0);
+                                })
+                                .w_frac(1.0)
+                                .py(6.5)
+                                .bg(tile_idle_bg())
+                                .hover_bg(tile_idle_hover())
+                                .bd(1.0, border_subtle())
+                                .bevel_rounded(5.5, 1.3)
+                                .clicked()
+                            {
+                                push_click(actions);
+                                actions.push(UiAction::SocialReloadPlayerAvatar {
+                                    user_id: detail.id.clone(),
+                                });
+                            }
+                        })
+                        .p(11.0)
+                        .gap(7.0)
+                        .bg(card_bg())
+                        .bd(1.0, border_subtle())
+                        .bevel_rounded(10.5, 2.0)
+                        .shadow(14.0, SHADOW_CARD);
+
+                        // Bottom Card: Moderation & Safety (Avatar/Prop Visibility, Unfriend, Block, Kick)
+                        ui.col(|ui| {
+                            ui.txt("Moderation & Safety")
+                                .sz(12.5)
+                                .bold()
+                                .fg(TEXT_PRIMARY);
+
                             // Avatar Visibility (Hide / Filter / Show)
                             ui.row(|ui| {
                                 ui.txt("Avatar").sz(10.0).fg(TEXT_MUTED).w(44.0);
-                                for (mode, lbl) in [(0i32, "Hide"), (1i32, "Filter"), (2i32, "Show")] {
+                                for (mode, lbl) in [(0i32, "Hide"), (1i32, "Filter"), (2i32, "Show")]
+                                {
                                     let active = detail.avatar_visibility == mode;
                                     if ui
                                         .btn_with(&format!("mm_ud_avv_{mode}"), |ui| {
@@ -2414,9 +2410,20 @@ pub fn render_user_detail_view(
                                         })
                                         .grow(1.0)
                                         .py(4.5)
-                                        .bg(if active { tint_alpha(accent, 50) } else { tile_idle_bg() })
+                                        .bg(if active {
+                                            tint_alpha(accent, 50)
+                                        } else {
+                                            tile_idle_bg()
+                                        })
                                         .hover_bg(tile_idle_hover())
-                                        .bd(1.0, if active { tint_alpha(accent, 185) } else { border_subtle() })
+                                        .bd(
+                                            1.0,
+                                            if active {
+                                                tint_alpha(accent, 185)
+                                            } else {
+                                                border_subtle()
+                                            },
+                                        )
                                         .bevel_rounded(5.0, 1.3)
                                         .clicked()
                                     {
@@ -2434,7 +2441,8 @@ pub fn render_user_detail_view(
                             // Prop Visibility (Hide / Filter / Show)
                             ui.row(|ui| {
                                 ui.txt("Props").sz(10.0).fg(TEXT_MUTED).w(44.0);
-                                for (mode, lbl) in [(0i32, "Hide"), (1i32, "Filter"), (2i32, "Show")] {
+                                for (mode, lbl) in [(0i32, "Hide"), (1i32, "Filter"), (2i32, "Show")]
+                                {
                                     let active = detail.prop_visibility == mode;
                                     if ui
                                         .btn_with(&format!("mm_ud_prv_{mode}"), |ui| {
@@ -2447,9 +2455,20 @@ pub fn render_user_detail_view(
                                         })
                                         .grow(1.0)
                                         .py(4.5)
-                                        .bg(if active { tint_alpha(accent, 50) } else { tile_idle_bg() })
+                                        .bg(if active {
+                                            tint_alpha(accent, 50)
+                                        } else {
+                                            tile_idle_bg()
+                                        })
                                         .hover_bg(tile_idle_hover())
-                                        .bd(1.0, if active { tint_alpha(accent, 185) } else { border_subtle() })
+                                        .bd(
+                                            1.0,
+                                            if active {
+                                                tint_alpha(accent, 185)
+                                            } else {
+                                                border_subtle()
+                                            },
+                                        )
                                         .bevel_rounded(5.0, 1.3)
                                         .clicked()
                                     {
@@ -2464,47 +2483,120 @@ pub fn render_user_detail_view(
                             .align_center()
                             .gap(5.0);
 
-                            // Reload Avatar + 2-step Kick User
+                            // Unfriend + Block + Kick
                             ui.row(|ui| {
-                                if ui
-                                    .btn_with("mm_ud_reload_av", |ui| {
-                                        ui.txt("Reload Avatar")
+                                if detail.is_friend {
+                                    let unfriend_armed =
+                                        state.main_menu.safety_confirm_action == "unfriend";
+                                    if ui
+                                        .btn_with("mm_ud_unfriend", |ui| {
+                                            ui.txt(if unfriend_armed {
+                                                "Confirm Unfriend?"
+                                            } else {
+                                                "Unfriend"
+                                            })
                                             .sz(10.5)
                                             .semibold()
                                             .align(TextAlign::Center)
-                                            .fg(TEXT_PRIMARY)
+                                            .fg(if unfriend_armed { TEXT_PRIMARY } else { AMBER })
+                                            .grow(1.0);
+                                        })
+                                        .grow(1.0)
+                                        .py(6.5)
+                                        .bg(if unfriend_armed {
+                                            tint_alpha(AMBER, 75)
+                                        } else {
+                                            tile_idle_bg()
+                                        })
+                                        .hover_bg(tint_alpha(AMBER, 95))
+                                        .bd(1.0, tint_alpha(AMBER, 165))
+                                        .bevel_rounded(6.0, 1.3)
+                                        .clicked()
+                                    {
+                                        push_click(actions);
+                                        if unfriend_armed {
+                                            state.main_menu.safety_confirm_action.clear();
+                                            actions.push(UiAction::SocialUnfriend {
+                                                user_id: detail.id.clone(),
+                                            });
+                                        } else {
+                                            state.main_menu.safety_confirm_action =
+                                                String::from("unfriend");
+                                        }
+                                    }
+                                }
+
+                                let block_armed = !detail.is_blocked
+                                    && state.main_menu.safety_confirm_action == "block";
+                                let blk_lbl = if detail.is_blocked {
+                                    "Unblock"
+                                } else if block_armed {
+                                    "Confirm Block?"
+                                } else {
+                                    "Block"
+                                };
+                                if ui
+                                    .btn_with("mm_ud_block", |ui| {
+                                        ui.txt(blk_lbl)
+                                            .sz(10.5)
+                                            .semibold()
+                                            .align(TextAlign::Center)
+                                            .fg(if detail.is_blocked || block_armed {
+                                                TEXT_PRIMARY
+                                            } else {
+                                                RED
+                                            })
                                             .grow(1.0);
                                     })
                                     .grow(1.0)
-                                    .py(6.0)
-                                    .bg(tile_idle_bg())
-                                    .hover_bg(tile_idle_hover())
-                                    .bd(1.0, border_subtle())
-                                    .bevel_rounded(5.5, 1.3)
+                                    .py(6.5)
+                                    .bg(if detail.is_blocked || block_armed {
+                                        tint_alpha(RED, 72)
+                                    } else {
+                                        tile_idle_bg()
+                                    })
+                                    .hover_bg(tint_alpha(RED, 95))
+                                    .bd(1.0, tint_alpha(RED, 165))
+                                    .bevel_rounded(6.0, 1.3)
                                     .clicked()
                                 {
                                     push_click(actions);
-                                    actions.push(UiAction::SocialReloadPlayerAvatar {
-                                        user_id: detail.id.clone(),
-                                    });
+                                    if detail.is_blocked || block_armed {
+                                        state.main_menu.safety_confirm_action.clear();
+                                        actions.push(UiAction::SocialSetBlocked {
+                                            user_id: detail.id.clone(),
+                                            blocked: !detail.is_blocked,
+                                        });
+                                    } else {
+                                        state.main_menu.safety_confirm_action =
+                                            String::from("block");
+                                    }
                                 }
 
                                 let kick_armed = state.main_menu.safety_confirm_action == "kick";
                                 if ui
                                     .btn_with("mm_ud_kick", |ui| {
-                                        ui.txt(if kick_armed { "Confirm Kick?" } else { "Kick User" })
-                                            .sz(10.5)
-                                            .semibold()
-                                            .align(TextAlign::Center)
-                                            .fg(if kick_armed { TEXT_PRIMARY } else { RED })
-                                            .grow(1.0);
+                                        ui.txt(if kick_armed {
+                                            "Confirm Kick?"
+                                        } else {
+                                            "Kick"
+                                        })
+                                        .sz(10.5)
+                                        .semibold()
+                                        .align(TextAlign::Center)
+                                        .fg(if kick_armed { TEXT_PRIMARY } else { RED })
+                                        .grow(1.0);
                                     })
                                     .grow(1.0)
-                                    .py(6.0)
-                                    .bg(if kick_armed { tint_alpha(RED, 75) } else { tile_idle_bg() })
+                                    .py(6.5)
+                                    .bg(if kick_armed {
+                                        tint_alpha(RED, 75)
+                                    } else {
+                                        tile_idle_bg()
+                                    })
                                     .hover_bg(tint_alpha(RED, 95))
                                     .bd(1.0, tint_alpha(RED, 155))
-                                    .bevel_rounded(5.5, 1.3)
+                                    .bevel_rounded(6.0, 1.3)
                                     .clicked()
                                 {
                                     push_click(actions);
@@ -2514,7 +2606,8 @@ pub fn render_user_detail_view(
                                             user_id: detail.id.clone(),
                                         });
                                     } else {
-                                        state.main_menu.safety_confirm_action = String::from("kick");
+                                        state.main_menu.safety_confirm_action =
+                                            String::from("kick");
                                     }
                                 }
                             })
@@ -2522,7 +2615,7 @@ pub fn render_user_detail_view(
                         })
                         .grow(1.0)
                         .p(11.0)
-                        .gap(8.0)
+                        .gap(7.0)
                         .bg(card_bg())
                         .bd(1.0, border_subtle())
                         .bevel_rounded(10.5, 2.0)
@@ -2535,6 +2628,7 @@ pub fn render_user_detail_view(
             })
             .grow(1.0)
             .gap(10.0);
+            }
         }
     })
     .grow(1.0)
@@ -2592,37 +2686,12 @@ pub fn render_group_detail_view(
             }
 
             ui.col(|ui| {
-                ui.row(|ui| {
-                    let title = if gd.name.is_empty() {
-                        "Loading group..."
-                    } else {
-                        &gd.name
-                    };
-                    ui.txt(title).sz(14.5).bold().fg(TEXT_PRIMARY).ellipsis();
-                    if !gd.tag.is_empty() {
-                        ui.txt(&format!("[{}]", gd.tag))
-                            .sz(10.0)
-                            .mono()
-                            .fg(accent)
-                            .bg(tint_alpha(accent, 28))
-                            .px(6.0)
-                            .py(1.5)
-                            .bevel_rounded(4.0, 1.1);
-                    }
-                    if gd.is_owner {
-                        ui.txt("OWNER")
-                            .sz(9.0)
-                            .mono()
-                            .bold()
-                            .fg(EMERALD)
-                            .bg(tint_alpha(EMERALD, 32))
-                            .px(6.0)
-                            .py(1.5)
-                            .bevel_rounded(4.0, 1.1);
-                    }
-                })
-                .align_center()
-                .gap(6.0);
+                let title = if gd.name.is_empty() {
+                    "Loading group..."
+                } else {
+                    &gd.name
+                };
+                ui.txt(title).sz(14.5).bold().fg(TEXT_PRIMARY).ellipsis();
 
                 let sub = format!(
                     "{} members{}",
@@ -2637,86 +2706,6 @@ pub fn render_group_detail_view(
             })
             .gap(1.0)
             .grow(1.0);
-
-            if gd.is_member && !gd.is_featured && !gd.id.is_empty() {
-                if ui
-                    .btn_with("mm_gd_feature", |ui| {
-                        ui.txt("Feature").sz(10.5).semibold().fg(TEXT_PRIMARY);
-                    })
-                    .px(10.0)
-                    .py(5.5)
-                    .bg(tint_alpha(accent, 48))
-                    .hover_bg(tint_alpha(accent, 80))
-                    .bd(1.0, tint_alpha(accent, 185))
-                    .bevel_rounded(5.5, 1.3)
-                    .clicked()
-                {
-                    push_click(actions);
-                    actions.push(UiAction::SocialSetFeaturedGroup {
-                        group_id: gd.id.clone(),
-                    });
-                }
-            }
-
-            if gd.is_member && !gd.is_owner && !gd.id.is_empty() {
-                let leave_armed = state.main_menu.safety_confirm_action == "leave_group";
-                if ui
-                    .btn_with("mm_gd_leave", |ui| {
-                        ui.txt(if leave_armed { "Confirm Leave?" } else { "Leave Group" })
-                            .sz(10.5)
-                            .semibold()
-                            .fg(if leave_armed { TEXT_PRIMARY } else { AMBER });
-                    })
-                    .px(10.0)
-                    .py(5.5)
-                    .bg(if leave_armed { tint_alpha(AMBER, 72) } else { tile_idle_bg() })
-                    .hover_bg(tint_alpha(AMBER, 95))
-                    .bd(1.0, tint_alpha(AMBER, 175))
-                    .bevel_rounded(5.5, 1.3)
-                    .clicked()
-                {
-                    push_click(actions);
-                    if leave_armed {
-                        state.main_menu.safety_confirm_action.clear();
-                        state.main_menu.group_edit_id.clear();
-                        actions.push(UiAction::SocialLeaveGroup {
-                            group_id: gd.id.clone(),
-                        });
-                    } else {
-                        state.main_menu.safety_confirm_action = String::from("leave_group");
-                    }
-                }
-            }
-
-            if gd.is_owner && !gd.id.is_empty() {
-                let del_armed = state.main_menu.safety_confirm_action == "delete_group";
-                if ui
-                    .btn_with("mm_gd_delete", |ui| {
-                        ui.txt(if del_armed { "Confirm Delete?" } else { "Delete Group" })
-                            .sz(10.5)
-                            .semibold()
-                            .fg(if del_armed { TEXT_PRIMARY } else { RED });
-                    })
-                    .px(10.0)
-                    .py(5.5)
-                    .bg(if del_armed { tint_alpha(RED, 75) } else { tile_idle_bg() })
-                    .hover_bg(tint_alpha(RED, 95))
-                    .bd(1.0, tint_alpha(RED, 175))
-                    .bevel_rounded(5.5, 1.3)
-                    .clicked()
-                {
-                    push_click(actions);
-                    if del_armed {
-                        state.main_menu.safety_confirm_action.clear();
-                        state.main_menu.group_edit_id.clear();
-                        actions.push(UiAction::SocialDeleteGroup {
-                            group_id: gd.id.clone(),
-                        });
-                    } else {
-                        state.main_menu.safety_confirm_action = String::from("delete_group");
-                    }
-                }
-            }
         })
         .align_center()
         .px(12.0)
@@ -2744,8 +2733,141 @@ pub fn render_group_detail_view(
             .shadow(14.0, SHADOW_CARD);
         } else {
             ui.row(|ui| {
-                // Left: Group Details / Owner Edit Form
+                // Left: Group Details / Actions / Owner Edit Form
                 ui.col(|ui| {
+                    if !gd.tag.is_empty() || gd.is_owner || gd.is_member {
+                        ui.row(|ui| {
+                            if !gd.tag.is_empty() {
+                                ui.row(|ui| {
+                                    ui.txt(&format!("[{}]", gd.tag))
+                                        .sz(10.0)
+                                        .semibold()
+                                        .fg(TEXT_PRIMARY);
+                                })
+                                .px(7.0)
+                                .py(3.0)
+                                .bg(tint_alpha(accent, 38))
+                                .bd(1.0, tint_alpha(accent, 145))
+                                .bevel_rounded(4.5, 1.1);
+                            }
+                            if gd.is_owner {
+                                ui.row(|ui| {
+                                    ui.txt("Owner")
+                                        .sz(10.0)
+                                        .semibold()
+                                        .fg(EMERALD);
+                                })
+                                .px(7.0)
+                                .py(3.0)
+                                .bg(tint_alpha(EMERALD, 32))
+                                .bd(1.0, tint_alpha(EMERALD, 140))
+                                .bevel_rounded(4.5, 1.1);
+                            }
+                            ui.col(|_| {}).grow(1.0);
+
+                            if gd.is_member && !gd.is_featured && !gd.id.is_empty() {
+                                if ui
+                                    .btn_with("mm_gd_feature", |ui| {
+                                        ui.txt("Feature").sz(10.5).semibold().fg(TEXT_PRIMARY);
+                                    })
+                                    .px(10.0)
+                                    .py(5.0)
+                                    .bg(tint_alpha(accent, 48))
+                                    .hover_bg(tint_alpha(accent, 80))
+                                    .bd(1.0, tint_alpha(accent, 185))
+                                    .bevel_rounded(5.5, 1.3)
+                                    .clicked()
+                                {
+                                    push_click(actions);
+                                    actions.push(UiAction::SocialSetFeaturedGroup {
+                                        group_id: gd.id.clone(),
+                                    });
+                                }
+                            }
+
+                            if gd.is_member && !gd.is_owner && !gd.id.is_empty() {
+                                let leave_armed =
+                                    state.main_menu.safety_confirm_action == "leave_group";
+                                if ui
+                                    .btn_with("mm_gd_leave", |ui| {
+                                        ui.txt(if leave_armed {
+                                            "Confirm Leave?"
+                                        } else {
+                                            "Leave Group"
+                                        })
+                                        .sz(10.5)
+                                        .semibold()
+                                        .fg(if leave_armed { TEXT_PRIMARY } else { AMBER });
+                                    })
+                                    .px(10.0)
+                                    .py(5.0)
+                                    .bg(if leave_armed {
+                                        tint_alpha(AMBER, 72)
+                                    } else {
+                                        tile_idle_bg()
+                                    })
+                                    .hover_bg(tint_alpha(AMBER, 95))
+                                    .bd(1.0, tint_alpha(AMBER, 175))
+                                    .bevel_rounded(5.5, 1.3)
+                                    .clicked()
+                                {
+                                    push_click(actions);
+                                    if leave_armed {
+                                        state.main_menu.safety_confirm_action.clear();
+                                        state.main_menu.group_edit_id.clear();
+                                        actions.push(UiAction::SocialLeaveGroup {
+                                            group_id: gd.id.clone(),
+                                        });
+                                    } else {
+                                        state.main_menu.safety_confirm_action =
+                                            String::from("leave_group");
+                                    }
+                                }
+                            }
+
+                            if gd.is_owner && !gd.id.is_empty() {
+                                let del_armed =
+                                    state.main_menu.safety_confirm_action == "delete_group";
+                                if ui
+                                    .btn_with("mm_gd_delete", |ui| {
+                                        ui.txt(if del_armed {
+                                            "Confirm Delete?"
+                                        } else {
+                                            "Delete Group"
+                                        })
+                                        .sz(10.5)
+                                        .semibold()
+                                        .fg(if del_armed { TEXT_PRIMARY } else { RED });
+                                    })
+                                    .px(10.0)
+                                    .py(5.0)
+                                    .bg(if del_armed {
+                                        tint_alpha(RED, 75)
+                                    } else {
+                                        tile_idle_bg()
+                                    })
+                                    .hover_bg(tint_alpha(RED, 95))
+                                    .bd(1.0, tint_alpha(RED, 175))
+                                    .bevel_rounded(5.5, 1.3)
+                                    .clicked()
+                                {
+                                    push_click(actions);
+                                    if del_armed {
+                                        state.main_menu.safety_confirm_action.clear();
+                                        state.main_menu.group_edit_id.clear();
+                                        actions.push(UiAction::SocialDeleteGroup {
+                                            group_id: gd.id.clone(),
+                                        });
+                                    } else {
+                                        state.main_menu.safety_confirm_action =
+                                            String::from("delete_group");
+                                    }
+                                }
+                            }
+                        })
+                        .align_center()
+                        .gap(6.0);
+                    }
                     if !gd.status_msg.is_empty() {
                         ui.txt(&gd.status_msg)
                             .sz(11.0)

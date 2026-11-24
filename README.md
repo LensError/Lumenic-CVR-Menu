@@ -28,16 +28,18 @@ A MelonLoader mod for ChilloutVR that replaces the Cohtml-based Main Menu and Qu
 - **Mod Ecosystem Bridges**:
   - **UILib**: Mirrors Quick Menu mod tabs, categories, buttons, toggles, sliders, cycle buttons, text inputs, modals, toasts, colour picker, and player/prop lists.
   - **UIExpansionKit**: Reflection bridge (no hard dependency) rendering MelonPreferences, ranges, visibilities, and custom controls in Main Menu Mod Settings.
-- **Complete Menu Suite**: Home dashboard with recent history, 3D avatar preview rig, Content Browser (Avatars, Worlds, Props, Global Search, Discover), Social (Friends, Current Instance, Messages), Avatar Settings, and reorderable Quick Actions / Quick Tools.
+- **Complete Menu Suite**: Home dashboard with optional local recent history, 3D avatar preview rig, Content Browser (Avatars, Worlds, Props, Global Search, Discover), Social (Friends, Current Instance, Messages, local Profile bio/pronouns editing), Player Colors picker with CVR theme & tame panel colorizing, Avatar Settings, and reorderable Quick Actions / Quick Tools.
 
 ## Usage & Controls
 
-- **Independent Toggles**: Both menus are enabled by default. You can disable or re-enable the Main Menu and Quick Menu separately via `MelonPreferences` (`LumenicMenu`) or under the `LensErrorsMods` Quick Menu tab.
-- **Key Settings** (`MelonPreferences`):
-  - `EnableMainMenu` / `EnableQuickMenu` (`true` by default)
-  - `UiScale` (`0.5` - `2.0`, default `1.0`)
+- **Independent Toggles**: Both menus are enabled by default. You can disable or re-enable the Main Menu and Quick Menu separately via `MelonPreferences` (`LumenicMenu`) or under the `LumenicMenu` Quick Menu tab (works in both Lumenic and vanilla menus).
+- **Key Settings** (`Settings -> LumenicMenu` / `MelonPreferences`):
+  - `EnableMainMenu` / `EnableQuickMenu` (`true` by default, toggled in the `LumenicMenu` QM tab)
+  - `UiClickSounds` / `UiSoundPack` (default `SoftSub`, options: `SoftSub`, `Glass`, `Vanilla`)
   - `MaxRefreshHz` (`15` - `144`, default `60`)
-  - `UiClickSounds` / `UiSoundPack` (default `Glass`)
+  - `DesktopScrollMultiplier` / `VrScrollMultiplier`
+  - `EnableRecentHistory` (`true` by default; toggle local `Recent` categories and clear local `UserData` directly from Settings)
+  - `UiScale` (`0.5` - `2.0`, default `1.0`)
 
 ## Building from Source
 

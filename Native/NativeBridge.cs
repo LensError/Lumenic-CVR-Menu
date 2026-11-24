@@ -90,6 +90,18 @@ internal sealed class NativeBridge : IDisposable
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     [return: MarshalAs(UnmanagedType.I1)]
+    private delegate bool RegisterFontFn(
+        IntPtr namePtr,
+        UIntPtr nameLen,
+        IntPtr bytesPtr,
+        UIntPtr bytesLen);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    [return: MarshalAs(UnmanagedType.I1)]
+    private delegate bool SetDefaultFontFamilyFn(IntPtr namePtr, UIntPtr nameLen);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    [return: MarshalAs(UnmanagedType.I1)]
     private delegate bool PushStateJsonFn(IntPtr handle, IntPtr utf8Ptr, UIntPtr len);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
@@ -135,6 +147,8 @@ internal sealed class NativeBridge : IDisposable
     private SurfaceOnlyFn _clearFocus;
     private CommitVirtualKeyboardFn _commitVirtualKeyboard;
     private UploadImageBytesFn _uploadImageBytes;
+    private RegisterFontFn _registerFont;
+    private SetDefaultFontFamilyFn _setDefaultFontFamily;
     private PushStateJsonFn _pushStateJson;
     private PushTelemetryFn _pushTelemetry;
     private StepFn _step;
@@ -187,6 +201,8 @@ internal sealed class NativeBridge : IDisposable
                 UnloadInternal();
                 return false;
             }
+
+            RegisterChilloutVrFonts();
 
             _handle = _create(Math.Max(1u, mmW), Math.Max(1u, mmH), Math.Max(1u, qmW), Math.Max(1u, qmH), scale);
             if (_handle == IntPtr.Zero)
@@ -293,6 +309,8 @@ internal sealed class NativeBridge : IDisposable
         _clearFocus = Bind<SurfaceOnlyFn>("lumenic_cvr_clear_focus");
         _commitVirtualKeyboard = Bind<CommitVirtualKeyboardFn>("lumenic_cvr_commit_virtual_keyboard");
         _uploadImageBytes = Bind<UploadImageBytesFn>("lumenic_cvr_upload_image_bytes");
+        _registerFont = Bind<RegisterFontFn>("lumenic_cvr_register_font");
+        _setDefaultFontFamily = Bind<SetDefaultFontFamilyFn>("lumenic_cvr_set_default_font_family");
         _pushStateJson = Bind<PushStateJsonFn>("lumenic_cvr_push_state_json");
         _pushTelemetry = Bind<PushTelemetryFn>("lumenic_cvr_push_telemetry");
         _step = Bind<StepFn>("lumenic_cvr_step");
@@ -315,6 +333,8 @@ internal sealed class NativeBridge : IDisposable
             && _clearFocus != null
             && _commitVirtualKeyboard != null
             && _uploadImageBytes != null
+            && _registerFont != null
+            && _setDefaultFontFamily != null
             && _pushStateJson != null
             && _pushTelemetry != null
             && _step != null
@@ -454,6 +474,91 @@ internal sealed class NativeBridge : IDisposable
         {
             pinField.Free();
             if (hasTextPin) pinText.Free();
+        }
+    }
+
+    private void RegisterChilloutVrFonts()
+    {
+        if (_registerFont == null || _setDefaultFontFamily == null)
+            return;
+
+        try
+        {
+            string fontsDir = Path.Combine(UnityEngine.Application.streamingAssetsPath, "Cohtml", "UIResources", "Fonts");
+            if (!Directory.Exists(fontsDir))
+                return;
+
+            bool registeredAny = false;
+            foreach ((string file, string family) in new[]
+            {
+                ("NotoSans.ttf", "Noto Sans"),
+                ("NotoSans-Bold.ttf", "Noto Sans"),
+                ("NotoSans-Italic.ttf", "Noto Sans"),
+                ("NotoSansSymbols.ttf", string.Empty)
+            })
+            {
+                string path = Path.Combine(fontsDir, file);
+                if (!File.Exists(path))
+                    continue;
+                byte[] bytes = File.ReadAllBytes(path);
+                if (bytes.Length == 0)
+                    continue;
+                if (RegisterFontBytes(family, bytes))
+                    registeredAny = true;
+            }
+
+            if (registeredAny)
+            {
+                SetDefaultFontFamily("Noto Sans");
+                MelonLogger.Msg("[LumenicMenu] Registered ChilloutVR Noto Sans fonts as default UI font.");
+            }
+        }
+        catch (Exception ex)
+        {
+            MelonLogger.Warning($"[LumenicMenu] Failed to register CVR Noto Sans fonts: {ex.Message}");
+        }
+    }
+
+    private bool RegisterFontBytes(string familyName, byte[] fontBytes)
+    {
+        if (_registerFont == null || fontBytes == null || fontBytes.Length == 0)
+            return false;
+
+        byte[] nameUtf8 = string.IsNullOrEmpty(familyName) ? null : Encoding.UTF8.GetBytes(familyName);
+        GCHandle pinName = default;
+        bool hasName = nameUtf8 != null && nameUtf8.Length > 0;
+        if (hasName)
+            pinName = GCHandle.Alloc(nameUtf8, GCHandleType.Pinned);
+        GCHandle pinBytes = GCHandle.Alloc(fontBytes, GCHandleType.Pinned);
+        try
+        {
+            return _registerFont(
+                hasName ? pinName.AddrOfPinnedObject() : IntPtr.Zero,
+                hasName ? (UIntPtr)nameUtf8.Length : UIntPtr.Zero,
+                pinBytes.AddrOfPinnedObject(),
+                (UIntPtr)fontBytes.Length);
+        }
+        finally
+        {
+            if (hasName) pinName.Free();
+            pinBytes.Free();
+        }
+    }
+
+    private bool SetDefaultFontFamily(string familyName)
+    {
+        if (_setDefaultFontFamily == null || string.IsNullOrEmpty(familyName))
+            return false;
+
+        byte[] nameUtf8 = Encoding.UTF8.GetBytes(familyName);
+        GCHandle pinName = GCHandle.Alloc(nameUtf8, GCHandleType.Pinned);
+        try
+        {
+            return _setDefaultFontFamily(pinName.AddrOfPinnedObject(), (UIntPtr)nameUtf8.Length);
+        }
+        finally
+        {
+            pinName.Free();
         }
     }
 

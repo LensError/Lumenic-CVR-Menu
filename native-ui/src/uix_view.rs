@@ -79,7 +79,6 @@ pub fn render_uix_mod_settings(
             let count_txt = format!("{} Mods", state.host.uix_categories.len());
             ui.txt(&count_txt)
                 .sz(11.0)
-                .mono()
                 .fg(accent)
                 .bg(tint_alpha(accent, 30))
                 .px(8.0)
@@ -210,7 +209,6 @@ pub fn render_uix_mod_settings(
                                             let cnt = format!("{count}");
                                             ui.txt(&cnt)
                                                 .sz(10.0)
-                                                .mono()
                                                 .fg(if active { accent } else { TEXT_DIM });
                                         })
                                         .align_center()
@@ -272,7 +270,7 @@ pub fn render_uix_mod_settings(
                                 .fg(TEXT_PRIMARY)
                                 .grow(1.0);
                             if cat.display_name != cat.id {
-                                ui.txt(&cat.id).sz(10.5).mono().fg(TEXT_DIM);
+                                ui.txt(&cat.id).sz(10.5).fg(TEXT_DIM);
                             }
                         })
                         .align_center()

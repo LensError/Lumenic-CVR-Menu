@@ -18,6 +18,7 @@ internal static class Settings
     private static MelonPreferences_Entry<bool> _perfLogging;
     private static MelonPreferences_Entry<bool> _uiClickSounds;
     private static MelonPreferences_Entry<string> _uiSoundPack;
+    private static MelonPreferences_Entry<bool> _enableRecentHistory;
     private static MelonPreferences_Entry<string> _qmQuickActionsOrder;
     private static MelonPreferences_Entry<string> _mmQuickToolsOrder;
 
@@ -27,12 +28,13 @@ internal static class Settings
     public static bool EnableQuickMenu => _enableQuickMenu?.Value ?? true;
     public static int MaxRefreshHz => Mathf.Clamp(_maxRefreshHz?.Value ?? 60, 15, 144);
     public static float UiScale => Mathf.Clamp(_uiScale?.Value ?? 1.0f, 0.5f, 2.0f);
-    public static float DesktopScrollMultiplier => _desktopScrollMultiplier?.Value ?? 24.0f;
-    public static float VrScrollMultiplier => _vrScrollMultiplier?.Value ?? 3.0f;
+    public static float DesktopScrollMultiplier => Mathf.Clamp(_desktopScrollMultiplier?.Value ?? 24.0f, 4.0f, 64.0f);
+    public static float VrScrollMultiplier => Mathf.Clamp(_vrScrollMultiplier?.Value ?? 3.0f, 0.5f, 12.0f);
     public static bool LinearTextureMode => _linearTextureMode?.Value ?? false;
     public static bool PerfLogging => _perfLogging?.Value ?? false;
     public static bool UiClickSounds => _uiClickSounds?.Value ?? true;
-    public static string UiSoundPack => _uiSoundPack?.Value ?? "Glass";
+    public static string UiSoundPack => _uiSoundPack?.Value ?? "SoftSub";
+    public static bool EnableRecentHistory => _enableRecentHistory?.Value ?? true;
     public static string QmQuickActionsOrder => _qmQuickActionsOrder?.Value ?? string.Empty;
     public static string MmQuickToolsOrder => _mmQuickToolsOrder?.Value ?? string.Empty;
 
@@ -96,9 +98,15 @@ internal static class Settings
 
         _uiSoundPack = _category.CreateEntry(
             "UiSoundPack",
-            "Glass",
-            "UI Sound Pack (Glass | SoftSub | Vanilla)",
-            "Selects the Lumenic UI sound pack: 'Glass' (Palette A default), 'SoftSub' (Palette D warm VR thump), or 'Vanilla' (CVR InterfaceAudio).");
+            "SoftSub",
+            "UI Sound Pack (SoftSub | Glass | Vanilla)",
+            "Selects the Lumenic UI sound pack: 'SoftSub' (default warm click), 'Glass', or 'Vanilla' (CVR InterfaceAudio).");
+
+        _enableRecentHistory = _category.CreateEntry(
+            "EnableRecentHistory",
+            true,
+            "Track Local Recent History",
+            "Records and shows local Recent categories (Worlds, Avatars, Props, Users) in UserData/LumenicMenu/recent-history.json.");
 
         _qmQuickActionsOrder = _category.CreateEntry(
             "QmQuickActionsOrder",
@@ -116,10 +124,13 @@ internal static class Settings
         _enableQuickMenu.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
         _maxRefreshHz.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
         _uiScale.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
+        _desktopScrollMultiplier.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
+        _vrScrollMultiplier.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
         _linearTextureMode.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
         _perfLogging.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
         _uiClickSounds.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
         _uiSoundPack.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
+        _enableRecentHistory.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
         _qmQuickActionsOrder.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
         _mmQuickToolsOrder.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
     }
@@ -195,6 +206,35 @@ internal static class Settings
         if (_linearTextureMode != null && _linearTextureMode.Value != value)
         {
             _linearTextureMode.Value = value;
+            MelonPreferences.Save();
+        }
+    }
+
+    public static void SetEnableRecentHistory(bool value)
+    {
+        if (_enableRecentHistory != null && _enableRecentHistory.Value != value)
+        {
+            _enableRecentHistory.Value = value;
+            MelonPreferences.Save();
+        }
+    }
+
+    public static void SetDesktopScrollMultiplier(float value)
+    {
+        float clamped = Mathf.Clamp(value, 4.0f, 64.0f);
+        if (_desktopScrollMultiplier != null && Math.Abs(_desktopScrollMultiplier.Value - clamped) > 0.01f)
+        {
+            _desktopScrollMultiplier.Value = clamped;
+            MelonPreferences.Save();
+        }
+    }
+
+    public static void SetVrScrollMultiplier(float value)
+    {
+        float clamped = Mathf.Clamp(value, 0.5f, 12.0f);
+        if (_vrScrollMultiplier != null && Math.Abs(_vrScrollMultiplier.Value - clamped) > 0.01f)
+        {
+            _vrScrollMultiplier.Value = clamped;
             MelonPreferences.Save();
         }
     }

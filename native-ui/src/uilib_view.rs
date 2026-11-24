@@ -48,6 +48,11 @@ pub fn render_uilib_page(
 ) {
     let is_player_details =
         page.id == "CVRUI-QMUI-PlayerSelectPage" && page.categories.len() >= 2;
+    let is_prop_list = page.id == "CVRUI-QMUI-PropList";
+    let is_prop_undo_redo = |hb: &UiLibElement| -> bool {
+        let tt = hb.tooltip.to_ascii_lowercase();
+        tt.contains("undo") || tt.contains("redo")
+    };
     if !is_player_details {
         state.quick.studio_cutout_rect = None;
         if state.quick.last_studio_target != "none" {
@@ -114,7 +119,13 @@ pub fn render_uilib_page(
             .grow(1.0)
             .gap(1.0);
 
-            if is_player_details || !page.header_buttons.is_empty() {
+            let visible_header_buttons: Vec<&UiLibElement> = page
+                .header_buttons
+                .iter()
+                .filter(|hb| !(is_prop_list && is_prop_undo_redo(hb)))
+                .collect();
+
+            if is_player_details || !visible_header_buttons.is_empty() {
                 ui.row(|ui| {
                     if is_player_details {
                         if ui
@@ -138,7 +149,7 @@ pub fn render_uilib_page(
                             actions.push(UiAction::OpenPlayerInMainMenu);
                         }
                     }
-                    for hb in &page.header_buttons {
+                    for hb in &visible_header_buttons {
                         render_compact_header_button(ui, state, hb, accent, actions);
                     }
                 })
@@ -164,8 +175,38 @@ pub fn render_uilib_page(
                     render_uilib_category(ui, state, &page.categories[0], accent, 2, actions);
 
                     // User Bio Card
+                    let is_local_player = page.selected_player_id.is_empty()
+                        || (!state.host.user_id.is_empty()
+                            && page
+                                .selected_player_id
+                                .eq_ignore_ascii_case(&state.host.user_id));
                     ui.col(|ui| {
-                        ui.txt("Bio").sz(11.5).bold().fg(TEXT_MUTED);
+                        ui.row(|ui| {
+                            ui.txt("Bio").sz(11.5).bold().fg(TEXT_MUTED).grow(1.0);
+                            if is_local_player
+                                && ui
+                                    .btn_with("uilib_player_edit_profile", |ui| {
+                                        ui.txt("Edit")
+                                            .sz(10.5)
+                                            .semibold()
+                                            .fg(TEXT_PRIMARY);
+                                    })
+                                    .px(9.0)
+                                    .py(3.5)
+                                    .bg(tint_alpha(accent, 38))
+                                    .hover_bg(tint_alpha(accent, 78))
+                                    .bd(1.0, tint_alpha(accent, 150))
+                                    .bevel_rounded(5.5, 1.2)
+                                    .clicked()
+                            {
+                                push_click(actions);
+                                state.main_menu.user_detail_tab = 0;
+                                state.main_menu.profile_editing = true;
+                                actions.push(UiAction::OpenPlayerInMainMenu);
+                            }
+                        })
+                        .align_center()
+                        .gap(6.0);
                         let bio_trimmed = page.player_bio.trim();
                         if bio_trimmed.is_empty() {
                             ui.txt("No bio set.").sz(11.0).fg(TEXT_DIM);
@@ -256,7 +297,7 @@ pub fn render_uilib_page(
                             ui.txt("Colour Preview").sz(11.5).semibold().fg(TEXT_PRIMARY);
                             let hex_label =
                                 format!("#{}", page.colour_preview_hex.trim_start_matches('#'));
-                            ui.txt(&hex_label).sz(11.0).mono().fg(TEXT_MUTED);
+                            ui.txt(&hex_label).sz(11.0).fg(TEXT_MUTED);
                         })
                         .gap(1.0)
                         .grow(1.0);
@@ -300,8 +341,72 @@ pub fn render_uilib_page(
                     .bevel_rounded(8.6, 1.3);
                 }
 
-                for cat in &page.categories {
+                let prop_undo_redo: Vec<&UiLibElement> = if is_prop_list {
+                    page.header_buttons
+                        .iter()
+                        .filter(|hb| is_prop_undo_redo(hb))
+                        .collect()
+                } else {
+                    Vec::new()
+                };
+
+                for (cat_idx, cat) in page.categories.iter().enumerate() {
                     render_uilib_category(ui, state, cat, accent, 4, actions);
+
+                    // On Props page, place Undo / Redo arrows directly under Quick Actions and above the Prop List.
+                    if is_prop_list && cat_idx == 0 && !prop_undo_redo.is_empty() {
+                        ui.row(|ui| {
+                            for hb in &prop_undo_redo {
+                                let is_redo = hb.tooltip.to_ascii_lowercase().contains("redo");
+                                let lbl = if is_redo { "Redo" } else { "Undo" };
+                                let id = format!("uilib_prop_hist_{}", hb.id);
+                                let resp = ui
+                                    .btn_with(&id, |ui| {
+                                        ui.row(|ui| {
+                                            if !is_redo {
+                                                icons::icon(ui, icons::BACK, 13.5)
+                                                    .fg(if hb.disabled { TEXT_DIM } else { accent });
+                                            }
+                                            ui.txt(lbl)
+                                                .sz(11.5)
+                                                .semibold()
+                                                .fg(if hb.disabled { TEXT_DIM } else { TEXT_PRIMARY });
+                                            if is_redo {
+                                                icons::icon(ui, icons::CHEVRON_RIGHT, 13.5)
+                                                    .fg(if hb.disabled { TEXT_DIM } else { accent });
+                                            }
+                                        })
+                                        .center()
+                                        .gap(5.0)
+                                        .grow(1.0);
+                                    })
+                                    .grow(1.0)
+                                    .py(6.5)
+                                    .px(10.0)
+                                    .bg(tile_idle_bg())
+                                    .hover_bg(tile_idle_hover())
+                                    .bd(1.0, border_subtle())
+                                    .bevel_rounded(6.5, 1.3)
+                                    .opacity(if hb.disabled { 0.45 } else { 1.0 });
+
+                                if resp.hovered() && !hb.tooltip.is_empty() {
+                                    state.quick.hovered_tooltip = hb.tooltip.clone();
+                                }
+                                if !hb.disabled && resp.clicked() {
+                                    push_click(actions);
+                                    actions.push(UiAction::UiLibClick {
+                                        element_id: hb.id.clone(),
+                                    });
+                                }
+                            }
+                        })
+                        .align_center()
+                        .p(7.0)
+                        .gap(6.0)
+                        .bg(card_bg())
+                        .bd(1.0, border_subtle())
+                        .bevel_rounded(8.6, 1.3);
+                    }
                 }
             })
             .grow(1.0)
@@ -403,8 +508,25 @@ fn render_compact_header_button(
     actions: &mut Vec<UiAction>,
 ) {
     let id = format!("uilib_hb_{}", el.id);
-    let resp = ui
-        .btn_with(&id, |ui| {
+    let is_open_main_menu = el.tooltip.to_ascii_lowercase().contains("main menu");
+    let resp = if is_open_main_menu {
+        ui.btn_with(&id, |ui| {
+            ui.row(|ui| {
+                icons::icon(ui, icons::HOME, 13.5).fg(accent);
+                ui.txt("Main Menu").sz(11.0).semibold().fg(TEXT_PRIMARY);
+            })
+            .align_center()
+            .gap(5.0);
+        })
+        .px(9.0)
+        .py(5.5)
+        .bg(tint_alpha(accent, 38))
+        .hover_bg(tint_alpha(accent, 78))
+        .bd(1.0, tint_alpha(accent, 150))
+        .bevel_rounded(6.0, 1.3)
+        .opacity(if el.disabled { 0.45 } else { 1.0 })
+    } else {
+        ui.btn_with(&id, |ui| {
             ui.row(|ui| {
                 if !el.icon_key.is_empty() {
                     render_icon_or_fallback(
@@ -430,7 +552,8 @@ fn render_compact_header_button(
         .hover_bg(tint_alpha(accent, 75))
         .bd(1.0, border_subtle())
         .bevel_rounded(6.2, 1.3)
-        .opacity(if el.disabled { 0.45 } else { 1.0 });
+        .opacity(if el.disabled { 0.45 } else { 1.0 })
+    };
 
     if !el.disabled && resp.clicked() {
         push_click(actions);

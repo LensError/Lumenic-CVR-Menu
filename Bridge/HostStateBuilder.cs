@@ -322,6 +322,9 @@ internal sealed class HostStateBuilder
             avatar_settings = _cachedAvatarSettings,
             ui_click_sounds = Settings.UiClickSounds,
             ui_sound_pack = Settings.UiSoundPack,
+            enable_recent_history = Settings.EnableRecentHistory,
+            desktop_scroll_multiplier = Settings.DesktopScrollMultiplier,
+            vr_scroll_multiplier = Settings.VrScrollMultiplier,
             qm_quick_actions_order = ParseOrderCsv(Settings.QmQuickActionsOrder),
             mm_quick_tools_order = ParseOrderCsv(Settings.MmQuickToolsOrder),
 

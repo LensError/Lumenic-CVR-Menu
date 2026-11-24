@@ -96,7 +96,6 @@ pub fn render_content_browser(
                 ui.row(|ui| {
                     ui.txt(&count_txt)
                         .sz(10.0)
-                        .mono()
                         .semibold()
                         .fg(accent);
                 })
@@ -880,7 +879,6 @@ pub fn render_global_search_view(
                 }
                 ui.txt(&format!("{} results", state.host.content.search_results.len()))
                     .sz(11.0)
-                    .mono()
                     .align(TextAlign::Right)
                     .fg(TEXT_DIM)
                     .grow(1.0);
@@ -1068,7 +1066,6 @@ fn render_content_card(
                         let pc = format!("{}", item.player_count);
                         ui.txt(&pc)
                             .sz(10.0)
-                            .mono()
                             .bold()
                             .fg(EMERALD)
                             .bg(tint_alpha(EMERALD, 30))
@@ -1160,93 +1157,6 @@ fn render_detail_view(
                 .fg(TEXT_PRIMARY)
                 .ellipsis()
                 .grow(1.0);
-
-            if !detail.id.is_empty() && detail.error.is_empty() {
-                let is_pinned = state.host.content.pinned_items.iter().any(|p| {
-                    p.kind.eq_ignore_ascii_case(&detail.kind)
-                        && p.id.eq_ignore_ascii_case(&detail.id)
-                });
-                let allow_pin = detail.kind == "world" || detail.can_use || is_pinned;
-                if allow_pin
-                    && ui
-                        .btn_with("mm_det_pin_btn", |ui| {
-                            ui.row(|ui| {
-                                icons::icon(ui, icons::PIN, 13.0)
-                                    .fg(if is_pinned { accent } else { TEXT_MUTED });
-                                ui.txt(if is_pinned {
-                                    "Pinned to Quick Menu"
-                                } else {
-                                    "Pin to Quick Menu"
-                                })
-                                    .sz(11.0)
-                                    .semibold()
-                                    .fg(if is_pinned { TEXT_PRIMARY } else { TEXT_MUTED });
-                            })
-                            .center()
-                            .gap(4.0);
-                        })
-                        .px(9.0)
-                        .py(4.5)
-                        .bg(if is_pinned {
-                            tint_alpha(accent, 42)
-                        } else {
-                            tile_idle_bg()
-                        })
-                        .hover_bg(tile_idle_hover())
-                        .bd(
-                            1.0,
-                            if is_pinned {
-                                tint_alpha(accent, 185)
-                            } else {
-                                border_subtle()
-                            },
-                        )
-                        .bevel_rounded(5.5, 1.3)
-                        .clicked()
-                {
-                    push_click(actions);
-                    actions.push(UiAction::ContentTogglePin {
-                        kind: detail.kind.clone(),
-                        id: detail.id.clone(),
-                    });
-                }
-            }
-
-            if !detail.author_name.is_empty() {
-                if !detail.author_id.is_empty() {
-                    if ui
-                        .btn_with("mm_det_author", |ui| {
-                            ui.row(|ui| {
-                                icons::icon(ui, icons::AVATAR, 12.0).fg(accent);
-                                ui.txt(&format!("by {}", detail.author_name))
-                                    .sz(11.5)
-                                    .semibold()
-                                    .fg(TEXT_PRIMARY);
-                            })
-                            .center()
-                            .gap(4.0);
-                        })
-                        .px(9.0)
-                        .py(4.5)
-                        .bg(tile_idle_bg())
-                        .hover_bg(tile_idle_hover())
-                        .bd(1.0, tint_alpha(accent, 110))
-                        .bevel_rounded(5.5, 1.3)
-                        .clicked()
-                    {
-                        push_click(actions);
-                        crate::main_menu::push_nav_history(state);
-                        actions.push(UiAction::ContentCloseDetail);
-                        actions.push(UiAction::SocialLoadUserDetail {
-                            user_id: detail.author_id.clone(),
-                        });
-                    }
-                } else {
-                    ui.txt(&format!("by {}", detail.author_name))
-                        .sz(11.5)
-                        .fg(TEXT_MUTED);
-                }
-            }
         })
         .align_center()
         .px(12.0)
@@ -1460,6 +1370,59 @@ fn render_detail_view(
                             .fg(TEXT_DIM)
                             .w_frac(1.0);
                     }
+
+                    // Pin to Quick Menu button (relocated out of top bar into Actions card)
+                    if !detail.id.is_empty() && detail.error.is_empty() {
+                        let is_pinned = state.host.content.pinned_items.iter().any(|p| {
+                            p.kind.eq_ignore_ascii_case(&detail.kind)
+                                && p.id.eq_ignore_ascii_case(&detail.id)
+                        });
+                        let allow_pin = detail.kind == "world" || detail.can_use || is_pinned;
+                        if allow_pin
+                            && ui
+                                .btn_with("mm_det_pin_btn", |ui| {
+                                    ui.row(|ui| {
+                                        icons::icon(ui, icons::PIN, 13.5)
+                                            .fg(if is_pinned { accent } else { TEXT_MUTED });
+                                        ui.txt(if is_pinned {
+                                            "Pinned to Quick Menu"
+                                        } else {
+                                            "Pin to Quick Menu"
+                                        })
+                                        .sz(11.0)
+                                        .semibold()
+                                        .fg(if is_pinned { TEXT_PRIMARY } else { TEXT_MUTED });
+                                    })
+                                    .center()
+                                    .grow(1.0)
+                                    .gap(5.0);
+                                })
+                                .w_frac(1.0)
+                                .py(7.5)
+                                .bg(if is_pinned {
+                                    tint_alpha(accent, 42)
+                                } else {
+                                    tile_idle_bg()
+                                })
+                                .hover_bg(tile_idle_hover())
+                                .bd(
+                                    1.0,
+                                    if is_pinned {
+                                        tint_alpha(accent, 185)
+                                    } else {
+                                        border_subtle()
+                                    },
+                                )
+                                .bevel_rounded(6.5, 1.3)
+                                .clicked()
+                        {
+                            push_click(actions);
+                            actions.push(UiAction::ContentTogglePin {
+                                kind: detail.kind.clone(),
+                                id: detail.id.clone(),
+                            });
+                        }
+                    }
                 })
                 .w(360.0)
                 .h_frac(1.0)
@@ -1579,7 +1542,6 @@ fn render_detail_view(
                             ui.row(|ui| {
                                 ui.txt(&detail.file_size_text)
                                     .sz(10.0)
-                                    .mono()
                                     .semibold()
                                     .fg(TEXT_PRIMARY);
                             })
@@ -2669,43 +2631,6 @@ fn render_instance_detail_view(
             })
             .gap(1.0)
             .grow(1.0);
-
-            if !inst.privacy.is_empty() {
-                ui.row(|ui| {
-                    ui.txt(&inst.privacy).sz(10.0).semibold().fg(priv_col);
-                })
-                .px(8.0)
-                .py(4.0)
-                .bg(tint_alpha(priv_col, 28))
-                .bd(1.0, tint_alpha(priv_col, 130))
-                .bevel_rounded(5.0, 1.2);
-            }
-
-            if !inst.region.is_empty() {
-                ui.row(|ui| {
-                    ui.txt(&inst.region)
-                        .sz(10.0)
-                        .mono()
-                        .semibold()
-                        .fg(TEXT_MUTED);
-                })
-                .px(8.0)
-                .py(4.0)
-                .bg(tile_idle_bg())
-                .bd(1.0, border_subtle())
-                .bevel_rounded(5.0, 1.2);
-            }
-
-            let cnt = format!("{shown_players} / {max_players} Players");
-            ui.txt(&cnt)
-                .sz(10.5)
-                .mono()
-                .bold()
-                .fg(EMERALD)
-                .bg(tint_alpha(EMERALD, 30))
-                .px(8.0)
-                .py(4.0)
-                .bevel_rounded(5.0, 1.3);
         })
         .align_center()
         .px(12.0)
@@ -2848,7 +2773,41 @@ fn render_instance_detail_view(
                     .align_center()
                     .gap(8.0);
 
-                    // Metadata chips row (Game Mode / Privacy / Region)
+                    // Metadata chips row (Privacy / Region / Players / Game Mode)
+                    ui.row(|ui| {
+                        if !inst.privacy.is_empty() {
+                            ui.row(|ui| {
+                                ui.txt(&inst.privacy).sz(10.5).semibold().fg(priv_col);
+                            })
+                            .px(8.0)
+                            .py(4.5)
+                            .bg(tint_alpha(priv_col, 28))
+                            .bd(1.0, tint_alpha(priv_col, 130))
+                            .bevel_rounded(5.5, 1.2);
+                        }
+                        if !inst.region.is_empty() {
+                            ui.row(|ui| {
+                                ui.txt(&inst.region).sz(10.5).semibold().fg(TEXT_PRIMARY);
+                            })
+                            .px(8.0)
+                            .py(4.5)
+                            .bg(card_inner_bg())
+                            .bd(1.0, border_subtle())
+                            .bevel_rounded(5.5, 1.2);
+                        }
+                        let cnt = format!("{shown_players} / {max_players} Players");
+                        ui.row(|ui| {
+                            ui.txt(&cnt).sz(10.5).semibold().fg(EMERALD);
+                        })
+                        .px(8.0)
+                        .py(4.5)
+                        .bg(tint_alpha(EMERALD, 28))
+                        .bd(1.0, tint_alpha(EMERALD, 130))
+                        .bevel_rounded(5.5, 1.2);
+                    })
+                    .align_center()
+                    .gap(6.0);
+
                     if !inst.game_mode_name.is_empty() {
                         ui.row(|ui| {
                             ui.txt("Game Mode").sz(10.5).fg(TEXT_DIM).grow(1.0);

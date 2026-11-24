@@ -256,7 +256,6 @@ fn render_cvr_item(
                     }
                     ui.txt(&format!("{}", item.int_val))
                         .sz(10.5)
-                        .mono()
                         .bold()
                         .align(TextAlign::Center)
                         .fg(accent)
@@ -327,7 +326,6 @@ fn render_cvr_item(
                     }
                     ui.txt(&format!("{:.2}", item.float_val))
                         .sz(10.5)
-                        .mono()
                         .bold()
                         .align(TextAlign::Center)
                         .fg(accent)
@@ -376,7 +374,7 @@ fn render_cvr_item(
                     } else {
                         &item.str_val
                     };
-                    ui.txt(val_txt).sz(10.5).mono().fg(TEXT_MUTED).ellipsis();
+                    ui.txt(val_txt).sz(10.5).fg(TEXT_MUTED).ellipsis();
                 })
                 .align_center()
                 .grow(1.0)
@@ -446,31 +444,6 @@ pub fn render_settings_page(
             .gap(6.0)
             .grow(1.0)
             .px(8.0);
-
-            if state.host.uix_available
-                && ui
-                    .btn_with("mm_set_jump_mods", |ui| {
-                        ui.row(|ui| {
-                            icons::icon(ui, icons::PUZZLE, 13.0).fg(accent);
-                            ui.txt("Mod Settings").sz(11.0).semibold().fg(TEXT_PRIMARY);
-                        })
-                        .center()
-                        .gap(5.0);
-                    })
-                    .px(10.0)
-                    .py(5.5)
-                    .bg(tile_idle_bg())
-                    .hover_bg(tile_idle_hover())
-                    .bd(1.0, tint_alpha(accent, 135))
-                    .bevel_rounded(6.0, 1.3)
-                    .clicked()
-            {
-                push_click(actions);
-                crate::main_menu::push_nav_history(state);
-                state.main_menu.active_tab = String::from("modSettings");
-                crate::main_menu::close_all_detail_overlays(actions);
-                actions.push(UiAction::RefreshUixSettings);
-            }
         })
         .align_center()
         .w_frac(1.0)
@@ -489,7 +462,7 @@ pub fn render_settings_page(
                     for (idx, (cat_id, icon_p, lbl)) in SETTINGS_TABS.iter().enumerate() {
                         let active = state.main_menu.settings_tab == idx;
                         let count = if *cat_id == "lumenic" {
-                            5
+                            9
                         } else if *cat_id == "colors" {
                             state.host.player_color_presets.len()
                         } else {
@@ -515,7 +488,6 @@ pub fn render_settings_page(
                                     if count > 0 {
                                         ui.txt(&format!("{count}"))
                                             .sz(9.5)
-                                            .mono()
                                             .fg(if active { accent } else { TEXT_DIM });
                                     }
                                 })
@@ -545,6 +517,38 @@ pub fn render_settings_page(
                             push_click(actions);
                             state.main_menu.settings_tab = idx;
                         }
+                    }
+
+                    if state.host.uix_available
+                        && ui
+                            .btn_with("mm_set_jump_mods", |ui| {
+                                ui.row(|ui| {
+                                    icons::icon(ui, icons::PUZZLE, 13.5).fg(accent);
+                                    ui.txt("Mod Settings")
+                                        .sz(11.5)
+                                        .semibold()
+                                        .fg(TEXT_PRIMARY)
+                                        .ellipsis()
+                                        .grow(1.0);
+                                    icons::icon(ui, icons::CHEVRON_RIGHT, 12.0).fg(TEXT_DIM);
+                                })
+                                .align_center()
+                                .gap(7.0)
+                                .grow(1.0);
+                            })
+                            .px(9.0)
+                            .py(6.5)
+                            .bg(card_inner_bg())
+                            .hover_bg(tile_idle_hover())
+                            .bd(1.0, tint_alpha(accent, 120))
+                            .bevel_rounded(6.0, 1.3)
+                            .clicked()
+                    {
+                        push_click(actions);
+                        crate::main_menu::push_nav_history(state);
+                        state.main_menu.active_tab = String::from("modSettings");
+                        crate::main_menu::close_all_detail_overlays(actions);
+                        actions.push(UiAction::RefreshUixSettings);
                     }
                 })
                 .grow(1.0)
@@ -702,154 +706,382 @@ fn render_lumenic_settings(
             || "lumenicmenu".contains(q)
     };
 
-    if m("UI Sound Pack", "glass softsub vanilla audio") {
-        hits += 1;
-        ui.row(|ui| {
-            ui.txt("UI Sound Pack")
+    // --- AUDIO ---
+    let show_sound_pack = m("UI Sound Pack", "softsub glass vanilla audio");
+    let show_click_sounds = m("UI Click & Hover Sounds", "sound audio feedback");
+    if show_sound_pack || show_click_sounds {
+        if q.is_empty() {
+            ui.txt("Audio")
                 .sz(11.0)
-                .semibold()
-                .fg(TEXT_PRIMARY)
-                .min_w(130.0);
-            for (pack, lbl) in [
-                ("Glass", "Glass"),
-                ("SoftSub", "SoftSub (VR)"),
-                ("Vanilla", "Vanilla"),
-            ] {
-                let active = state.host.ui_sound_pack.eq_ignore_ascii_case(pack);
+                .bold()
+                .fg(TEXT_MUTED)
+                .pt(2.0)
+                .px(3.0);
+        }
+        if show_sound_pack {
+            hits += 1;
+            ui.row(|ui| {
+                ui.txt("UI Sound Pack")
+                    .sz(11.0)
+                    .semibold()
+                    .fg(TEXT_PRIMARY)
+                    .min_w(130.0);
+                for (pack, lbl) in [
+                    ("SoftSub", "SoftSub"),
+                    ("Glass", "Glass"),
+                    ("Vanilla", "Vanilla"),
+                ] {
+                    let active = state.host.ui_sound_pack.eq_ignore_ascii_case(pack);
+                    if ui
+                        .btn_with(&format!("mm_set_sp_{pack}"), |ui| {
+                            ui.txt(lbl)
+                                .sz(10.5)
+                                .semibold()
+                                .align(TextAlign::Center)
+                                .fg(if active { TEXT_PRIMARY } else { TEXT_MUTED })
+                                .grow(1.0);
+                        })
+                        .grow(1.0)
+                        .py(5.0)
+                        .bg(if active {
+                            tint_alpha(accent, 52)
+                        } else {
+                            tile_idle_bg()
+                        })
+                        .hover_bg(tile_idle_hover())
+                        .bd(
+                            1.0,
+                            if active {
+                                tint_alpha(accent, 195)
+                            } else {
+                                border_subtle()
+                            },
+                        )
+                        .bevel_rounded(5.0, 1.3)
+                        .clicked()
+                    {
+                        actions.push(UiAction::SetUiSoundPack {
+                            pack: String::from(pack),
+                        });
+                        push_click(actions);
+                    }
+                }
+            })
+            .align_center()
+            .px(8.0)
+            .py(6.0)
+            .gap(6.0)
+            .bg(card_inner_bg())
+            .bd(1.0, border_subtle())
+            .bevel_rounded(6.0, 1.3);
+        }
+
+        if show_click_sounds {
+            hits += 1;
+            let (clicked, hov) = compact_toggle_cell(
+                ui,
+                "mm_set_lm_snd",
+                "UI Click & Hover Sounds",
+                state.host.ui_click_sounds,
+            );
+            if hov {
+                state.main_menu.hovered_tooltip = String::from(
+                    "Enable procedural hover and click audio feedback across Lumenic menus.",
+                );
+            }
+            if clicked {
+                push_click(actions);
+                actions.push(UiAction::ToggleUiClickSounds);
+            }
+        }
+    }
+
+    // --- PERFORMANCE & INPUT ---
+    let show_hz = m("Max Redraw Refresh Rate", "hz fps performance");
+    let show_desk_scroll = m("Desktop Scroll Speed", "mouse wheel scroll multiplier");
+    let show_vr_scroll = m("VR Scroll Speed", "thumbstick stick scroll multiplier");
+    if show_hz || show_desk_scroll || show_vr_scroll {
+        if q.is_empty() {
+            ui.txt("Performance & Input")
+                .sz(11.0)
+                .bold()
+                .fg(TEXT_MUTED)
+                .pt(6.0)
+                .px(3.0);
+        }
+
+        if show_hz {
+            hits += 1;
+            let hz_host = state.host.max_refresh_hz.clamp(15, 144) as i32;
+            let (hz_f, last_hz) = state
+                .main_menu
+                .settings_sliders
+                .entry(String::from("_lumenic_hz"))
+                .or_insert((hz_host as f32, hz_host));
+            if *last_hz != hz_host {
+                *hz_f = hz_host as f32;
+                *last_hz = hz_host;
+            }
+            let mut hz_v = *hz_f;
+            ui.push_id("mm_set_lm_hz");
+            if ui
+                .slider(
+                    &format!("Max Redraw Rate ({} Hz)", hz_v.round() as i32),
+                    &mut hz_v,
+                    15.0..=144.0,
+                )
+                .fill(accent)
+                .bg(card_inner_bg())
+                .bd(1.0, border_subtle())
+                .bevel_rounded(6.0, 1.3)
+                .w_frac(1.0)
+                .changed()
+            {
+                let next = (hz_v.round() as i32).clamp(15, 144);
+                *hz_f = next as f32;
+                if next != *last_hz {
+                    *last_hz = next;
+                    actions.push(UiAction::SetMaxRefreshHz { hz: next });
+                }
+            }
+            ui.pop_id();
+        }
+
+        if show_desk_scroll || show_vr_scroll {
+            ui.row(|ui| {
+                if show_desk_scroll {
+                    hits += 1;
+                    let host_v = (state.host.desktop_scroll_multiplier.clamp(4.0, 64.0) * 10.0)
+                        .round() as i32;
+                    let (cur_f, last_i) = state
+                        .main_menu
+                        .settings_sliders
+                        .entry(String::from("_lumenic_desk_scroll"))
+                        .or_insert((host_v as f32 / 10.0, host_v));
+                    if *last_i != host_v {
+                        *cur_f = host_v as f32 / 10.0;
+                        *last_i = host_v;
+                    }
+                    let mut v = *cur_f;
+                    ui.push_id("mm_set_lm_dscroll");
+                    if ui
+                        .slider(
+                            &format!("Desktop Scroll ({:.0})", v.round()),
+                            &mut v,
+                            4.0..=64.0,
+                        )
+                        .fill(accent)
+                        .bg(card_inner_bg())
+                        .bd(1.0, border_subtle())
+                        .bevel_rounded(6.0, 1.3)
+                        .grow(1.0)
+                        .changed()
+                    {
+                        let next_i = (v.round() as i32 * 10).clamp(40, 640);
+                        *cur_f = next_i as f32 / 10.0;
+                        if next_i != *last_i {
+                            *last_i = next_i;
+                            actions.push(UiAction::SetDesktopScrollMultiplier { value: *cur_f });
+                        }
+                    }
+                    ui.pop_id();
+                }
+
+                if show_vr_scroll {
+                    hits += 1;
+                    let host_v = (state.host.vr_scroll_multiplier.clamp(0.5, 12.0) * 10.0)
+                        .round() as i32;
+                    let (cur_f, last_i) = state
+                        .main_menu
+                        .settings_sliders
+                        .entry(String::from("_lumenic_vr_scroll"))
+                        .or_insert((host_v as f32 / 10.0, host_v));
+                    if *last_i != host_v {
+                        *cur_f = host_v as f32 / 10.0;
+                        *last_i = host_v;
+                    }
+                    let mut v = *cur_f;
+                    ui.push_id("mm_set_lm_vscroll");
+                    if ui
+                        .slider(&format!("VR Scroll ({:.1})", v), &mut v, 0.5..=12.0)
+                        .fill(accent)
+                        .bg(card_inner_bg())
+                        .bd(1.0, border_subtle())
+                        .bevel_rounded(6.0, 1.3)
+                        .grow(1.0)
+                        .changed()
+                    {
+                        let next_i = (v * 10.0).round().clamp(5.0, 120.0) as i32;
+                        *cur_f = next_i as f32 / 10.0;
+                        if next_i != *last_i {
+                            *last_i = next_i;
+                            actions.push(UiAction::SetVrScrollMultiplier { value: *cur_f });
+                        }
+                    }
+                    ui.pop_id();
+                }
+            })
+            .gap(6.0);
+        }
+    }
+
+    // --- LOCAL HISTORY & USER DATA ---
+    let show_recent = m(
+        "Track Recent History",
+        "recent categories history userdata visited seen spawned",
+    );
+    let show_clear = m("Clear User Data", "clear reset history pinned pins userdata layouts");
+    if show_recent || show_clear {
+        if q.is_empty() {
+            ui.txt("Local History & User Data")
+                .sz(11.0)
+                .bold()
+                .fg(TEXT_MUTED)
+                .pt(6.0)
+                .px(3.0);
+        }
+
+        if show_recent {
+            hits += 1;
+            let (clicked, hov) = compact_toggle_cell(
+                ui,
+                "mm_set_lm_recent",
+                "Track Recent Categories (UserData)",
+                state.host.enable_recent_history,
+            );
+            if hov {
+                state.main_menu.hovered_tooltip = String::from(
+                    "Record and show local Recent categories (Worlds, Avatars, Props, Users) in UserData/LumenicMenu/recent-history.json.",
+                );
+            }
+            if clicked {
+                push_click(actions);
+                actions.push(UiAction::SetEnableRecentHistory {
+                    enabled: !state.host.enable_recent_history,
+                });
+            }
+        }
+
+        if show_clear {
+            hits += 3;
+            ui.row(|ui| {
+                let clear_hist_armed =
+                    state.main_menu.safety_confirm_action == "clear_recent_history";
                 if ui
-                    .btn_with(&format!("mm_set_sp_{pack}"), |ui| {
-                        ui.txt(lbl)
-                            .sz(10.5)
-                            .semibold()
-                            .align(TextAlign::Center)
-                            .fg(if active { TEXT_PRIMARY } else { TEXT_MUTED })
-                            .grow(1.0);
+                    .btn_with("mm_set_lm_clr_hist", |ui| {
+                        ui.txt(if clear_hist_armed {
+                            "Confirm Clear History?"
+                        } else {
+                            "Clear Recent History"
+                        })
+                        .sz(10.5)
+                        .semibold()
+                        .align(TextAlign::Center)
+                        .fg(if clear_hist_armed {
+                            TEXT_PRIMARY
+                        } else {
+                            crate::theme::AMBER
+                        })
+                        .grow(1.0);
                     })
                     .grow(1.0)
-                    .py(5.0)
-                    .bg(if active {
-                        tint_alpha(accent, 52)
+                    .py(7.0)
+                    .bg(if clear_hist_armed {
+                        tint_alpha(crate::theme::AMBER, 75)
+                    } else {
+                        tile_idle_bg()
+                    })
+                    .hover_bg(tint_alpha(crate::theme::AMBER, 95))
+                    .bd(1.0, tint_alpha(crate::theme::AMBER, 165))
+                    .bevel_rounded(6.0, 1.3)
+                    .clicked()
+                {
+                    push_click(actions);
+                    if clear_hist_armed {
+                        state.main_menu.safety_confirm_action.clear();
+                        actions.push(UiAction::ClearRecentHistory);
+                    } else {
+                        state.main_menu.safety_confirm_action =
+                            String::from("clear_recent_history");
+                    }
+                }
+
+                let clear_pins_armed = state.main_menu.safety_confirm_action == "clear_pins";
+                if ui
+                    .btn_with("mm_set_lm_clr_pins", |ui| {
+                        ui.txt(if clear_pins_armed {
+                            "Confirm Clear Pins?"
+                        } else {
+                            "Clear Pinned Items"
+                        })
+                        .sz(10.5)
+                        .semibold()
+                        .align(TextAlign::Center)
+                        .fg(if clear_pins_armed {
+                            TEXT_PRIMARY
+                        } else {
+                            crate::theme::RED
+                        })
+                        .grow(1.0);
+                    })
+                    .grow(1.0)
+                    .py(7.0)
+                    .bg(if clear_pins_armed {
+                        tint_alpha(crate::theme::RED, 75)
+                    } else {
+                        tile_idle_bg()
+                    })
+                    .hover_bg(tint_alpha(crate::theme::RED, 95))
+                    .bd(1.0, tint_alpha(crate::theme::RED, 165))
+                    .bevel_rounded(6.0, 1.3)
+                    .clicked()
+                {
+                    push_click(actions);
+                    if clear_pins_armed {
+                        state.main_menu.safety_confirm_action.clear();
+                        actions.push(UiAction::ClearPinnedItems);
+                    } else {
+                        state.main_menu.safety_confirm_action = String::from("clear_pins");
+                    }
+                }
+
+                let reset_tiles_armed = state.main_menu.safety_confirm_action == "reset_tiles";
+                if ui
+                    .btn_with("mm_set_lm_rst_tiles", |ui| {
+                        ui.txt(if reset_tiles_armed {
+                            "Confirm Reset Tiles?"
+                        } else {
+                            "Reset Tile Layouts"
+                        })
+                        .sz(10.5)
+                        .semibold()
+                        .align(TextAlign::Center)
+                        .fg(TEXT_PRIMARY)
+                        .grow(1.0);
+                    })
+                    .grow(1.0)
+                    .py(7.0)
+                    .bg(if reset_tiles_armed {
+                        tint_alpha(accent, 65)
                     } else {
                         tile_idle_bg()
                     })
                     .hover_bg(tile_idle_hover())
-                    .bd(
-                        1.0,
-                        if active {
-                            tint_alpha(accent, 195)
-                        } else {
-                            border_subtle()
-                        },
-                    )
-                    .bevel_rounded(5.0, 1.3)
-                    .clicked()
-                {
-                    actions.push(UiAction::SetUiSoundPack {
-                        pack: String::from(pack),
-                    });
-                    push_click(actions);
-                }
-            }
-        })
-        .align_center()
-        .px(8.0)
-        .py(6.0)
-        .gap(6.0)
-        .bg(card_inner_bg())
-        .bd(1.0, border_subtle())
-        .bevel_rounded(6.0, 1.3);
-    }
-
-    if m("UI Click & Hover Sounds", "sound") || m("Stopwatch Performance Logging", "perf ms") {
-        ui.row(|ui| {
-            if m("UI Click & Hover Sounds", "sound") {
-                hits += 1;
-                let (clicked, hov) = compact_toggle_cell(
-                    ui,
-                    "mm_set_lm_snd",
-                    "UI Click & Hover Sounds",
-                    state.host.ui_click_sounds,
-                );
-                if hov {
-                    state.main_menu.hovered_tooltip = String::from("Enable procedural hover and click audio feedback across Lumenic menus.");
-                }
-                if clicked {
-                    push_click(actions);
-                    actions.push(UiAction::ToggleUiClickSounds);
-                }
-            }
-            if m("Stopwatch Performance Logging", "perf ms") {
-                hits += 1;
-                let (clicked, hov) = compact_toggle_cell(
-                    ui,
-                    "mm_set_lm_perf",
-                    "Stopwatch Perf Logging",
-                    state.host.perf_logging,
-                );
-                if hov {
-                    state.main_menu.hovered_tooltip = String::from("Logs step, pixel readback, texture upload, and blit timings in milliseconds.");
-                }
-                if clicked {
-                    push_click(actions);
-                    actions.push(UiAction::TogglePerfLogging);
-                }
-            }
-        })
-        .gap(6.0);
-    }
-
-    if m("Linear Texture Color Space", "srgb") || m("Max Redraw Refresh Rate", "hz fps") {
-        ui.row(|ui| {
-            if m("Linear Texture Color Space", "srgb") {
-                hits += 1;
-                let (clicked, hov) = compact_toggle_cell(
-                    ui,
-                    "mm_set_lm_lin",
-                    "Linear Texture Mode",
-                    state.host.linear_texture,
-                );
-                if hov {
-                    state.main_menu.hovered_tooltip = String::from("Toggle Texture2D color space between sRGB (default) and Linear.");
-                }
-                if clicked {
-                    push_click(actions);
-                    actions.push(UiAction::ToggleLinearTexture);
-                }
-            }
-            if m("Max Redraw Refresh Rate", "hz fps") {
-                hits += 1;
-                let hz_host = state.host.max_refresh_hz.clamp(15, 144) as i32;
-                let (hz_f, last_hz) = state
-                    .main_menu
-                    .settings_sliders
-                    .entry(String::from("_lumenic_hz"))
-                    .or_insert((hz_host as f32, hz_host));
-                if *last_hz != hz_host {
-                    *hz_f = hz_host as f32;
-                    *last_hz = hz_host;
-                }
-                let mut hz_v = *hz_f;
-                ui.push_id("mm_set_lm_hz");
-                if ui
-                    .slider("Max Redraw Rate (Hz)", &mut hz_v, 15.0..=144.0)
-                    .fill(accent)
-                    .bg(card_inner_bg())
                     .bd(1.0, border_subtle())
                     .bevel_rounded(6.0, 1.3)
-                    .grow(1.0)
-                    .changed()
+                    .clicked()
                 {
-                    let next = (hz_v.round() as i32).clamp(15, 144);
-                    *hz_f = next as f32;
-                    if next != *last_hz {
-                        *last_hz = next;
-                        actions.push(UiAction::SetMaxRefreshHz { hz: next });
+                    push_click(actions);
+                    if reset_tiles_armed {
+                        state.main_menu.safety_confirm_action.clear();
+                        actions.push(UiAction::ResetTileLayouts);
+                    } else {
+                        state.main_menu.safety_confirm_action = String::from("reset_tiles");
                     }
                 }
-                ui.pop_id();
-            }
-        })
-        .gap(6.0);
+            })
+            .gap(6.0);
+        }
     }
 
     hits
