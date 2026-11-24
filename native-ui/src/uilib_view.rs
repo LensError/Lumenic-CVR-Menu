@@ -5,8 +5,8 @@ use crate::state::{
     AppState, UiAction, UiLibCategory, UiLibElement, UiLibModalSnapshot, UiLibPageSnapshot,
 };
 use crate::theme::{
-    push_click, tint_alpha, BORDER_SUBTLE, CARD_BG, CARD_INNER_BG, RED, SHADOW_CARD, TEXT_DIM,
-    TEXT_MUTED, TEXT_PRIMARY, TILE_IDLE_BG, TILE_IDLE_HOVER,
+    push_click, tint_alpha, border_subtle, card_bg, card_inner_bg, RED, SHADOW_CARD, TEXT_DIM,
+    TEXT_MUTED, TEXT_PRIMARY, tile_idle_bg, tile_idle_hover,
 };
 
 fn parse_hex_rgb(hex: &str) -> Option<Color> {
@@ -81,9 +81,9 @@ pub fn render_uilib_page(
                     })
                     .px(9.0)
                     .py(5.0)
-                    .bg(TILE_IDLE_BG)
+                    .bg(tile_idle_bg())
                     .hover_bg(tint_alpha(accent, 75))
-                    .bd(1.0, BORDER_SUBTLE)
+                    .bd(1.0, border_subtle())
                     .bevel_rounded(6.2, 1.3)
                     .clicked()
                 {
@@ -150,7 +150,7 @@ pub fn render_uilib_page(
         .px(10.0)
         .py(6.0)
         .gap(8.0)
-        .bg(CARD_BG)
+        .bg(card_bg())
         .bd(1.0, tint_alpha(accent, 95))
         .bevel_rounded(8.6, 1.3)
         .shadow(10.0, SHADOW_CARD);
@@ -178,8 +178,8 @@ pub fn render_uilib_page(
                     })
                     .p(9.0)
                     .gap(4.0)
-                    .bg(CARD_BG)
-                    .bd(1.0, BORDER_SUBTLE)
+                    .bg(card_bg())
+                    .bd(1.0, border_subtle())
                     .bevel_rounded(8.6, 1.3);
 
                     render_player_quick_actions_card(
@@ -232,8 +232,8 @@ pub fn render_uilib_page(
                 .h_frac(1.0)
                 .p(10.0)
                 .gap(7.0)
-                .bg(CARD_BG)
-                .bd(1.0, BORDER_SUBTLE)
+                .bg(card_bg())
+                .bd(1.0, border_subtle())
                 .bevel_rounded(10.9, 2.0)
                 .shadow(14.0, SHADOW_CARD);
             })
@@ -264,8 +264,8 @@ pub fn render_uilib_page(
                     .align_center()
                     .p(8.0)
                     .gap(8.0)
-                    .bg(CARD_BG)
-                    .bd(1.0, BORDER_SUBTLE)
+                    .bg(card_bg())
+                    .bd(1.0, border_subtle())
                     .bevel_rounded(7.8, 1.3);
                 }
 
@@ -278,8 +278,8 @@ pub fn render_uilib_page(
                     })
                     .p(9.0)
                     .gap(6.0)
-                    .bg(CARD_BG)
-                    .bd(1.0, BORDER_SUBTLE)
+                    .bg(card_bg())
+                    .bd(1.0, border_subtle())
                     .bevel_rounded(8.6, 1.3);
                 }
 
@@ -295,8 +295,8 @@ pub fn render_uilib_page(
                     .center()
                     .py(36.0)
                     .gap(5.0)
-                    .bg(CARD_BG)
-                    .bd(1.0, BORDER_SUBTLE)
+                    .bg(card_bg())
+                    .bd(1.0, border_subtle())
                     .bevel_rounded(8.6, 1.3);
                 }
 
@@ -363,9 +363,9 @@ fn render_player_quick_actions_card(
                         .w(165.0)
                         .px(8.0)
                         .py(6.0)
-                        .bg(TILE_IDLE_BG)
-                        .hover_bg(TILE_IDLE_HOVER)
-                        .bd(1.0, BORDER_SUBTLE)
+                        .bg(tile_idle_bg())
+                        .hover_bg(tile_idle_hover())
+                        .bd(1.0, border_subtle())
                         .bevel_rounded(7.0, 1.3)
                         .opacity(if el.disabled { 0.45 } else { 1.0 });
 
@@ -389,8 +389,8 @@ fn render_player_quick_actions_card(
     .align_center()
     .p(8.0)
     .gap(8.0)
-    .bg(CARD_BG)
-    .bd(1.0, BORDER_SUBTLE)
+    .bg(card_bg())
+    .bd(1.0, border_subtle())
     .bevel_rounded(8.6, 1.3);
     ui.pop_id();
 }
@@ -426,9 +426,9 @@ fn render_compact_header_button(
         })
         .px(8.0)
         .py(6.0)
-        .bg(TILE_IDLE_BG)
+        .bg(tile_idle_bg())
         .hover_bg(tint_alpha(accent, 75))
-        .bd(1.0, BORDER_SUBTLE)
+        .bd(1.0, border_subtle())
         .bevel_rounded(6.2, 1.3)
         .opacity(if el.disabled { 0.45 } else { 1.0 });
 
@@ -548,8 +548,8 @@ fn render_uilib_category(
     })
     .p(9.0)
     .gap(6.0)
-    .bg(CARD_BG)
-    .bd(1.0, BORDER_SUBTLE)
+    .bg(card_bg())
+    .bd(1.0, border_subtle())
     .bevel_rounded(8.6, 1.3);
     ui.pop_id();
 }
@@ -593,9 +593,9 @@ fn render_grid_tile(
                 )
             } else {
                 (
-                    TILE_IDLE_BG,
-                    TILE_IDLE_HOVER,
-                    BORDER_SUBTLE,
+                    tile_idle_bg(),
+                    tile_idle_hover(),
+                    border_subtle(),
                     TEXT_DIM,
                     "OFF",
                 )
@@ -674,8 +674,8 @@ fn render_grid_tile(
                 .min_h(54.0)
                 .px(7.0)
                 .py(5.0)
-                .bg(TILE_IDLE_BG)
-                .hover_bg(TILE_IDLE_HOVER)
+                .bg(tile_idle_bg())
+                .hover_bg(tile_idle_hover())
                 .bd(1.0, tint_alpha(accent, 85))
                 .bevel_rounded(7.0, 1.3)
                 .opacity(if el.disabled { 0.45 } else { 1.0 });
@@ -734,9 +734,9 @@ fn render_grid_tile(
                 .min_h(54.0)
                 .px(7.0)
                 .py(5.0)
-                .bg(TILE_IDLE_BG)
-                .hover_bg(TILE_IDLE_HOVER)
-                .bd(1.0, BORDER_SUBTLE)
+                .bg(tile_idle_bg())
+                .hover_bg(tile_idle_hover())
+                .bd(1.0, border_subtle())
                 .bevel_rounded(7.0, 1.3)
                 .opacity(if el.disabled { 0.45 } else { 1.0 });
 
@@ -801,8 +801,8 @@ fn render_slider_element(
         let resp = ui
             .slider(static_label, &mut cur_val, min_v..=max_v)
             .fill(accent)
-            .bg(CARD_INNER_BG)
-            .bd(1.0, BORDER_SUBTLE)
+            .bg(card_inner_bg())
+            .bd(1.0, border_subtle())
             .bevel_rounded(7.8, 1.3)
             .enabled(!el.disabled)
             .opacity(if el.disabled { 0.48 } else { 1.0 })
@@ -835,9 +835,9 @@ fn render_slider_element(
                 })
                 .px(8.0)
                 .py(7.0)
-                .bg(TILE_IDLE_BG)
-                .hover_bg(TILE_IDLE_HOVER)
-                .bd(1.0, BORDER_SUBTLE)
+                .bg(tile_idle_bg())
+                .hover_bg(tile_idle_hover())
+                .bd(1.0, border_subtle())
                 .bevel_rounded(6.2, 1.3)
                 .opacity(if el.disabled { 0.45 } else { 1.0 });
             if !el.disabled && r_btn.clicked() {
@@ -903,9 +903,9 @@ fn render_full_width_element(
                 })
                 .px(10.0)
                 .py(7.0)
-                .bg(CARD_INNER_BG)
-                .hover_bg(TILE_IDLE_HOVER)
-                .bd(1.0, BORDER_SUBTLE)
+                .bg(card_inner_bg())
+                .hover_bg(tile_idle_hover())
+                .bd(1.0, border_subtle())
                 .bevel_rounded(6.2, 1.3)
                 .opacity(if el.disabled { 0.45 } else { 1.0 });
             if !el.disabled && ti_resp.clicked() {
@@ -945,9 +945,9 @@ fn render_full_width_element(
                     .grow(1.0);
                 })
                 .p(7.0)
-                .bg(TILE_IDLE_BG)
-                .hover_bg(TILE_IDLE_HOVER)
-                .bd(1.0, BORDER_SUBTLE)
+                .bg(tile_idle_bg())
+                .hover_bg(tile_idle_hover())
+                .bd(1.0, border_subtle())
                 .bevel_rounded(7.0, 1.3)
                 .opacity(if el.disabled { 0.45 } else { 1.0 });
 
@@ -1031,9 +1031,9 @@ fn render_full_width_element(
                                 })
                                 .px(8.0)
                                 .py(5.0)
-                                .bg(TILE_IDLE_BG)
+                                .bg(tile_idle_bg())
                                 .hover_bg(tint_alpha(accent, 75))
-                                .bd(1.0, BORDER_SUBTLE)
+                                .bd(1.0, border_subtle())
                                 .bevel_rounded(5.5, 1.3)
                                 .opacity(if eb.disabled { 0.45 } else { 1.0 });
                             if !eb.disabled && eb_resp.clicked() {
@@ -1049,12 +1049,12 @@ fn render_full_width_element(
             })
             .p(8.0)
             .gap(6.0)
-            .bg(CARD_INNER_BG)
-            .bd(1.0, BORDER_SUBTLE)
+            .bg(card_inner_bg())
+            .bd(1.0, border_subtle())
             .bevel_rounded(7.0, 1.3);
         }
         "spacer" => {
-            ui.txt("").h(1.0).bg(BORDER_SUBTLE);
+            ui.txt("").h(1.0).bg(border_subtle());
         }
         "custom" => {
             ui.push_id(&el.id);
@@ -1168,9 +1168,9 @@ pub fn render_uilib_modal(
                                             .align(TextAlign::Center)
                                             .fg(TEXT_PRIMARY);
                                     })
-                                    .bg(TILE_IDLE_BG)
-                                    .hover_bg(TILE_IDLE_HOVER)
-                                    .bd(1.0, BORDER_SUBTLE)
+                                    .bg(tile_idle_bg())
+                                    .hover_bg(tile_idle_hover())
+                                    .bd(1.0, border_subtle())
                                     .py(10.0)
                                     .bevel_rounded(7.0, 1.3)
                                     .grow(1.0)
@@ -1258,10 +1258,10 @@ pub fn render_uilib_modal(
                                         .bg(if is_sel {
                                             tint_alpha(accent, 45)
                                         } else {
-                                            TILE_IDLE_BG
+                                            tile_idle_bg()
                                         })
                                         .hover_bg(tint_alpha(accent, 75))
-                                        .bd(1.0, if is_sel { accent } else { BORDER_SUBTLE })
+                                        .bd(1.0, if is_sel { accent } else { border_subtle() })
                                         .bevel_rounded(7.0, 1.3)
                                         .clicked()
                                     {
@@ -1279,7 +1279,7 @@ pub fn render_uilib_modal(
                             let inp = ui
                                 .input("uilib_num_input", &mut state.quick.modal_number_edit)
                                 .placeholder("Enter number")
-                                .bg(CARD_INNER_BG)
+                                .bg(card_inner_bg())
                                 .fg(TEXT_PRIMARY);
                             let mut try_submit = inp.submitted();
 
@@ -1313,14 +1313,14 @@ pub fn render_uilib_modal(
                                             } else if is_cancel {
                                                 Color::rgba(185, 28, 28, 195)
                                             } else {
-                                                TILE_IDLE_BG
+                                                tile_idle_bg()
                                             })
                                             .hover_bg(if is_ok {
                                                 tint_alpha(accent, 225)
                                             } else {
-                                                TILE_IDLE_HOVER
+                                                tile_idle_hover()
                                             })
-                                            .bd(1.0, BORDER_SUBTLE)
+                                            .bd(1.0, border_subtle())
                                             .bevel_rounded(6.2, 1.3)
                                             .clicked()
                                         {

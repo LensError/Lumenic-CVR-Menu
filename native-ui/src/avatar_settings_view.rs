@@ -3,8 +3,8 @@ use lumenic::{Color, Rect, TextAlign, UiContext};
 use crate::icons;
 use crate::state::{AppState, AvatarSettingEntry, UiAction};
 use crate::theme::{
-    push_click, tint_alpha, AMBER, BORDER_SUBTLE, CARD_BG, CARD_INNER_BG, EMERALD, RED,
-    SHADOW_CARD, TEXT_DIM, TEXT_MUTED, TEXT_PRIMARY, TILE_IDLE_BG, TILE_IDLE_HOVER,
+    push_click, tint_alpha, AMBER, border_subtle, card_bg, card_inner_bg, EMERALD, RED,
+    SHADOW_CARD, TEXT_DIM, TEXT_MUTED, TEXT_PRIMARY, tile_idle_bg, tile_idle_hover,
 };
 
 /// Shared GPU-composited 3D Avatar Turntable stage used across Main Menu (AAS, User Details,
@@ -186,9 +186,9 @@ pub fn render_avatar_settings_page(
                     })
                     .px(9.0)
                     .py(5.0)
-                    .bg(TILE_IDLE_BG)
-                    .hover_bg(TILE_IDLE_HOVER)
-                    .bd(1.0, BORDER_SUBTLE)
+                    .bg(tile_idle_bg())
+                    .hover_bg(tile_idle_hover())
+                    .bd(1.0, border_subtle())
                     .bevel_rounded(5.5, 1.3)
                     .clicked()
                 {
@@ -222,12 +222,12 @@ pub fn render_avatar_settings_page(
                 let apply_bg = if has_staged {
                     tint_alpha(EMERALD, 64)
                 } else {
-                    TILE_IDLE_BG
+                    tile_idle_bg()
                 };
                 let apply_bd = if has_staged {
                     tint_alpha(EMERALD, 210)
                 } else {
-                    BORDER_SUBTLE
+                    border_subtle()
                 };
                 if ui
                     .btn_with("mm_aas_apply_staged", |ui| {
@@ -253,7 +253,7 @@ pub fn render_avatar_settings_page(
                     .hover_bg(if has_staged {
                         tint_alpha(EMERALD, 90)
                     } else {
-                        TILE_IDLE_HOVER
+                        tile_idle_hover()
                     })
                     .bd(1.0, apply_bd)
                     .bevel_rounded(6.0, 1.3)
@@ -300,14 +300,14 @@ pub fn render_avatar_settings_page(
                             .bg(if auto_apply {
                                 tint_alpha(EMERALD, 42)
                             } else {
-                                CARD_INNER_BG
+                                card_inner_bg()
                             })
                             .bd(
                                 1.0,
                                 if auto_apply {
                                     tint_alpha(EMERALD, 180)
                                 } else {
-                                    BORDER_SUBTLE
+                                    border_subtle()
                                 },
                             )
                             .px(7.0)
@@ -320,9 +320,9 @@ pub fn render_avatar_settings_page(
                 })
                 .px(9.0)
                 .py(6.0)
-                .bg(CARD_INNER_BG)
-                .hover_bg(TILE_IDLE_HOVER)
-                .bd(1.0, BORDER_SUBTLE)
+                .bg(card_inner_bg())
+                .hover_bg(tile_idle_hover())
+                .bd(1.0, border_subtle())
                 .bevel_rounded(6.0, 1.3)
                 .clicked()
             {
@@ -335,8 +335,8 @@ pub fn render_avatar_settings_page(
         .w(258.0)
         .p(10.0)
         .gap(8.0)
-        .bg(CARD_BG)
-        .bd(1.0, BORDER_SUBTLE)
+        .bg(card_bg())
+        .bd(1.0, border_subtle())
         .bevel_rounded(10.5, 2.0)
         .shadow(14.0, SHADOW_CARD);
 
@@ -371,15 +371,15 @@ pub fn render_avatar_settings_page(
                     .bg(if edit_mode {
                         tint_alpha(accent, 48)
                     } else {
-                        TILE_IDLE_BG
+                        tile_idle_bg()
                     })
-                    .hover_bg(TILE_IDLE_HOVER)
+                    .hover_bg(tile_idle_hover())
                     .bd(
                         1.0,
                         if edit_mode {
                             tint_alpha(accent, 195)
                         } else {
-                            BORDER_SUBTLE
+                            border_subtle()
                         },
                     )
                     .bevel_rounded(5.0, 1.2)
@@ -432,15 +432,15 @@ pub fn render_avatar_settings_page(
                     .bg(if default_selected {
                         tint_alpha(accent, 42)
                     } else {
-                        CARD_INNER_BG
+                        card_inner_bg()
                     })
-                    .hover_bg(TILE_IDLE_HOVER)
+                    .hover_bg(tile_idle_hover())
                     .bd(
                         1.0,
                         if default_selected {
                             tint_alpha(accent, 190)
                         } else {
-                            BORDER_SUBTLE
+                            border_subtle()
                         },
                     )
                     .bevel_rounded(6.0, 1.3)
@@ -490,15 +490,15 @@ pub fn render_avatar_settings_page(
                             .bg(if is_selected {
                                 tint_alpha(accent, 42)
                             } else {
-                                CARD_INNER_BG
+                                card_inner_bg()
                             })
-                            .hover_bg(TILE_IDLE_HOVER)
+                            .hover_bg(tile_idle_hover())
                             .bd(
                                 1.0,
                                 if is_selected {
                                     tint_alpha(accent, 190)
                                 } else {
-                                    BORDER_SUBTLE
+                                    border_subtle()
                                 },
                             )
                             .bevel_rounded(6.0, 1.3)
@@ -519,9 +519,9 @@ pub fn render_avatar_settings_page(
                                         icons::icon(ui, icons::ARROW_UP, 13.0).fg(TEXT_PRIMARY);
                                     })
                                     .p(4.0)
-                                    .bg(TILE_IDLE_BG)
-                                    .hover_bg(TILE_IDLE_HOVER)
-                                    .bd(1.0, BORDER_SUBTLE)
+                                    .bg(tile_idle_bg())
+                                    .hover_bg(tile_idle_hover())
+                                    .bd(1.0, border_subtle())
                                     .bevel_rounded(4.5, 1.2)
                                     .clicked()
                                 {
@@ -540,9 +540,9 @@ pub fn render_avatar_settings_page(
                                         icons::icon(ui, icons::ARROW_DOWN, 13.0).fg(TEXT_PRIMARY);
                                     })
                                     .p(4.0)
-                                    .bg(TILE_IDLE_BG)
-                                    .hover_bg(TILE_IDLE_HOVER)
-                                    .bd(1.0, BORDER_SUBTLE)
+                                    .bg(tile_idle_bg())
+                                    .hover_bg(tile_idle_hover())
+                                    .bd(1.0, border_subtle())
                                     .bevel_rounded(4.5, 1.2)
                                     .clicked()
                                 {
@@ -608,8 +608,8 @@ pub fn render_avatar_settings_page(
                     .w_frac(1.0)
                     .px(8.0)
                     .py(5.5)
-                    .bg(CARD_INNER_BG)
-                    .bd(1.0, BORDER_SUBTLE)
+                    .bg(card_inner_bg())
+                    .bd(1.0, border_subtle())
                     .bevel_rounded(5.5, 1.2);
 
                 if is_vr && inp_resp.clicked() {
@@ -652,19 +652,19 @@ pub fn render_avatar_settings_page(
                     .bg(if can_save {
                         tint_alpha(accent, 42)
                     } else {
-                        TILE_IDLE_BG
+                        tile_idle_bg()
                     })
                     .hover_bg(if can_save {
                         tint_alpha(accent, 72)
                     } else {
-                        TILE_IDLE_HOVER
+                        tile_idle_hover()
                     })
                     .bd(
                         1.0,
                         if can_save {
                             tint_alpha(accent, 170)
                         } else {
-                            BORDER_SUBTLE
+                            border_subtle()
                         },
                     )
                     .bevel_rounded(5.5, 1.3)
@@ -681,8 +681,8 @@ pub fn render_avatar_settings_page(
         .w(218.0)
         .p(10.0)
         .gap(8.0)
-        .bg(CARD_BG)
-        .bd(1.0, BORDER_SUBTLE)
+        .bg(card_bg())
+        .bd(1.0, border_subtle())
         .bevel_rounded(10.5, 2.0)
         .shadow(14.0, SHADOW_CARD);
 
@@ -782,9 +782,9 @@ pub fn render_avatar_settings_page(
                                 })
                                 .px(7.5)
                                 .py(3.0)
-                                .bg(TILE_IDLE_BG)
-                                .hover_bg(TILE_IDLE_HOVER)
-                                .bd(1.0, BORDER_SUBTLE)
+                                .bg(tile_idle_bg())
+                                .hover_bg(tile_idle_hover())
+                                .bd(1.0, border_subtle())
                                 .bevel_rounded(4.5, 1.2)
                                 .clicked()
                             {
@@ -815,8 +815,8 @@ pub fn render_avatar_settings_page(
                         if ui
                             .slider("Height (m)", &mut h_val, min_h..=max_h)
                             .fill(accent)
-                            .bg(CARD_BG)
-                            .bd(1.0, BORDER_SUBTLE)
+                            .bg(card_bg())
+                            .bd(1.0, border_subtle())
                             .bevel_rounded(5.5, 1.3)
                             .w_frac(1.0)
                             .changed()
@@ -831,7 +831,7 @@ pub fn render_avatar_settings_page(
                 .w_frac(1.0)
                 .p(8.5)
                 .gap(5.0)
-                .bg(CARD_INNER_BG)
+                .bg(card_inner_bg())
                 .bd(
                     1.0,
                     if allowed {
@@ -876,8 +876,8 @@ pub fn render_avatar_settings_page(
         .grow(1.0)
         .p(11.0)
         .gap(9.0)
-        .bg(CARD_BG)
-        .bd(1.0, BORDER_SUBTLE)
+        .bg(card_bg())
+        .bd(1.0, border_subtle())
         .bevel_rounded(10.5, 2.0)
         .shadow(14.0, SHADOW_CARD);
     })
@@ -911,8 +911,8 @@ fn render_slider_axis(
     if ui
         .slider(label, &mut v, min_v..=safe_max)
         .fill(accent)
-        .bg(CARD_INNER_BG)
-        .bd(1.0, BORDER_SUBTLE)
+        .bg(card_inner_bg())
+        .bd(1.0, border_subtle())
         .bevel_rounded(6.0, 1.3)
         .w_frac(1.0)
         .changed()
@@ -955,14 +955,14 @@ fn render_param_card(
                     })
                     .w(54.0)
                     .py(5.0)
-                    .bg(if on { tint_alpha(EMERALD, 58) } else { TILE_IDLE_BG })
-                    .hover_bg(TILE_IDLE_HOVER)
+                    .bg(if on { tint_alpha(EMERALD, 58) } else { tile_idle_bg() })
+                    .hover_bg(tile_idle_hover())
                     .bd(
                         1.0,
                         if on {
                             tint_alpha(EMERALD, 195)
                         } else {
-                            BORDER_SUBTLE
+                            border_subtle()
                         },
                     )
                     .bevel_rounded(5.5, 1.3)
@@ -1001,14 +1001,14 @@ fn render_param_card(
                         .grow(1.0)
                         .min_w(0.0)
                         .py(5.0)
-                        .bg(if active { tint_alpha(accent, 52) } else { TILE_IDLE_BG })
-                        .hover_bg(TILE_IDLE_HOVER)
+                        .bg(if active { tint_alpha(accent, 52) } else { tile_idle_bg() })
+                        .hover_bg(tile_idle_hover())
                         .bd(
                             1.0,
                             if active {
                                 tint_alpha(accent, 190)
                             } else {
-                                BORDER_SUBTLE
+                                border_subtle()
                             },
                         )
                         .bevel_rounded(5.0, 1.3)
@@ -1041,7 +1041,7 @@ fn render_param_card(
                     .w(28.0)
                     .h(16.0)
                     .bg(swatch)
-                    .bd(1.0, BORDER_SUBTLE)
+                    .bd(1.0, border_subtle())
                     .bevel_rounded(4.0, 1.3);
             })
             .align_center()
@@ -1166,7 +1166,7 @@ fn render_param_card(
     .grow(1.0)
     .p(9.0)
     .gap(5.0)
-    .bg(CARD_INNER_BG)
-    .bd(1.0, BORDER_SUBTLE)
+    .bg(card_inner_bg())
+    .bd(1.0, border_subtle())
     .bevel_rounded(7.0, 1.3);
 }

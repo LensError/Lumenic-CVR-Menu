@@ -917,6 +917,16 @@ pub unsafe extern "C" fn lumenic_cvr_commit_virtual_keyboard(
             "mm_grp_desc_input" => {
                 hnd.state.main_menu.group_desc_input = lumenic::TextEditState::with_text(text);
             }
+            "mm_prof_pronouns" => {
+                let clipped: String = text.trim().chars().take(32).collect();
+                hnd.state.main_menu.profile_pronouns_input =
+                    lumenic::TextEditState::with_text(&clipped);
+            }
+            "mm_prof_bio" => {
+                let clipped: String = text.trim().chars().take(512).collect();
+                hnd.state.main_menu.profile_bio_input =
+                    lumenic::TextEditState::with_text(&clipped);
+            }
             "mm_aas_new_profile" => {
                 let trimmed: String = text.trim().chars().take(12).collect();
                 if !trimmed.is_empty() && !trimmed.eq_ignore_ascii_case("default") {

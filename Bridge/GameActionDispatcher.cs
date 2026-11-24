@@ -14,6 +14,7 @@ using ABI_RC.Core.UI.UIRework.Managers;
 using ABI_RC.Systems.Camera;
 using ABI_RC.Systems.IK;
 using ABI_RC.Systems.InputManagement;
+using ABI_RC.Systems.PlayerColors;
 using ABI_RC.Systems.XRManagement;
 using HarmonyLib;
 using LumenicMenu.Native;
@@ -326,6 +327,7 @@ internal static class GameActionDispatcher
                 string placeholder = obj.Value<string>("placeholder") ?? string.Empty;
                 int maxLen = Math.Max(0, obj.Value<int>("max_len"));
                 bool hidden = obj.Value<bool>("hidden");
+                bool multiLine = obj.Value<bool>("multi_line") || fieldId == "mm_prof_bio";
 
                 if (KeyboardManager.Instance != null && KeyboardManager.Instance.IsReady && !string.IsNullOrEmpty(fieldId))
                 {
@@ -347,7 +349,7 @@ internal static class GameActionDispatcher
                         "Confirm",
                         maxLen,
                         hidden,
-                        multiLine: false,
+                        multiLine: multiLine,
                         title,
                         source);
                 }
@@ -605,6 +607,79 @@ internal static class GameActionDispatcher
                     obj.Value<string>("user_id") ?? string.Empty,
                     obj.Value<string>("note") ?? string.Empty);
                 break;
+
+            case "SocialUpdateOwnProfile":
+                mod.Social?.UpdateOwnProfile(
+                    obj.Value<string>("pronouns") ?? string.Empty,
+                    obj.Value<string>("bio") ?? string.Empty,
+                    obj.Value<bool>("update_pronouns"),
+                    obj.Value<bool>("update_bio"),
+                    uid => mod.UiLib?.InvalidateBioCache(uid));
+                break;
+
+            case "SetColorizeMenu":
+            {
+                bool enabled = obj.Value<bool>("enabled");
+                CVRSettings s = MetaPort.Instance?.settings;
+                if (s != null)
+                {
+                    s.SetSettingsBool(PlayerColorsManager.ColourizeMenuSettingKey, enabled);
+                    s.settingsHaveChanged = true;
+                }
+                SettingsBridge.InvalidateCache();
+                mod.MarkStateDirty();
+                break;
+            }
+
+            case "SetPlayerColorPreset":
+            {
+                int presetId = obj.Value<int>("preset_id");
+                var preset = (PlayerColorPresets)presetId;
+                if (PlayerColorsUtility.ColorPresetToColor.TryGetValue(preset, out var pair))
+                {
+                    Color c1 = preset == PlayerColorPresets.ChilloutVR ? pair.Item2 : pair.Item1;
+                    Color c2 = preset == PlayerColorPresets.ChilloutVR ? pair.Item1 : pair.Item2;
+                    PlayerColors cur = PlayerColorsManager.CurrentColors;
+                    PlayerColorsManager.ChangePlayerColor(new PlayerColors(c1, c2, cur.UsePrimaryAsEmission));
+                    mod.MarkStateDirty();
+                }
+                break;
+            }
+
+            case "SetPlayerColorPrimary":
+            {
+                int swatchId = obj.Value<int>("swatch_id");
+                var swatch = (PlayerColorSwatches)swatchId;
+                if (PlayerColorsUtility.ColorSwatchToColor.TryGetValue(swatch, out Color c))
+                {
+                    PlayerColors cur = PlayerColorsManager.CurrentColors;
+                    PlayerColorsManager.ChangePlayerColor(new PlayerColors(c, cur.SecondaryColor, cur.UsePrimaryAsEmission));
+                    mod.MarkStateDirty();
+                }
+                break;
+            }
+
+            case "SetPlayerColorSecondary":
+            {
+                int swatchId = obj.Value<int>("swatch_id");
+                var swatch = (PlayerColorSwatches)swatchId;
+                if (PlayerColorsUtility.ColorSwatchToColor.TryGetValue(swatch, out Color c))
+                {
+                    PlayerColors cur = PlayerColorsManager.CurrentColors;
+                    PlayerColorsManager.ChangePlayerColor(new PlayerColors(cur.PrimaryColor, c, cur.UsePrimaryAsEmission));
+                    mod.MarkStateDirty();
+                }
+                break;
+            }
+
+            case "SetPlayerColorEmission":
+            {
+                bool enabled = obj.Value<bool>("enabled");
+                PlayerColors cur = PlayerColorsManager.CurrentColors;
+                PlayerColorsManager.ChangePlayerColor(new PlayerColors(cur.PrimaryColor, cur.SecondaryColor, enabled));
+                mod.MarkStateDirty();
+                break;
+            }
 
             case "SocialCloseUserDetail":
                 mod.Social?.CloseUserDetail();

@@ -19,6 +19,6 @@
   "requirements": [],
   "downloadlink": "https://github.com/LensError/Lumenic-CVR-Menu/releases/latest/download/LumenicMenu.dll",
   "sourcelink": "https://github.com/LensError/Lumenic-CVR-Menu",
-  "changelog": "Fix UILib Right-click Hold false positives on BTKUILib buttons, add Main Menu navigation history stack and root-tab resets, auto-select default content categories, and block Lumenic keyboard forwarding while the in-game virtual keyboard is open.",
+  "changelog": "Fix UILib Right-click Hold false positives on BTKUILib buttons, add Main Menu navigation history stack and root-tab resets, auto-select default content categories, block Lumenic keyboard forwarding while the in-game virtual keyboard is open, add Player Colors picker with CVR default palette and tame panel colorizing, and add local Profile bio/pronouns editing.",
   "embedcolor": "#321D71"
 }

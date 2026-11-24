@@ -3,8 +3,8 @@ use lumenic::{Color, TextAlign, TextEditState, UiContext};
 use crate::icons;
 use crate::state::{AppState, UiAction};
 use crate::theme::{
-    push_click, tint_alpha, BORDER_SUBTLE, CARD_BG, CARD_INNER_BG, EMERALD, SHADOW_CARD, TEXT_DIM,
-    TEXT_MUTED, TEXT_PRIMARY, TILE_IDLE_BG, TILE_IDLE_HOVER,
+    push_click, tint_alpha, border_subtle, card_bg, card_inner_bg, EMERALD, SHADOW_CARD, TEXT_DIM,
+    TEXT_MUTED, TEXT_PRIMARY, tile_idle_bg, tile_idle_hover,
 };
 
 fn format_number(v: f64, is_int: bool) -> String {
@@ -59,9 +59,9 @@ pub fn render_uix_mod_settings(
                 })
                 .px(11.0)
                 .py(6.0)
-                .bg(TILE_IDLE_BG)
-                .hover_bg(TILE_IDLE_HOVER)
-                .bd(1.0, BORDER_SUBTLE)
+                .bg(tile_idle_bg())
+                .hover_bg(tile_idle_hover())
+                .bd(1.0, border_subtle())
                 .bevel_rounded(6.0, 1.3)
                 .clicked()
             {
@@ -97,9 +97,9 @@ pub fn render_uix_mod_settings(
                 })
                 .px(10.0)
                 .py(6.0)
-                .bg(TILE_IDLE_BG)
-                .hover_bg(TILE_IDLE_HOVER)
-                .bd(1.0, BORDER_SUBTLE)
+                .bg(tile_idle_bg())
+                .hover_bg(tile_idle_hover())
+                .bd(1.0, border_subtle())
                 .bevel_rounded(6.0, 1.3)
                 .clicked()
             {
@@ -111,8 +111,8 @@ pub fn render_uix_mod_settings(
         .px(12.0)
         .py(8.0)
         .gap(9.0)
-        .bg(CARD_BG)
-        .bd(1.0, BORDER_SUBTLE)
+        .bg(card_bg())
+        .bd(1.0, border_subtle())
         .bevel_rounded(10.0, 2.0)
         .shadow(14.0, SHADOW_CARD);
 
@@ -133,8 +133,8 @@ pub fn render_uix_mod_settings(
             .center()
             .grow(1.0)
             .gap(8.0)
-            .bg(CARD_BG)
-            .bd(1.0, BORDER_SUBTLE)
+            .bg(card_bg())
+            .bd(1.0, border_subtle())
             .bevel_rounded(10.5, 2.0)
             .shadow(14.0, SHADOW_CARD);
         } else {
@@ -146,7 +146,7 @@ pub fn render_uix_mod_settings(
                         let mut u_inp = ui
                             .input("mm_uix_cat_search", &mut state.main_menu.uix_search_input)
                             .placeholder("Filter mods...")
-                            .bg(CARD_INNER_BG)
+                            .bg(card_inner_bg())
                             .fg(TEXT_PRIMARY)
                             .grow(1.0);
                         if state.host.is_vr && u_inp.clicked() {
@@ -222,15 +222,15 @@ pub fn render_uix_mod_settings(
                                     .bg(if active {
                                         tint_alpha(accent, 48)
                                     } else {
-                                        CARD_INNER_BG
+                                        card_inner_bg()
                                     })
-                                    .hover_bg(TILE_IDLE_HOVER)
+                                    .hover_bg(tile_idle_hover())
                                     .bd(
                                         1.0,
                                         if active {
                                             tint_alpha(accent, 195)
                                         } else {
-                                            BORDER_SUBTLE
+                                            border_subtle()
                                         },
                                     )
                                     .bevel_rounded(6.0, 1.3)
@@ -250,8 +250,8 @@ pub fn render_uix_mod_settings(
                 .h_frac(1.0)
                 .p(10.0)
                 .gap(8.0)
-                .bg(CARD_BG)
-                .bd(1.0, BORDER_SUBTLE)
+                .bg(card_bg())
+                .bd(1.0, border_subtle())
                 .bevel_rounded(10.5, 2.0)
                 .shadow(14.0, SHADOW_CARD);
 
@@ -315,15 +315,15 @@ pub fn render_uix_mod_settings(
                                                 .bg(if active {
                                                     tint_alpha(EMERALD, 45)
                                                 } else {
-                                                    TILE_IDLE_BG
+                                                    tile_idle_bg()
                                                 })
-                                                .hover_bg(TILE_IDLE_HOVER)
+                                                .hover_bg(tile_idle_hover())
                                                 .bd(
                                                     1.0,
                                                     if active {
                                                         tint_alpha(EMERALD, 190)
                                                     } else {
-                                                        BORDER_SUBTLE
+                                                        border_subtle()
                                                     },
                                                 )
                                                 .bevel_rounded(6.0, 1.3)
@@ -340,8 +340,8 @@ pub fn render_uix_mod_settings(
                                         .align_center()
                                         .p(10.0)
                                         .gap(10.0)
-                                        .bg(CARD_INNER_BG)
-                                        .bd(1.0, BORDER_SUBTLE)
+                                        .bg(card_inner_bg())
+                                        .bd(1.0, border_subtle())
                                         .bevel_rounded(7.0, 1.3);
                                     }
 
@@ -363,8 +363,8 @@ pub fn render_uix_mod_settings(
                                         let mut resp = ui
                                             .slider(&entry.display_name, &mut slider_v, min_f..=max_f)
                                             .fill(accent)
-                                            .bg(CARD_INNER_BG)
-                                            .bd(1.0, BORDER_SUBTLE)
+                                            .bg(card_inner_bg())
+                                            .bd(1.0, border_subtle())
                                             .bevel_rounded(7.0, 1.3)
                                             .w_frac(1.0);
                                         if resp.changed() {
@@ -424,7 +424,7 @@ pub fn render_uix_mod_settings(
                                             let submitted = ui
                                                 .input(&inp_id, buf)
                                                 .w(120.0)
-                                                .bg(TILE_IDLE_BG)
+                                                .bg(tile_idle_bg())
                                                 .fg(TEXT_PRIMARY)
                                                 .submitted();
 
@@ -459,8 +459,8 @@ pub fn render_uix_mod_settings(
                                         .align_center()
                                         .p(10.0)
                                         .gap(8.0)
-                                        .bg(CARD_INNER_BG)
-                                        .bd(1.0, BORDER_SUBTLE)
+                                        .bg(card_inner_bg())
+                                        .bd(1.0, border_subtle())
                                         .bevel_rounded(7.0, 1.3);
                                     }
 
@@ -495,7 +495,7 @@ pub fn render_uix_mod_settings(
                                                 let inp_id = format!("mm_uix_t_{full_key}");
                                                 let submitted = ui
                                                     .input(&inp_id, buf)
-                                                    .bg(TILE_IDLE_BG)
+                                                    .bg(tile_idle_bg())
                                                     .fg(TEXT_PRIMARY)
                                                     .grow(1.0)
                                                     .submitted();
@@ -530,8 +530,8 @@ pub fn render_uix_mod_settings(
                                         })
                                         .p(10.0)
                                         .gap(5.0)
-                                        .bg(CARD_INNER_BG)
-                                        .bd(1.0, BORDER_SUBTLE)
+                                        .bg(card_inner_bg())
+                                        .bd(1.0, border_subtle())
                                         .bevel_rounded(7.0, 1.3);
                                     }
 
@@ -575,15 +575,15 @@ pub fn render_uix_mod_settings(
                                                             .bg(if active {
                                                                 tint_alpha(accent, 52)
                                                             } else {
-                                                                TILE_IDLE_BG
+                                                                tile_idle_bg()
                                                             })
-                                                            .hover_bg(TILE_IDLE_HOVER)
+                                                            .hover_bg(tile_idle_hover())
                                                             .bd(
                                                                 1.0,
                                                                 if active {
                                                                     tint_alpha(accent, 195)
                                                                 } else {
-                                                                    BORDER_SUBTLE
+                                                                    border_subtle()
                                                                 },
                                                             )
                                                             .bevel_rounded(5.5, 1.3)
@@ -613,9 +613,9 @@ pub fn render_uix_mod_settings(
                                                         })
                                                         .px(10.0)
                                                         .py(5.5)
-                                                        .bg(TILE_IDLE_BG)
-                                                        .hover_bg(TILE_IDLE_HOVER)
-                                                        .bd(1.0, BORDER_SUBTLE)
+                                                        .bg(tile_idle_bg())
+                                                        .hover_bg(tile_idle_hover())
+                                                        .bd(1.0, border_subtle())
                                                         .bevel_rounded(5.5, 1.3)
                                                         .clicked()
                                                     {
@@ -635,7 +635,7 @@ pub fn render_uix_mod_settings(
                                                         .semibold()
                                                         .align(TextAlign::Center)
                                                         .fg(TEXT_PRIMARY)
-                                                        .bg(TILE_IDLE_BG)
+                                                        .bg(tile_idle_bg())
                                                         .bd(1.0, tint_alpha(accent, 140))
                                                         .px(10.0)
                                                         .py(5.5)
@@ -649,9 +649,9 @@ pub fn render_uix_mod_settings(
                                                         })
                                                         .px(10.0)
                                                         .py(5.5)
-                                                        .bg(TILE_IDLE_BG)
-                                                        .hover_bg(TILE_IDLE_HOVER)
-                                                        .bd(1.0, BORDER_SUBTLE)
+                                                        .bg(tile_idle_bg())
+                                                        .hover_bg(tile_idle_hover())
+                                                        .bd(1.0, border_subtle())
                                                         .bevel_rounded(5.5, 1.3)
                                                         .clicked()
                                                     {
@@ -670,8 +670,8 @@ pub fn render_uix_mod_settings(
                                         })
                                         .p(10.0)
                                         .gap(6.0)
-                                        .bg(CARD_INNER_BG)
-                                        .bd(1.0, BORDER_SUBTLE)
+                                        .bg(card_inner_bg())
+                                        .bd(1.0, border_subtle())
                                         .bevel_rounded(7.0, 1.3);
                                     }
 
@@ -705,8 +705,8 @@ pub fn render_uix_mod_settings(
                                                 })
                                                 .px(12.0)
                                                 .py(8.0)
-                                                .bg(TILE_IDLE_BG)
-                                                .hover_bg(TILE_IDLE_HOVER)
+                                                .bg(tile_idle_bg())
+                                                .hover_bg(tile_idle_hover())
                                                 .bd(1.0, tint_alpha(accent, 120))
                                                 .bevel_rounded(6.5, 1.3)
                                                 .clicked()
@@ -748,15 +748,15 @@ pub fn render_uix_mod_settings(
                                                     .bg(if active {
                                                         tint_alpha(EMERALD, 45)
                                                     } else {
-                                                        TILE_IDLE_BG
+                                                        tile_idle_bg()
                                                     })
-                                                    .hover_bg(TILE_IDLE_HOVER)
+                                                    .hover_bg(tile_idle_hover())
                                                     .bd(
                                                         1.0,
                                                         if active {
                                                             tint_alpha(EMERALD, 190)
                                                         } else {
-                                                            BORDER_SUBTLE
+                                                            border_subtle()
                                                         },
                                                     )
                                                     .bevel_rounded(6.0, 1.3)
@@ -773,8 +773,8 @@ pub fn render_uix_mod_settings(
                                             .align_center()
                                             .p(10.0)
                                             .gap(10.0)
-                                            .bg(CARD_INNER_BG)
-                                            .bd(1.0, BORDER_SUBTLE)
+                                            .bg(card_inner_bg())
+                                            .bd(1.0, border_subtle())
                                             .bevel_rounded(7.0, 1.3);
                                         }
                                         "label" => {
@@ -809,8 +809,8 @@ pub fn render_uix_mod_settings(
                 .h_frac(1.0)
                 .p(12.0)
                 .gap(9.0)
-                .bg(CARD_BG)
-                .bd(1.0, BORDER_SUBTLE)
+                .bg(card_bg())
+                .bd(1.0, border_subtle())
                 .bevel_rounded(10.5, 2.0)
                 .shadow(14.0, SHADOW_CARD);
             })

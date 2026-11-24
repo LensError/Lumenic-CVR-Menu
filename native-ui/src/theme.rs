@@ -1,24 +1,132 @@
+use std::cell::Cell;
+
 use lumenic::{Color, UiContext};
 
 use crate::state::{AppState, UiAction};
 
-// Shared Obsidian Slate design tokens across Main Menu, Quick Menu, and all views.
-pub const CARD_BG: Color = Color::rgba(15, 19, 28, 224);
-pub const CARD_INNER_BG: Color = Color::rgba(22, 28, 41, 215);
-pub const TILE_IDLE_BG: Color = Color::rgba(26, 33, 48, 225);
-pub const TILE_IDLE_HOVER: Color = Color::rgba(38, 48, 68, 240);
-pub const TILE_DISABLED_BG: Color = Color::rgba(20, 24, 34, 170);
-pub const BORDER_SUBTLE: Color = Color::rgba(148, 163, 184, 42);
-pub const SHADOW_CARD: Color = Color::rgba(0, 0, 0, 125);
+// Official ChilloutVR brand palette defaults (used when Colorize Menu is OFF).
+pub const CVR_ORANGE: Color = Color::rgb(228, 54, 0);    // #E43600
+pub const CVR_DARK: Color = Color::rgb(34, 34, 34);      // #222222
+pub const COD_GRAY: Color = Color::rgb(26, 26, 26);      // #1A1A1A
+pub const WHISKY_SOUR: Color = Color::rgb(240, 165, 48); // #F0A530
+pub const APPLE_GREEN: Color = Color::rgb(55, 189, 60);  // #37BD3C
 
-pub const TEXT_PRIMARY: Color = Color::rgb(241, 245, 249);
-pub const TEXT_MUTED: Color = Color::rgb(148, 163, 184);
-pub const TEXT_DIM: Color = Color::rgb(100, 116, 139);
+pub const CARD_BG: Color = Color::rgba(34, 34, 34, 232);
+pub const CARD_INNER_BG: Color = Color::rgba(26, 26, 26, 226);
+pub const TILE_IDLE_BG: Color = Color::rgba(42, 42, 42, 230);
+pub const TILE_IDLE_HOVER: Color = Color::rgba(56, 56, 56, 242);
+pub const TILE_DISABLED_BG: Color = Color::rgba(28, 28, 28, 175);
+pub const BORDER_SUBTLE: Color = Color::rgba(255, 255, 255, 32);
+pub const SHADOW_CARD: Color = Color::rgba(0, 0, 0, 135);
 
-pub const DEFAULT_ACCENT: Color = Color::rgb(56, 189, 248);
-pub const EMERALD: Color = Color::rgb(52, 211, 153);
-pub const AMBER: Color = Color::rgb(251, 191, 36);
+pub const TEXT_PRIMARY: Color = Color::rgb(255, 255, 255);
+pub const TEXT_MUTED: Color = Color::rgb(176, 176, 176);
+pub const TEXT_DIM: Color = Color::rgb(122, 122, 122);
+
+pub const DEFAULT_ACCENT: Color = CVR_ORANGE;
+pub const EMERALD: Color = APPLE_GREEN;
+pub const AMBER: Color = WHISKY_SOUR;
 pub const RED: Color = Color::rgb(239, 68, 68);
+
+#[derive(Clone, Copy)]
+pub struct PanelPalette {
+    pub card_bg: Color,
+    pub card_inner_bg: Color,
+    pub tile_idle_bg: Color,
+    pub tile_idle_hover: Color,
+    pub border_subtle: Color,
+}
+
+impl Default for PanelPalette {
+    fn default() -> Self {
+        Self {
+            card_bg: CARD_BG,
+            card_inner_bg: CARD_INNER_BG,
+            tile_idle_bg: TILE_IDLE_BG,
+            tile_idle_hover: TILE_IDLE_HOVER,
+            border_subtle: BORDER_SUBTLE,
+        }
+    }
+}
+
+thread_local! {
+    static ACTIVE_PALETTE: Cell<PanelPalette> = Cell::new(PanelPalette::default());
+}
+
+fn clamp_luma_rgb(r: f32, g: f32, b: f32, max_luma: f32) -> (f32, f32, f32) {
+    let luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    if luma <= max_luma || luma < 1.0 {
+        return (r, g, b);
+    }
+    let scale = max_luma / luma;
+    (r * scale, g * scale, b * scale)
+}
+
+fn mix_tinted(base: Color, tint: (f32, f32, f32), amount: f32) -> Color {
+    let inv = 1.0 - amount;
+    let r = (base.r as f32 * inv + tint.0 * amount).clamp(0.0, 255.0) as u8;
+    let g = (base.g as f32 * inv + tint.1 * amount).clamp(0.0, 255.0) as u8;
+    let b = (base.b as f32 * inv + tint.2 * amount).clamp(0.0, 255.0) as u8;
+    Color::rgba(r, g, b, base.a)
+}
+
+/// Computes the frame's panel palette from CVR's Colorize Menu setting and Primary player color.
+/// Keeps panel tinting dark and tame (never bright/neon) while matching OG menu semantics:
+/// Primary = subtle panel colorizing, Secondary = accent highlights.
+pub fn begin_frame(state: &AppState) {
+    let palette = if !state.host.colorize_menu {
+        PanelPalette::default()
+    } else {
+        let pr = state.host.accent_r as f32;
+        let pg = state.host.accent_g as f32;
+        let pb = state.host.accent_b as f32;
+        if pr.max(pg).max(pb) < 12.0 {
+            PanelPalette::default()
+        } else {
+            // Cap primary luminance so bright/white primaries remain dark and stylish on panels.
+            let tame = clamp_luma_rgb(pr, pg, pb, 118.0);
+            let border_tint = clamp_luma_rgb(pr, pg, pb, 185.0);
+            PanelPalette {
+                card_bg: mix_tinted(CARD_BG, tame, 0.20),
+                card_inner_bg: mix_tinted(CARD_INNER_BG, tame, 0.14),
+                tile_idle_bg: mix_tinted(TILE_IDLE_BG, tame, 0.16),
+                tile_idle_hover: mix_tinted(TILE_IDLE_HOVER, tame, 0.22),
+                border_subtle: Color::rgba(
+                    border_tint.0.clamp(0.0, 255.0) as u8,
+                    border_tint.1.clamp(0.0, 255.0) as u8,
+                    border_tint.2.clamp(0.0, 255.0) as u8,
+                    58,
+                ),
+            }
+        }
+    };
+    ACTIVE_PALETTE.with(|p| p.set(palette));
+}
+
+#[inline]
+pub fn card_bg() -> Color {
+    ACTIVE_PALETTE.with(|p| p.get().card_bg)
+}
+
+#[inline]
+pub fn card_inner_bg() -> Color {
+    ACTIVE_PALETTE.with(|p| p.get().card_inner_bg)
+}
+
+#[inline]
+pub fn tile_idle_bg() -> Color {
+    ACTIVE_PALETTE.with(|p| p.get().tile_idle_bg)
+}
+
+#[inline]
+pub fn tile_idle_hover() -> Color {
+    ACTIVE_PALETTE.with(|p| p.get().tile_idle_hover)
+}
+
+#[inline]
+pub fn border_subtle() -> Color {
+    ACTIVE_PALETTE.with(|p| p.get().border_subtle)
+}
 
 pub const BG_GLOW_FRAG: &str = r#"
 in vec2 v_uv;
@@ -109,20 +217,28 @@ void main() {
 "#;
 
 pub fn resolve_player_accent(state: &AppState) -> Color {
-    if !state.host.has_player_accent {
+    if !state.host.colorize_menu {
         return DEFAULT_ACCENT;
     }
-    let r = state.host.accent_r as f32;
-    let g = state.host.accent_g as f32;
-    let b = state.host.accent_b as f32;
+    // Match OG ChilloutVR menu: SecondaryColor drives accent highlights, falling back to Primary if Secondary is black.
+    let (mut r, mut g, mut b) = (
+        state.host.accent2_r as f32,
+        state.host.accent2_g as f32,
+        state.host.accent2_b as f32,
+    );
+    if r.max(g).max(b) < 16.0 {
+        r = state.host.accent_r as f32;
+        g = state.host.accent_g as f32;
+        b = state.host.accent_b as f32;
+    }
     if r.max(g).max(b) < 16.0 {
         return DEFAULT_ACCENT;
     }
     let luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-    if luma >= 110.0 {
-        return Color::rgb(state.host.accent_r, state.host.accent_g, state.host.accent_b);
+    if luma >= 100.0 {
+        return Color::rgb(r as u8, g as u8, b as u8);
     }
-    let lift = (110.0 - luma) / (255.0 - luma).max(1.0);
+    let lift = (100.0 - luma) / (255.0 - luma).max(1.0);
     let lr = (r + (255.0 - r) * lift * 0.65).clamp(0.0, 255.0) as u8;
     let lg = (g + (255.0 - g) * lift * 0.65).clamp(0.0, 255.0) as u8;
     let lb = (b + (255.0 - b) * lift * 0.65).clamp(0.0, 255.0) as u8;

@@ -114,6 +114,12 @@ internal sealed class UiLibBridge
     private readonly ConcurrentDictionary<string, string> _userBioCache = new ConcurrentDictionary<string, string>(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, byte> _userBioInFlight = new ConcurrentDictionary<string, byte>(StringComparer.Ordinal);
 
+    public void InvalidateBioCache(string userId)
+    {
+        if (!string.IsNullOrEmpty(userId))
+            _userBioCache.TryRemove(userId, out _);
+    }
+
     private string _activeTabId = TabHomeId;
     private string _toastText = string.Empty;
     private float _toastExpiresAt;

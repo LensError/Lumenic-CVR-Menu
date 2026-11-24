@@ -6,8 +6,8 @@ use crate::state::{
     UserDetailSnapshot,
 };
 use crate::theme::{
-    push_click, tint_alpha, AMBER, BORDER_SUBTLE, CARD_BG, CARD_INNER_BG, EMERALD, RED,
-    SHADOW_CARD, TEXT_DIM, TEXT_MUTED, TEXT_PRIMARY, TILE_IDLE_BG, TILE_IDLE_HOVER,
+    push_click, tint_alpha, AMBER, border_subtle, card_bg, card_inner_bg, EMERALD, RED,
+    SHADOW_CARD, TEXT_DIM, TEXT_MUTED, TEXT_PRIMARY, tile_idle_bg, tile_idle_hover,
 };
 
 /// Renders the Phase 3C Friends page (Online / All / Offline filter + search + quick actions).
@@ -60,7 +60,7 @@ pub fn render_friends_page(
                     } else {
                         "Search friends..."
                     })
-                    .bg(CARD_INNER_BG)
+                    .bg(card_inner_bg())
                     .fg(TEXT_PRIMARY)
                     .grow(1.0);
                 if state.host.is_vr && f_inp.clicked() {
@@ -109,15 +109,15 @@ pub fn render_friends_page(
                     .bg(if active {
                         tint_alpha(accent, 50)
                     } else {
-                        TILE_IDLE_BG
+                        tile_idle_bg()
                     })
-                    .hover_bg(TILE_IDLE_HOVER)
+                    .hover_bg(tile_idle_hover())
                     .bd(
                         1.0,
                         if active {
                             tint_alpha(accent, 195)
                         } else {
-                            BORDER_SUBTLE
+                            border_subtle()
                         },
                     )
                     .bevel_rounded(5.5, 1.3)
@@ -133,9 +133,9 @@ pub fn render_friends_page(
                     icons::icon(ui, icons::RELOAD, 14.0).fg(TEXT_PRIMARY);
                 })
                 .p(6.0)
-                .bg(TILE_IDLE_BG)
-                .hover_bg(TILE_IDLE_HOVER)
-                .bd(1.0, BORDER_SUBTLE)
+                .bg(tile_idle_bg())
+                .hover_bg(tile_idle_hover())
+                .bd(1.0, border_subtle())
                 .bevel_rounded(5.5, 1.3)
                 .clicked()
             {
@@ -147,8 +147,8 @@ pub fn render_friends_page(
         .px(12.0)
         .py(8.0)
         .gap(7.0)
-        .bg(CARD_BG)
-        .bd(1.0, BORDER_SUBTLE)
+        .bg(card_bg())
+        .bd(1.0, border_subtle())
         .bevel_rounded(10.0, 2.0)
         .shadow(14.0, SHADOW_CARD);
 
@@ -269,8 +269,8 @@ pub fn render_friends_page(
         .grow(1.0)
         .p(10.0)
         .gap(8.0)
-        .bg(CARD_BG)
-        .bd(1.0, BORDER_SUBTLE)
+        .bg(card_bg())
+        .bd(1.0, border_subtle())
         .bevel_rounded(10.5, 2.0)
         .shadow(14.0, SHADOW_CARD);
     })
@@ -362,8 +362,8 @@ fn render_recent_user_card(
                             })
                             .px(6.0)
                             .py(2.0)
-                            .bg(TILE_IDLE_BG)
-                            .bd(1.0, BORDER_SUBTLE)
+                            .bg(tile_idle_bg())
+                            .bd(1.0, border_subtle())
                             .bevel_rounded(4.0, 1.0);
                         }
 
@@ -411,9 +411,9 @@ fn render_recent_user_card(
         })
         .grow(1.0)
         .p(9.0)
-        .bg(CARD_INNER_BG)
-        .hover_bg(TILE_IDLE_HOVER)
-        .bd(1.0, BORDER_SUBTLE)
+        .bg(card_inner_bg())
+        .hover_bg(tile_idle_hover())
+        .bd(1.0, border_subtle())
         .bevel_rounded(8.5, 1.5)
         .clicked()
     {
@@ -499,7 +499,7 @@ fn render_friend_card(
             })
             .p(6.0)
             .bg(Color::TRANSPARENT)
-            .hover_bg(TILE_IDLE_HOVER)
+            .hover_bg(tile_idle_hover())
             .borderless()
             .bevel_rounded(6.0, 1.3)
             .clicked()
@@ -549,8 +549,8 @@ fn render_friend_card(
                     })
                     .grow(1.0)
                     .py(4.5)
-                    .bg(TILE_IDLE_BG)
-                    .hover_bg(TILE_IDLE_HOVER)
+                    .bg(tile_idle_bg())
+                    .hover_bg(tile_idle_hover())
                     .bd(1.0, tint_alpha(accent, 130))
                     .bevel_rounded(5.0, 1.3)
                     .clicked()
@@ -572,9 +572,9 @@ fn render_friend_card(
                     })
                     .grow(1.0)
                     .py(4.5)
-                    .bg(TILE_IDLE_BG)
-                    .hover_bg(TILE_IDLE_HOVER)
-                    .bd(1.0, BORDER_SUBTLE)
+                    .bg(tile_idle_bg())
+                    .hover_bg(tile_idle_hover())
+                    .bd(1.0, border_subtle())
                     .bevel_rounded(5.0, 1.3)
                     .clicked()
                 {
@@ -590,8 +590,8 @@ fn render_friend_card(
     .grow(1.0)
     .p(7.0)
     .gap(5.0)
-    .bg(CARD_INNER_BG)
-    .bd(1.0, BORDER_SUBTLE)
+    .bg(card_inner_bg())
+    .bd(1.0, border_subtle())
     .bevel_rounded(8.0, 1.3);
 }
 
@@ -644,9 +644,9 @@ pub fn render_current_instance_page(
                 })
                 .px(10.0)
                 .py(6.0)
-                .bg(TILE_IDLE_BG)
-                .hover_bg(TILE_IDLE_HOVER)
-                .bd(1.0, BORDER_SUBTLE)
+                .bg(tile_idle_bg())
+                .hover_bg(tile_idle_hover())
+                .bd(1.0, border_subtle())
                 .bevel_rounded(6.0, 1.3)
                 .clicked()
             {
@@ -699,8 +699,8 @@ pub fn render_current_instance_page(
         .px(12.0)
         .py(8.0)
         .gap(9.0)
-        .bg(CARD_BG)
-        .bd(1.0, BORDER_SUBTLE)
+        .bg(card_bg())
+        .bd(1.0, border_subtle())
         .bevel_rounded(10.0, 2.0)
         .shadow(14.0, SHADOW_CARD);
 
@@ -723,7 +723,7 @@ pub fn render_current_instance_page(
                                 } else if p.is_friend {
                                     tint_alpha(EMERALD, 160)
                                 } else {
-                                    BORDER_SUBTLE
+                                    border_subtle()
                                 };
                                 if ui
                                     .btn_with(&format!("mm_cip_{}", p.id), |ui| {
@@ -786,8 +786,8 @@ pub fn render_current_instance_page(
                                     })
                                     .grow(1.0)
                                     .p(10.0)
-                                    .bg(CARD_INNER_BG)
-                                    .hover_bg(TILE_IDLE_HOVER)
+                                    .bg(card_inner_bg())
+                                    .hover_bg(tile_idle_hover())
                                     .bd(1.0, bd_col)
                                     .bevel_rounded(8.0, 1.3)
                                     .clicked()
@@ -815,8 +815,8 @@ pub fn render_current_instance_page(
         .grow(1.0)
         .p(10.0)
         .gap(8.0)
-        .bg(CARD_BG)
-        .bd(1.0, BORDER_SUBTLE)
+        .bg(card_bg())
+        .bd(1.0, border_subtle())
         .bevel_rounded(10.5, 2.0)
         .shadow(14.0, SHADOW_CARD);
     })
@@ -864,15 +864,15 @@ pub fn render_messages_page(
                     .bg(if active {
                         tint_alpha(accent, 50)
                     } else {
-                        TILE_IDLE_BG
+                        tile_idle_bg()
                     })
-                    .hover_bg(TILE_IDLE_HOVER)
+                    .hover_bg(tile_idle_hover())
                     .bd(
                         1.0,
                         if active {
                             tint_alpha(accent, 195)
                         } else {
-                            BORDER_SUBTLE
+                            border_subtle()
                         },
                     )
                     .bevel_rounded(5.5, 1.3)
@@ -887,8 +887,8 @@ pub fn render_messages_page(
         .px(12.0)
         .py(8.0)
         .gap(7.0)
-        .bg(CARD_BG)
-        .bd(1.0, BORDER_SUBTLE)
+        .bg(card_bg())
+        .bd(1.0, border_subtle())
         .bevel_rounded(10.0, 2.0)
         .shadow(14.0, SHADOW_CARD);
 
@@ -961,10 +961,10 @@ pub fn render_messages_page(
                                         } else if btn.is_decline {
                                             tint_alpha(RED, 52)
                                         } else {
-                                            TILE_IDLE_BG
+                                            tile_idle_bg()
                                         })
-                                        .hover_bg(TILE_IDLE_HOVER)
-                                        .bd(1.0, BORDER_SUBTLE)
+                                        .hover_bg(tile_idle_hover())
+                                        .bd(1.0, border_subtle())
                                         .bevel_rounded(5.5, 1.3)
                                         .clicked()
                                     {
@@ -997,8 +997,8 @@ pub fn render_messages_page(
                         .align_center()
                         .p(11.0)
                         .gap(10.0)
-                        .bg(CARD_INNER_BG)
-                        .bd(1.0, BORDER_SUBTLE)
+                        .bg(card_inner_bg())
+                        .bd(1.0, border_subtle())
                         .bevel_rounded(8.0, 1.3);
                     }
                 })
@@ -1010,8 +1010,8 @@ pub fn render_messages_page(
         .grow(1.0)
         .p(10.0)
         .gap(8.0)
-        .bg(CARD_BG)
-        .bd(1.0, BORDER_SUBTLE)
+        .bg(card_bg())
+        .bd(1.0, border_subtle())
         .bevel_rounded(10.5, 2.0)
         .shadow(14.0, SHADOW_CARD);
     })
@@ -1045,9 +1045,9 @@ pub fn render_user_detail_view(
                 })
                 .px(11.0)
                 .py(6.0)
-                .bg(TILE_IDLE_BG)
-                .hover_bg(TILE_IDLE_HOVER)
-                .bd(1.0, BORDER_SUBTLE)
+                .bg(tile_idle_bg())
+                .hover_bg(tile_idle_hover())
+                .bd(1.0, border_subtle())
                 .bevel_rounded(6.0, 1.3)
                 .clicked()
             {
@@ -1105,15 +1105,15 @@ pub fn render_user_detail_view(
                     .bg(if active {
                         tint_alpha(accent, 48)
                     } else {
-                        TILE_IDLE_BG
+                        tile_idle_bg()
                     })
-                    .hover_bg(TILE_IDLE_HOVER)
+                    .hover_bg(tile_idle_hover())
                     .bd(
                         1.0,
                         if active {
                             tint_alpha(accent, 195)
                         } else {
-                            BORDER_SUBTLE
+                            border_subtle()
                         },
                     )
                     .bevel_rounded(5.5, 1.3)
@@ -1128,8 +1128,8 @@ pub fn render_user_detail_view(
         .px(12.0)
         .py(8.0)
         .gap(8.0)
-        .bg(CARD_BG)
-        .bd(1.0, BORDER_SUBTLE)
+        .bg(card_bg())
+        .bd(1.0, border_subtle())
         .bevel_rounded(10.0, 2.0)
         .shadow(14.0, SHADOW_CARD);
 
@@ -1144,8 +1144,8 @@ pub fn render_user_detail_view(
             .center()
             .grow(1.0)
             .gap(8.0)
-            .bg(CARD_BG)
-            .bd(1.0, BORDER_SUBTLE)
+            .bg(card_bg())
+            .bd(1.0, border_subtle())
             .bevel_rounded(10.5, 2.0)
             .shadow(14.0, SHADOW_CARD);
         } else if !detail.error.is_empty() {
@@ -1155,8 +1155,8 @@ pub fn render_user_detail_view(
             .center()
             .grow(1.0)
             .p(16.0)
-            .bg(CARD_BG)
-            .bd(1.0, BORDER_SUBTLE)
+            .bg(card_bg())
+            .bd(1.0, border_subtle())
             .bevel_rounded(10.5, 2.0)
             .shadow(14.0, SHADOW_CARD);
         } else if state.main_menu.user_detail_tab == 1 {
@@ -1183,7 +1183,7 @@ pub fn render_user_detail_view(
                                     let bd_col = if b.featured {
                                         tint_alpha(accent, 195)
                                     } else {
-                                        BORDER_SUBTLE
+                                        border_subtle()
                                     };
                                     ui.row(|ui| {
                                         if let Some(tex) = state.main_textures.get(&b.image_key) {
@@ -1200,7 +1200,7 @@ pub fn render_user_detail_view(
                                             .w(44.0)
                                             .h(44.0)
                                             .bg(tint_alpha(accent, 28))
-                                            .bd(1.0, BORDER_SUBTLE)
+                                            .bd(1.0, border_subtle())
                                             .bevel_rounded(6.0, 1.3);
                                         }
 
@@ -1257,15 +1257,15 @@ pub fn render_user_detail_view(
                                                 .px(10.0)
                                                 .py(5.5)
                                                 .bg(if b.featured {
-                                                    TILE_IDLE_BG
+                                                    tile_idle_bg()
                                                 } else {
                                                     tint_alpha(accent, 48)
                                                 })
-                                                .hover_bg(TILE_IDLE_HOVER)
+                                                .hover_bg(tile_idle_hover())
                                                 .bd(
                                                     1.0,
                                                     if b.featured {
-                                                        BORDER_SUBTLE
+                                                        border_subtle()
                                                     } else {
                                                         tint_alpha(accent, 180)
                                                     },
@@ -1285,7 +1285,7 @@ pub fn render_user_detail_view(
                                     .grow(1.0)
                                     .p(10.0)
                                     .gap(10.0)
-                                    .bg(CARD_INNER_BG)
+                                    .bg(card_inner_bg())
                                     .bd(1.0, bd_col)
                                     .bevel_rounded(8.0, 1.3);
                                 }
@@ -1304,8 +1304,8 @@ pub fn render_user_detail_view(
             .grow(1.0)
             .p(10.0)
             .gap(8.0)
-            .bg(CARD_BG)
-            .bd(1.0, BORDER_SUBTLE)
+            .bg(card_bg())
+            .bd(1.0, border_subtle())
             .bevel_rounded(10.5, 2.0)
             .shadow(14.0, SHADOW_CARD);
         } else if state.main_menu.user_detail_tab == 2 {
@@ -1332,7 +1332,7 @@ pub fn render_user_detail_view(
                                     let bd_col = if g.is_featured {
                                         tint_alpha(accent, 195)
                                     } else {
-                                        BORDER_SUBTLE
+                                        border_subtle()
                                     };
                                     ui.row(|ui| {
                                         if let Some(tex) = state.main_textures.get(&g.image_key) {
@@ -1349,7 +1349,7 @@ pub fn render_user_detail_view(
                                             .w(44.0)
                                             .h(44.0)
                                             .bg(tint_alpha(accent, 28))
-                                            .bd(1.0, BORDER_SUBTLE)
+                                            .bd(1.0, border_subtle())
                                             .bevel_rounded(6.0, 1.3);
                                         }
 
@@ -1410,7 +1410,7 @@ pub fn render_user_detail_view(
                                                         .px(9.0)
                                                         .py(5.5)
                                                         .bg(tint_alpha(accent, 48))
-                                                        .hover_bg(TILE_IDLE_HOVER)
+                                                        .hover_bg(tile_idle_hover())
                                                         .bd(1.0, tint_alpha(accent, 180))
                                                         .bevel_rounded(5.5, 1.3)
                                                         .clicked()
@@ -1439,15 +1439,15 @@ pub fn render_user_detail_view(
                                                     .bg(if detail.is_local && g.is_owner {
                                                         tint_alpha(EMERALD, 45)
                                                     } else {
-                                                        TILE_IDLE_BG
+                                                        tile_idle_bg()
                                                     })
-                                                    .hover_bg(TILE_IDLE_HOVER)
+                                                    .hover_bg(tile_idle_hover())
                                                     .bd(
                                                         1.0,
                                                         if detail.is_local && g.is_owner {
                                                             tint_alpha(EMERALD, 180)
                                                         } else {
-                                                            BORDER_SUBTLE
+                                                            border_subtle()
                                                         },
                                                     )
                                                     .bevel_rounded(5.5, 1.3)
@@ -1469,7 +1469,7 @@ pub fn render_user_detail_view(
                                     .grow(1.0)
                                     .p(10.0)
                                     .gap(10.0)
-                                    .bg(CARD_INNER_BG)
+                                    .bg(card_inner_bg())
                                     .bd(1.0, bd_col)
                                     .bevel_rounded(8.0, 1.3);
                                 }
@@ -1488,8 +1488,8 @@ pub fn render_user_detail_view(
             .grow(1.0)
             .p(10.0)
             .gap(8.0)
-            .bg(CARD_BG)
-            .bd(1.0, BORDER_SUBTLE)
+            .bg(card_bg())
+            .bd(1.0, border_subtle())
             .bevel_rounded(10.5, 2.0)
             .shadow(14.0, SHADOW_CARD);
         } else {
@@ -1523,8 +1523,8 @@ pub fn render_user_detail_view(
                     .w(232.0)
                     .p(10.0)
                     .gap(7.0)
-                    .bg(CARD_BG)
-                    .bd(1.0, BORDER_SUBTLE)
+                    .bg(card_bg())
+                    .bd(1.0, border_subtle())
                     .bevel_rounded(10.5, 2.0)
                     .shadow(14.0, SHADOW_CARD);
                 }
@@ -1577,7 +1577,93 @@ pub fn render_user_detail_view(
                         }
 
                         ui.col(|ui| {
-                            ui.txt(&detail.name).sz(18.0).bold().fg(TEXT_PRIMARY);
+                            ui.row(|ui| {
+                                ui.txt(&detail.name)
+                                    .sz(18.0)
+                                    .bold()
+                                    .fg(TEXT_PRIMARY)
+                                    .ellipsis()
+                                    .grow(1.0);
+
+                                if detail.is_local {
+                                    if ui
+                                        .btn_with("mm_ud_open_colors", |ui| {
+                                            ui.row(|ui| {
+                                                icons::icon(ui, icons::STAR, 12.0).fg(accent);
+                                                ui.txt("Colors")
+                                                    .sz(10.5)
+                                                    .semibold()
+                                                    .fg(TEXT_PRIMARY);
+                                            })
+                                            .center()
+                                            .gap(4.0);
+                                        })
+                                        .px(8.0)
+                                        .py(4.0)
+                                        .bg(tile_idle_bg())
+                                        .hover_bg(tile_idle_hover())
+                                        .bd(1.0, tint_alpha(accent, 140))
+                                        .bevel_rounded(5.5, 1.3)
+                                        .clicked()
+                                    {
+                                        push_click(actions);
+                                        crate::main_menu::push_nav_history(state);
+                                        state.main_menu.settings_tab = 1;
+                                        state.main_menu.active_tab = String::from("settings");
+                                        crate::main_menu::close_all_detail_overlays(actions);
+                                    }
+
+                                    let edit_lbl = if state.main_menu.profile_editing {
+                                        "Done"
+                                    } else {
+                                        "Edit Profile"
+                                    };
+                                    if ui
+                                        .btn_with("mm_ud_edit_profile", |ui| {
+                                            ui.txt(edit_lbl)
+                                                .sz(10.5)
+                                                .semibold()
+                                                .fg(TEXT_PRIMARY);
+                                        })
+                                        .px(8.0)
+                                        .py(4.0)
+                                        .bg(if state.main_menu.profile_editing {
+                                            tint_alpha(accent, 55)
+                                        } else {
+                                            tile_idle_bg()
+                                        })
+                                        .hover_bg(tile_idle_hover())
+                                        .bd(
+                                            1.0,
+                                            if state.main_menu.profile_editing {
+                                                accent
+                                            } else {
+                                                border_subtle()
+                                            },
+                                        )
+                                        .bevel_rounded(5.5, 1.3)
+                                        .clicked()
+                                    {
+                                        push_click(actions);
+                                        state.main_menu.profile_editing =
+                                            !state.main_menu.profile_editing;
+                                        if state.main_menu.profile_editing {
+                                            state.main_menu.profile_edit_user_id =
+                                                detail.id.clone();
+                                            state
+                                                .main_menu
+                                                .profile_pronouns_input
+                                                .set_text(&detail.pronouns);
+                                            state
+                                                .main_menu
+                                                .profile_bio_input
+                                                .set_text(&detail.bio);
+                                        }
+                                    }
+                                }
+                            })
+                            .align_center()
+                            .gap(6.0);
                             if !detail.pronouns.is_empty() {
                                 ui.txt(&detail.pronouns).sz(11.0).fg(TEXT_MUTED);
                             }
@@ -1630,21 +1716,148 @@ pub fn render_user_detail_view(
                     .align_center()
                     .gap(12.0);
 
-                    ui.txt("Bio").sz(11.0).semibold().fg(TEXT_MUTED);
-                    ui.scroll("mm_ud_bio_scroll", |ui| {
-                        let bio = if detail.bio.trim().is_empty() {
-                            "No bio set."
-                        } else {
-                            &detail.bio
-                        };
-                        ui.txt(bio).sz(12.0).fg(TEXT_PRIMARY).wrap();
-                    })
-                    .grow(1.0)
-                    .p(9.0)
-                    .bg(CARD_INNER_BG)
-                    .bd(1.0, BORDER_SUBTLE)
-                    .bevel_rounded(7.0, 1.3)
-                    .no_scrollbar();
+                    if detail.is_local && state.main_menu.profile_editing {
+                        if state.main_menu.profile_edit_user_id != detail.id {
+                            state.main_menu.profile_edit_user_id = detail.id.clone();
+                            state
+                                .main_menu
+                                .profile_pronouns_input
+                                .set_text(&detail.pronouns);
+                            state.main_menu.profile_bio_input.set_text(&detail.bio);
+                        }
+
+                        ui.row(|ui| {
+                            ui.txt("Pronouns (max 32)")
+                                .sz(11.0)
+                                .semibold()
+                                .fg(TEXT_MUTED)
+                                .grow(1.0);
+                            if !detail.profile_status.is_empty() {
+                                ui.txt(&detail.profile_status)
+                                    .sz(10.0)
+                                    .semibold()
+                                    .fg(if detail.profile_status == "Saved" {
+                                        EMERALD
+                                    } else {
+                                        AMBER
+                                    });
+                            }
+                        })
+                        .align_center();
+
+                        let mut pron_inp = ui
+                            .input("mm_prof_pronouns", &mut state.main_menu.profile_pronouns_input)
+                            .placeholder("e.g. they/them, he/him, she/her...")
+                            .bg(card_inner_bg())
+                            .fg(TEXT_PRIMARY)
+                            .w_frac(1.0);
+                        if state.host.is_vr && pron_inp.clicked() {
+                            actions.push(UiAction::OpenVirtualKeyboard {
+                                surface_id: 0,
+                                field_id: String::from("mm_prof_pronouns"),
+                                initial_text: state.main_menu.profile_pronouns_input.text(),
+                                title: String::from("Editing Your Pronouns"),
+                                placeholder: String::from("Pronouns (max 32)..."),
+                                max_len: 32,
+                                hidden: false,
+                            });
+                        }
+
+                        ui.txt("Bio (max 512)")
+                            .sz(11.0)
+                            .semibold()
+                            .fg(TEXT_MUTED);
+
+                        let mut bio_inp = ui
+                            .input("mm_prof_bio", &mut state.main_menu.profile_bio_input)
+                            .placeholder("Write something about yourself...")
+                            .bg(card_inner_bg())
+                            .fg(TEXT_PRIMARY)
+                            .w_frac(1.0);
+                        if state.host.is_vr && bio_inp.clicked() {
+                            actions.push(UiAction::OpenVirtualKeyboard {
+                                surface_id: 0,
+                                field_id: String::from("mm_prof_bio"),
+                                initial_text: state.main_menu.profile_bio_input.text(),
+                                title: String::from("Editing Your Bio"),
+                                placeholder: String::from("Bio (max 512)..."),
+                                max_len: 512,
+                                hidden: false,
+                            });
+                        }
+
+                        ui.row(|ui| {
+                            let save_lbl = if detail.profile_saving {
+                                "Saving..."
+                            } else {
+                                "Save Profile"
+                            };
+                            if ui
+                                .btn_with("mm_prof_save", |ui| {
+                                    ui.txt(save_lbl)
+                                        .sz(11.0)
+                                        .bold()
+                                        .align(TextAlign::Center)
+                                        .fg(TEXT_PRIMARY)
+                                        .grow(1.0);
+                                })
+                                .grow(1.0)
+                                .py(6.5)
+                                .bg(tint_alpha(accent, 55))
+                                .hover_bg(tint_alpha(accent, 88))
+                                .bd(1.0, accent)
+                                .bevel_rounded(6.0, 1.3)
+                                .clicked()
+                                && !detail.profile_saving
+                            {
+                                push_click(actions);
+                                actions.push(UiAction::SocialUpdateOwnProfile {
+                                    pronouns: state.main_menu.profile_pronouns_input.text(),
+                                    bio: state.main_menu.profile_bio_input.text(),
+                                    update_pronouns: true,
+                                    update_bio: true,
+                                });
+                            }
+
+                            if ui
+                                .btn_with("mm_prof_cancel", |ui| {
+                                    ui.txt("Cancel")
+                                        .sz(11.0)
+                                        .semibold()
+                                        .align(TextAlign::Center)
+                                        .fg(TEXT_MUTED)
+                                        .grow(1.0);
+                                })
+                                .px(12.0)
+                                .py(6.5)
+                                .bg(tile_idle_bg())
+                                .hover_bg(tile_idle_hover())
+                                .bd(1.0, border_subtle())
+                                .bevel_rounded(6.0, 1.3)
+                                .clicked()
+                            {
+                                push_click(actions);
+                                state.main_menu.profile_editing = false;
+                            }
+                        })
+                        .gap(6.0);
+                    } else {
+                        ui.txt("Bio").sz(11.0).semibold().fg(TEXT_MUTED);
+                        ui.scroll("mm_ud_bio_scroll", |ui| {
+                            let bio = if detail.bio.trim().is_empty() {
+                                "No bio set."
+                            } else {
+                                &detail.bio
+                            };
+                            ui.txt(bio).sz(12.0).fg(TEXT_PRIMARY).wrap();
+                        })
+                        .grow(1.0)
+                        .p(9.0)
+                        .bg(card_inner_bg())
+                        .bd(1.0, border_subtle())
+                        .bevel_rounded(7.0, 1.3)
+                        .no_scrollbar();
+                    }
 
                     // Friend Note (below Bio)
                     if !detail.is_local {
@@ -1674,7 +1887,7 @@ pub fn render_user_detail_view(
                                 let mut n_inp = ui
                                     .input("mm_ud_note_input", &mut state.main_menu.user_note_input)
                                     .placeholder("Add a private note about this friend...")
-                                    .bg(CARD_INNER_BG)
+                                    .bg(card_inner_bg())
                                     .fg(TEXT_PRIMARY)
                                     .grow(1.0);
                                 if state.host.is_vr && n_inp.clicked() {
@@ -1728,8 +1941,8 @@ pub fn render_user_detail_view(
                                     .grow(1.0);
                             })
                             .p(8.0)
-                            .bg(CARD_INNER_BG)
-                            .bd(1.0, BORDER_SUBTLE)
+                            .bg(card_inner_bg())
+                            .bd(1.0, border_subtle())
                             .bevel_rounded(7.0, 1.3);
                         }
                     }
@@ -1738,8 +1951,8 @@ pub fn render_user_detail_view(
                 .h_frac(1.0)
                 .p(12.0)
                 .gap(9.0)
-                .bg(CARD_BG)
-                .bd(1.0, BORDER_SUBTLE)
+                .bg(card_bg())
+                .bd(1.0, border_subtle())
                 .bevel_rounded(10.5, 2.0)
                 .shadow(14.0, SHADOW_CARD);
 
@@ -1819,8 +2032,8 @@ pub fn render_user_detail_view(
                                     })
                                     .w_frac(1.0)
                                     .p(6.5)
-                                    .bg(TILE_IDLE_BG)
-                                    .hover_bg(TILE_IDLE_HOVER)
+                                    .bg(tile_idle_bg())
+                                    .hover_bg(tile_idle_hover())
                                     .bd(1.0, tint_alpha(accent, 120))
                                     .bevel_rounded(6.5, 1.3)
                                     .clicked()
@@ -1868,8 +2081,8 @@ pub fn render_user_detail_view(
                     })
                     .p(11.0)
                     .gap(6.0)
-                    .bg(CARD_BG)
-                    .bd(1.0, BORDER_SUBTLE)
+                    .bg(card_bg())
+                    .bd(1.0, border_subtle())
                     .bevel_rounded(10.5, 2.0)
                     .shadow(14.0, SHADOW_CARD);
 
@@ -1904,8 +2117,8 @@ pub fn render_user_detail_view(
                                     })
                                     .grow(1.0)
                                     .py(8.0)
-                                    .bg(TILE_IDLE_BG)
-                                    .hover_bg(TILE_IDLE_HOVER)
+                                    .bg(tile_idle_bg())
+                                    .hover_bg(tile_idle_hover())
                                     .bd(1.0, tint_alpha(accent, 150))
                                     .bevel_rounded(6.5, 1.3)
                                     .clicked()
@@ -1932,9 +2145,9 @@ pub fn render_user_detail_view(
                                     })
                                     .grow(1.0)
                                     .py(8.0)
-                                    .bg(TILE_IDLE_BG)
-                                    .hover_bg(TILE_IDLE_HOVER)
-                                    .bd(1.0, BORDER_SUBTLE)
+                                    .bg(tile_idle_bg())
+                                    .hover_bg(tile_idle_hover())
+                                    .bd(1.0, border_subtle())
                                     .bevel_rounded(6.5, 1.3)
                                     .clicked()
                                 {
@@ -1947,8 +2160,8 @@ pub fn render_user_detail_view(
                         .grow(1.0)
                         .p(11.0)
                         .gap(8.0)
-                        .bg(CARD_BG)
-                        .bd(1.0, BORDER_SUBTLE)
+                        .bg(card_bg())
+                        .bd(1.0, border_subtle())
                         .bevel_rounded(10.5, 2.0)
                         .shadow(14.0, SHADOW_CARD);
                     } else {
@@ -1967,8 +2180,8 @@ pub fn render_user_detail_view(
                                     })
                                     .grow(1.0)
                                     .py(8.0)
-                                    .bg(TILE_IDLE_BG)
-                                    .hover_bg(TILE_IDLE_HOVER)
+                                    .bg(tile_idle_bg())
+                                    .hover_bg(tile_idle_hover())
                                     .bd(1.0, tint_alpha(accent, 150))
                                     .bevel_rounded(6.5, 1.3)
                                     .clicked()
@@ -1990,9 +2203,9 @@ pub fn render_user_detail_view(
                                     })
                                     .grow(1.0)
                                     .py(8.0)
-                                    .bg(TILE_IDLE_BG)
-                                    .hover_bg(TILE_IDLE_HOVER)
-                                    .bd(1.0, BORDER_SUBTLE)
+                                    .bg(tile_idle_bg())
+                                    .hover_bg(tile_idle_hover())
+                                    .bd(1.0, border_subtle())
                                     .bevel_rounded(6.5, 1.3)
                                     .clicked()
                                 {
@@ -2019,7 +2232,7 @@ pub fn render_user_detail_view(
                                         })
                                         .grow(1.0)
                                         .py(7.0)
-                                        .bg(if unfriend_armed { tint_alpha(AMBER, 75) } else { TILE_IDLE_BG })
+                                        .bg(if unfriend_armed { tint_alpha(AMBER, 75) } else { tile_idle_bg() })
                                         .hover_bg(tint_alpha(AMBER, 95))
                                         .bd(1.0, tint_alpha(AMBER, 165))
                                         .bevel_rounded(6.5, 1.3)
@@ -2082,7 +2295,7 @@ pub fn render_user_detail_view(
                                     .bg(if detail.is_blocked || block_armed {
                                         tint_alpha(RED, 72)
                                     } else {
-                                        TILE_IDLE_BG
+                                        tile_idle_bg()
                                     })
                                     .hover_bg(tint_alpha(RED, 95))
                                     .bd(1.0, tint_alpha(RED, 165))
@@ -2131,9 +2344,9 @@ pub fn render_user_detail_view(
                                     })
                                     .px(9.0)
                                     .py(5.5)
-                                    .bg(if detail.is_muted { tint_alpha(RED, 52) } else { TILE_IDLE_BG })
-                                    .hover_bg(TILE_IDLE_HOVER)
-                                    .bd(1.0, if detail.is_muted { tint_alpha(RED, 180) } else { BORDER_SUBTLE })
+                                    .bg(if detail.is_muted { tint_alpha(RED, 52) } else { tile_idle_bg() })
+                                    .hover_bg(tile_idle_hover())
+                                    .bd(1.0, if detail.is_muted { tint_alpha(RED, 180) } else { border_subtle() })
                                     .bevel_rounded(5.5, 1.3)
                                     .clicked()
                                 {
@@ -2164,8 +2377,8 @@ pub fn render_user_detail_view(
                                         0.0..=200.0,
                                     )
                                     .fill(accent)
-                                    .bg(CARD_INNER_BG)
-                                    .bd(1.0, BORDER_SUBTLE)
+                                    .bg(card_inner_bg())
+                                    .bd(1.0, border_subtle())
                                     .bevel_rounded(5.5, 1.3)
                                     .grow(1.0)
                                     .changed()
@@ -2201,9 +2414,9 @@ pub fn render_user_detail_view(
                                         })
                                         .grow(1.0)
                                         .py(4.5)
-                                        .bg(if active { tint_alpha(accent, 50) } else { TILE_IDLE_BG })
-                                        .hover_bg(TILE_IDLE_HOVER)
-                                        .bd(1.0, if active { tint_alpha(accent, 185) } else { BORDER_SUBTLE })
+                                        .bg(if active { tint_alpha(accent, 50) } else { tile_idle_bg() })
+                                        .hover_bg(tile_idle_hover())
+                                        .bd(1.0, if active { tint_alpha(accent, 185) } else { border_subtle() })
                                         .bevel_rounded(5.0, 1.3)
                                         .clicked()
                                     {
@@ -2234,9 +2447,9 @@ pub fn render_user_detail_view(
                                         })
                                         .grow(1.0)
                                         .py(4.5)
-                                        .bg(if active { tint_alpha(accent, 50) } else { TILE_IDLE_BG })
-                                        .hover_bg(TILE_IDLE_HOVER)
-                                        .bd(1.0, if active { tint_alpha(accent, 185) } else { BORDER_SUBTLE })
+                                        .bg(if active { tint_alpha(accent, 50) } else { tile_idle_bg() })
+                                        .hover_bg(tile_idle_hover())
+                                        .bd(1.0, if active { tint_alpha(accent, 185) } else { border_subtle() })
                                         .bevel_rounded(5.0, 1.3)
                                         .clicked()
                                     {
@@ -2264,9 +2477,9 @@ pub fn render_user_detail_view(
                                     })
                                     .grow(1.0)
                                     .py(6.0)
-                                    .bg(TILE_IDLE_BG)
-                                    .hover_bg(TILE_IDLE_HOVER)
-                                    .bd(1.0, BORDER_SUBTLE)
+                                    .bg(tile_idle_bg())
+                                    .hover_bg(tile_idle_hover())
+                                    .bd(1.0, border_subtle())
                                     .bevel_rounded(5.5, 1.3)
                                     .clicked()
                                 {
@@ -2288,7 +2501,7 @@ pub fn render_user_detail_view(
                                     })
                                     .grow(1.0)
                                     .py(6.0)
-                                    .bg(if kick_armed { tint_alpha(RED, 75) } else { TILE_IDLE_BG })
+                                    .bg(if kick_armed { tint_alpha(RED, 75) } else { tile_idle_bg() })
                                     .hover_bg(tint_alpha(RED, 95))
                                     .bd(1.0, tint_alpha(RED, 155))
                                     .bevel_rounded(5.5, 1.3)
@@ -2310,8 +2523,8 @@ pub fn render_user_detail_view(
                         .grow(1.0)
                         .p(11.0)
                         .gap(8.0)
-                        .bg(CARD_BG)
-                        .bd(1.0, BORDER_SUBTLE)
+                        .bg(card_bg())
+                        .bd(1.0, border_subtle())
                         .bevel_rounded(10.5, 2.0)
                         .shadow(14.0, SHADOW_CARD);
                     }
@@ -2356,9 +2569,9 @@ pub fn render_group_detail_view(
                 })
                 .px(11.0)
                 .py(6.0)
-                .bg(TILE_IDLE_BG)
-                .hover_bg(TILE_IDLE_HOVER)
-                .bd(1.0, BORDER_SUBTLE)
+                .bg(tile_idle_bg())
+                .hover_bg(tile_idle_hover())
+                .bd(1.0, border_subtle())
                 .bevel_rounded(6.0, 1.3)
                 .clicked()
             {
@@ -2456,7 +2669,7 @@ pub fn render_group_detail_view(
                     })
                     .px(10.0)
                     .py(5.5)
-                    .bg(if leave_armed { tint_alpha(AMBER, 72) } else { TILE_IDLE_BG })
+                    .bg(if leave_armed { tint_alpha(AMBER, 72) } else { tile_idle_bg() })
                     .hover_bg(tint_alpha(AMBER, 95))
                     .bd(1.0, tint_alpha(AMBER, 175))
                     .bevel_rounded(5.5, 1.3)
@@ -2486,7 +2699,7 @@ pub fn render_group_detail_view(
                     })
                     .px(10.0)
                     .py(5.5)
-                    .bg(if del_armed { tint_alpha(RED, 75) } else { TILE_IDLE_BG })
+                    .bg(if del_armed { tint_alpha(RED, 75) } else { tile_idle_bg() })
                     .hover_bg(tint_alpha(RED, 95))
                     .bd(1.0, tint_alpha(RED, 175))
                     .bevel_rounded(5.5, 1.3)
@@ -2509,8 +2722,8 @@ pub fn render_group_detail_view(
         .px(12.0)
         .py(8.0)
         .gap(8.0)
-        .bg(CARD_BG)
-        .bd(1.0, BORDER_SUBTLE)
+        .bg(card_bg())
+        .bd(1.0, border_subtle())
         .bevel_rounded(10.0, 2.0)
         .shadow(14.0, SHADOW_CARD);
 
@@ -2525,8 +2738,8 @@ pub fn render_group_detail_view(
             .center()
             .grow(1.0)
             .gap(8.0)
-            .bg(CARD_BG)
-            .bd(1.0, BORDER_SUBTLE)
+            .bg(card_bg())
+            .bd(1.0, border_subtle())
             .bevel_rounded(10.5, 2.0)
             .shadow(14.0, SHADOW_CARD);
         } else {
@@ -2566,7 +2779,7 @@ pub fn render_group_detail_view(
                             let mut name_inp = ui
                                 .input("mm_grp_name_input", &mut state.main_menu.group_name_input)
                                 .placeholder("Group name...")
-                                .bg(CARD_INNER_BG)
+                                .bg(card_inner_bg())
                                 .fg(TEXT_PRIMARY)
                                 .grow(1.0);
                             if state.host.is_vr && name_inp.clicked() {
@@ -2617,7 +2830,7 @@ pub fn render_group_detail_view(
                         let mut desc_inp = ui
                             .input("mm_grp_desc_input", &mut state.main_menu.group_desc_input)
                             .placeholder("Group description...")
-                            .bg(CARD_INNER_BG)
+                            .bg(card_inner_bg())
                             .fg(TEXT_PRIMARY)
                             .w_frac(1.0);
                         if state.host.is_vr && desc_inp.clicked() {
@@ -2678,8 +2891,8 @@ pub fn render_group_detail_view(
                         })
                         .grow(1.0)
                         .p(9.0)
-                        .bg(CARD_INNER_BG)
-                        .bd(1.0, BORDER_SUBTLE)
+                        .bg(card_inner_bg())
+                        .bd(1.0, border_subtle())
                         .bevel_rounded(7.0, 1.3)
                         .no_scrollbar();
                     }
@@ -2688,8 +2901,8 @@ pub fn render_group_detail_view(
                 .h_frac(1.0)
                 .p(12.0)
                 .gap(8.0)
-                .bg(CARD_BG)
-                .bd(1.0, BORDER_SUBTLE)
+                .bg(card_bg())
+                .bd(1.0, border_subtle())
                 .bevel_rounded(10.5, 2.0)
                 .shadow(14.0, SHADOW_CARD);
 
@@ -2767,7 +2980,7 @@ pub fn render_group_detail_view(
                                         .grow(1.0)
                                         .p(4.0)
                                         .bg(Color::TRANSPARENT)
-                                        .hover_bg(TILE_IDLE_HOVER)
+                                        .hover_bg(tile_idle_hover())
                                         .borderless()
                                         .bevel_rounded(6.0, 1.3)
                                         .clicked()
@@ -2794,7 +3007,7 @@ pub fn render_group_detail_view(
                                             })
                                             .px(9.0)
                                             .py(5.0)
-                                            .bg(if armed { tint_alpha(RED, 75) } else { TILE_IDLE_BG })
+                                            .bg(if armed { tint_alpha(RED, 75) } else { tile_idle_bg() })
                                             .hover_bg(tint_alpha(RED, 95))
                                             .bd(1.0, tint_alpha(RED, 160))
                                             .bevel_rounded(5.0, 1.3)
@@ -2816,8 +3029,8 @@ pub fn render_group_detail_view(
                                 .align_center()
                                 .p(6.0)
                                 .gap(6.0)
-                                .bg(CARD_INNER_BG)
-                                .bd(1.0, BORDER_SUBTLE)
+                                .bg(card_inner_bg())
+                                .bd(1.0, border_subtle())
                                 .bevel_rounded(7.0, 1.3);
                             }
                         })
@@ -2830,8 +3043,8 @@ pub fn render_group_detail_view(
                 .h_frac(1.0)
                 .p(12.0)
                 .gap(8.0)
-                .bg(CARD_BG)
-                .bd(1.0, BORDER_SUBTLE)
+                .bg(card_bg())
+                .bd(1.0, border_subtle())
                 .bevel_rounded(10.5, 2.0)
                 .shadow(14.0, SHADOW_CARD);
             })

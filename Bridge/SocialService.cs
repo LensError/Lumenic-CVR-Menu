@@ -79,6 +79,8 @@ internal sealed class SocialService
         public string Note = string.Empty;
         public bool SavingNote;
         public string NoteStatus = string.Empty;
+        public bool SavingProfile;
+        public string ProfileStatus = string.Empty;
         public string FeaturedBadge = string.Empty;
         public string FeaturedBadgeImageUrl = string.Empty;
         public string FeaturedGroup = string.Empty;
@@ -870,6 +872,96 @@ internal sealed class SocialService
         });
     }
 
+    public void UpdateOwnProfile(string pronouns, string bio, bool updatePronouns, bool updateBio, Action<string> onUpdated = null)
+    {
+        if (!AuthManager.IsAuthenticated || (!updatePronouns && !updateBio))
+            return;
+
+        string safePronouns = string.IsNullOrWhiteSpace(pronouns) ? string.Empty : pronouns.Trim();
+        if (safePronouns.Length > 32)
+            safePronouns = safePronouns.Substring(0, 32);
+
+        string safeBio = string.IsNullOrWhiteSpace(bio) ? string.Empty : bio.Trim();
+        if (safeBio.Length > 512)
+            safeBio = safeBio.Substring(0, 512);
+
+        lock (_lock)
+        {
+            if (_userDetail != null && _userDetail.IsLocal)
+            {
+                _userDetail.SavingProfile = true;
+                _userDetail.ProfileStatus = string.Empty;
+            }
+        }
+        _onDirty?.Invoke();
+
+        Task.Run(async () =>
+        {
+            try
+            {
+                var payload = new Dictionary<string, object>();
+                if (updatePronouns) payload["Pronouns"] = safePronouns;
+                if (updateBio) payload["Bio"] = safeBio;
+
+                BaseResponse<UserDetailsResponse> resp = await ApiConnection.MakeRequest<UserDetailsResponse>(
+                    ApiConnection.ApiOperation.UpdateOurUserProfile,
+                    payload).ConfigureAwait(false);
+
+                int code = resp != null ? (int)resp.HttpStatusCode : 0;
+                lock (_lock)
+                {
+                    if (_userDetail != null && _userDetail.IsLocal)
+                    {
+                        _userDetail.SavingProfile = false;
+                        if (code >= 200 && code < 300)
+                        {
+                            if (resp?.Data != null)
+                            {
+                                _userDetail.Pronouns = resp.Data.ProfilePronouns ?? safePronouns;
+                                _userDetail.Bio = resp.Data.ProfileBio ?? safeBio;
+                            }
+                            else
+                            {
+                                if (updatePronouns) _userDetail.Pronouns = safePronouns;
+                                if (updateBio) _userDetail.Bio = safeBio;
+                            }
+                            _userDetail.ProfileStatus = "Saved";
+                        }
+                        else
+                        {
+                            _userDetail.ProfileStatus = resp?.Message ?? $"Save failed ({code})";
+                        }
+                    }
+                }
+
+                if (code >= 200 && code < 300 && resp?.Data != null)
+                {
+                    if (ViewManager.Instance != null)
+                    {
+                        var udField = AccessTools.Field(typeof(ViewManager), "UserDetails");
+                        if (udField != null)
+                            udField.SetValue(ViewManager.Instance, resp.Data);
+                        else
+                            AccessTools.Property(typeof(ViewManager), "UserDetails")?.SetValue(ViewManager.Instance, resp.Data);
+                    }
+                    onUpdated?.Invoke(resp.Data.Id);
+                }
+            }
+            catch (Exception ex)
+            {
+                lock (_lock)
+                {
+                    if (_userDetail != null && _userDetail.IsLocal)
+                    {
+                        _userDetail.SavingProfile = false;
+                        _userDetail.ProfileStatus = ex.Message;
+                    }
+                }
+            }
+            _onDirty?.Invoke();
+        });
+    }
+
     public void KickUser(string userId)
     {
         if (string.IsNullOrWhiteSpace(userId))
@@ -1113,6 +1205,8 @@ internal sealed class SocialService
                 note = detailCopy.Note,
                 note_saving = detailCopy.SavingNote,
                 note_status = detailCopy.NoteStatus,
+                profile_saving = detailCopy.SavingProfile,
+                profile_status = detailCopy.ProfileStatus,
                 featured_badge = detailCopy.FeaturedBadge,
                 featured_badge_image_key = images != null ? images.RequestThumbnail(NativeBridge.SurfaceMain, detailCopy.FeaturedBadgeImageUrl) : string.Empty,
                 featured_group = detailCopy.FeaturedGroup,

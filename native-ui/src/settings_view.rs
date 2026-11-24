@@ -3,12 +3,13 @@ use lumenic::{Color, TextAlign, UiContext};
 use crate::icons;
 use crate::state::{AppState, CvrSettingItem, UiAction};
 use crate::theme::{
-    push_click, tint_alpha, BORDER_SUBTLE, CARD_BG, CARD_INNER_BG, EMERALD, SHADOW_CARD, TEXT_DIM,
-    TEXT_MUTED, TEXT_PRIMARY, TILE_IDLE_BG, TILE_IDLE_HOVER,
+    push_click, tint_alpha, border_subtle, card_bg, card_inner_bg, EMERALD, SHADOW_CARD, TEXT_DIM,
+    TEXT_MUTED, TEXT_PRIMARY, tile_idle_bg, tile_idle_hover,
 };
 
-const SETTINGS_TABS: [(&str, &str, &str); 11] = [
+const SETTINGS_TABS: [(&str, &str, &str); 12] = [
     ("lumenic", icons::BOLT, "LumenicMenu"),
+    ("colors", icons::STAR, "Player Colors"),
     ("general", icons::HOME, "General"),
     ("audio", icons::VOLUME, "Audio"),
     ("graphics", icons::CAMERA, "Graphics"),
@@ -51,15 +52,15 @@ fn compact_toggle_cell(
                 .bg(if active {
                     tint_alpha(EMERALD, 45)
                 } else {
-                    TILE_IDLE_BG
+                    tile_idle_bg()
                 })
-                .hover_bg(TILE_IDLE_HOVER)
+                .hover_bg(tile_idle_hover())
                 .bd(
                     1.0,
                     if active {
                         tint_alpha(EMERALD, 190)
                     } else {
-                        BORDER_SUBTLE
+                        border_subtle()
                     },
                 )
                 .bevel_rounded(5.0, 1.3)
@@ -73,8 +74,8 @@ fn compact_toggle_cell(
         .px(8.0)
         .py(5.0)
         .gap(6.0)
-        .bg(CARD_INNER_BG)
-        .bd(1.0, BORDER_SUBTLE)
+        .bg(card_inner_bg())
+        .bd(1.0, border_subtle())
         .bevel_rounded(6.0, 1.3);
     (clicked, resp.hovered())
 }
@@ -128,8 +129,8 @@ fn render_cvr_item(
             let mut resp = ui
                 .slider(&display_lbl, &mut v, (min_v as f32)..=(max_v as f32))
                 .fill(accent)
-                .bg(CARD_INNER_BG)
-                .bd(1.0, BORDER_SUBTLE)
+                .bg(card_inner_bg())
+                .bd(1.0, border_subtle())
                 .bevel_rounded(6.0, 1.3)
                 .grow(1.0);
             if resp.changed() {
@@ -177,15 +178,15 @@ fn render_cvr_item(
                                 .bg(if active {
                                     tint_alpha(accent, 52)
                                 } else {
-                                    TILE_IDLE_BG
+                                    tile_idle_bg()
                                 })
-                                .hover_bg(TILE_IDLE_HOVER)
+                                .hover_bg(tile_idle_hover())
                                 .bd(
                                     1.0,
                                     if active {
                                         tint_alpha(accent, 195)
                                     } else {
-                                        BORDER_SUBTLE
+                                        border_subtle()
                                     },
                                 )
                                 .bevel_rounded(4.5, 1.3)
@@ -214,8 +215,8 @@ fn render_cvr_item(
                 .px(8.0)
                 .py(5.0)
                 .gap(4.0)
-                .bg(CARD_INNER_BG)
-                .bd(1.0, BORDER_SUBTLE)
+                .bg(card_inner_bg())
+                .bd(1.0, border_subtle())
                 .bevel_rounded(6.0, 1.3);
             is_hovered = resp.hovered();
         }
@@ -241,9 +242,9 @@ fn render_cvr_item(
                         })
                         .w(24.0)
                         .py(3.0)
-                        .bg(TILE_IDLE_BG)
-                        .hover_bg(TILE_IDLE_HOVER)
-                        .bd(1.0, BORDER_SUBTLE)
+                        .bg(tile_idle_bg())
+                        .hover_bg(tile_idle_hover())
+                        .bd(1.0, border_subtle())
                         .bevel_rounded(4.5, 1.3)
                         .clicked()
                     {
@@ -266,9 +267,9 @@ fn render_cvr_item(
                         })
                         .w(24.0)
                         .py(3.0)
-                        .bg(TILE_IDLE_BG)
-                        .hover_bg(TILE_IDLE_HOVER)
-                        .bd(1.0, BORDER_SUBTLE)
+                        .bg(tile_idle_bg())
+                        .hover_bg(tile_idle_hover())
+                        .bd(1.0, border_subtle())
                         .bevel_rounded(4.5, 1.3)
                         .clicked()
                     {
@@ -284,8 +285,8 @@ fn render_cvr_item(
                 .px(8.0)
                 .py(5.0)
                 .gap(5.0)
-                .bg(CARD_INNER_BG)
-                .bd(1.0, BORDER_SUBTLE)
+                .bg(card_inner_bg())
+                .bd(1.0, border_subtle())
                 .bevel_rounded(6.0, 1.3);
             is_hovered = resp.hovered();
         }
@@ -311,9 +312,9 @@ fn render_cvr_item(
                         })
                         .w(24.0)
                         .py(3.0)
-                        .bg(TILE_IDLE_BG)
-                        .hover_bg(TILE_IDLE_HOVER)
-                        .bd(1.0, BORDER_SUBTLE)
+                        .bg(tile_idle_bg())
+                        .hover_bg(tile_idle_hover())
+                        .bd(1.0, border_subtle())
                         .bevel_rounded(4.5, 1.3)
                         .clicked()
                     {
@@ -337,9 +338,9 @@ fn render_cvr_item(
                         })
                         .w(24.0)
                         .py(3.0)
-                        .bg(TILE_IDLE_BG)
-                        .hover_bg(TILE_IDLE_HOVER)
-                        .bd(1.0, BORDER_SUBTLE)
+                        .bg(tile_idle_bg())
+                        .hover_bg(tile_idle_hover())
+                        .bd(1.0, border_subtle())
                         .bevel_rounded(4.5, 1.3)
                         .clicked()
                     {
@@ -356,8 +357,8 @@ fn render_cvr_item(
                 .px(8.0)
                 .py(5.0)
                 .gap(5.0)
-                .bg(CARD_INNER_BG)
-                .bd(1.0, BORDER_SUBTLE)
+                .bg(card_inner_bg())
+                .bd(1.0, border_subtle())
                 .bevel_rounded(6.0, 1.3);
             is_hovered = resp.hovered();
         }
@@ -382,8 +383,8 @@ fn render_cvr_item(
                 .px(8.0)
                 .py(5.0)
                 .gap(6.0)
-                .bg(CARD_INNER_BG)
-                .bd(1.0, BORDER_SUBTLE)
+                .bg(card_inner_bg())
+                .bd(1.0, border_subtle())
                 .bevel_rounded(6.0, 1.3);
             is_hovered = resp.hovered();
         }
@@ -412,7 +413,7 @@ pub fn render_settings_page(
                 let mut s_inp = ui
                     .input("mm_set_search", &mut state.main_menu.settings_search_input)
                     .placeholder("Search all settings...")
-                    .bg(CARD_INNER_BG)
+                    .bg(card_inner_bg())
                     .fg(TEXT_PRIMARY)
                     .grow(1.0);
                 if state.host.is_vr && s_inp.clicked() {
@@ -433,7 +434,7 @@ pub fn render_settings_page(
                         })
                         .p(4.0)
                         .bg(Color::TRANSPARENT)
-                        .hover_bg(TILE_IDLE_HOVER)
+                        .hover_bg(tile_idle_hover())
                         .bevel_rounded(4.0, 1.3)
                         .clicked()
                 {
@@ -458,8 +459,8 @@ pub fn render_settings_page(
                     })
                     .px(10.0)
                     .py(5.5)
-                    .bg(TILE_IDLE_BG)
-                    .hover_bg(TILE_IDLE_HOVER)
+                    .bg(tile_idle_bg())
+                    .hover_bg(tile_idle_hover())
                     .bd(1.0, tint_alpha(accent, 135))
                     .bevel_rounded(6.0, 1.3)
                     .clicked()
@@ -476,8 +477,8 @@ pub fn render_settings_page(
         .px(12.0)
         .py(7.0)
         .gap(8.0)
-        .bg(CARD_BG)
-        .bd(1.0, BORDER_SUBTLE)
+        .bg(card_bg())
+        .bd(1.0, border_subtle())
         .bevel_rounded(10.0, 2.0)
         .shadow(14.0, SHADOW_CARD);
 
@@ -489,6 +490,8 @@ pub fn render_settings_page(
                         let active = state.main_menu.settings_tab == idx;
                         let count = if *cat_id == "lumenic" {
                             5
+                        } else if *cat_id == "colors" {
+                            state.host.player_color_presets.len()
                         } else {
                             state
                                 .host
@@ -525,15 +528,15 @@ pub fn render_settings_page(
                             .bg(if active {
                                 tint_alpha(accent, 48)
                             } else {
-                                CARD_INNER_BG
+                                card_inner_bg()
                             })
-                            .hover_bg(TILE_IDLE_HOVER)
+                            .hover_bg(tile_idle_hover())
                             .bd(
                                 1.0,
                                 if active {
                                     tint_alpha(accent, 195)
                                 } else {
-                                    BORDER_SUBTLE
+                                    border_subtle()
                                 },
                             )
                             .bevel_rounded(6.0, 1.3)
@@ -551,8 +554,8 @@ pub fn render_settings_page(
             .w(214.0)
             .h_frac(1.0)
             .p(8.0)
-            .bg(CARD_BG)
-            .bd(1.0, BORDER_SUBTLE)
+            .bg(card_bg())
+            .bd(1.0, border_subtle())
             .bevel_rounded(10.5, 2.0)
             .shadow(14.0, SHADOW_CARD);
 
@@ -571,10 +574,20 @@ pub fn render_settings_page(
                 ui.scroll("mm_set_body_scroll", |ui| {
                     if q.is_empty() && active_cat == "lumenic" {
                         render_lumenic_settings(ui, state, "", accent, actions);
+                    } else if q.is_empty() && active_cat == "colors" {
+                        render_player_colors_section(ui, state, accent, actions);
                     } else {
                         let mut total_hits = 0usize;
                         if !q.is_empty() {
                             total_hits += render_lumenic_settings(ui, state, &q, accent, actions);
+                            if "player colors colorize menu primary secondary emission preset swatch"
+                                .contains(&q)
+                                || q.contains("color")
+                                || q.contains("colour")
+                            {
+                                render_player_colors_section(ui, state, accent, actions);
+                                total_hits += 1;
+                            }
                         }
 
                         let filtered: Vec<CvrSettingItem> = state
@@ -660,8 +673,8 @@ pub fn render_settings_page(
             .grow(1.0)
             .h_frac(1.0)
             .p(9.0)
-            .bg(CARD_BG)
-            .bd(1.0, BORDER_SUBTLE)
+            .bg(card_bg())
+            .bd(1.0, border_subtle())
             .bevel_rounded(10.5, 2.0)
             .shadow(14.0, SHADOW_CARD);
         })
@@ -717,15 +730,15 @@ fn render_lumenic_settings(
                     .bg(if active {
                         tint_alpha(accent, 52)
                     } else {
-                        TILE_IDLE_BG
+                        tile_idle_bg()
                     })
-                    .hover_bg(TILE_IDLE_HOVER)
+                    .hover_bg(tile_idle_hover())
                     .bd(
                         1.0,
                         if active {
                             tint_alpha(accent, 195)
                         } else {
-                            BORDER_SUBTLE
+                            border_subtle()
                         },
                     )
                     .bevel_rounded(5.0, 1.3)
@@ -742,8 +755,8 @@ fn render_lumenic_settings(
         .px(8.0)
         .py(6.0)
         .gap(6.0)
-        .bg(CARD_INNER_BG)
-        .bd(1.0, BORDER_SUBTLE)
+        .bg(card_inner_bg())
+        .bd(1.0, border_subtle())
         .bevel_rounded(6.0, 1.3);
     }
 
@@ -820,8 +833,8 @@ fn render_lumenic_settings(
                 if ui
                     .slider("Max Redraw Rate (Hz)", &mut hz_v, 15.0..=144.0)
                     .fill(accent)
-                    .bg(CARD_INNER_BG)
-                    .bd(1.0, BORDER_SUBTLE)
+                    .bg(card_inner_bg())
+                    .bd(1.0, border_subtle())
                     .bevel_rounded(6.0, 1.3)
                     .grow(1.0)
                     .changed()
@@ -840,4 +853,209 @@ fn render_lumenic_settings(
     }
 
     hits
+}
+
+fn render_player_colors_section(
+    ui: &mut UiContext,
+    state: &mut AppState,
+    accent: Color,
+    actions: &mut Vec<UiAction>,
+) {
+    let p1 = Color::rgb(state.host.accent_r, state.host.accent_g, state.host.accent_b);
+    let p2 = Color::rgb(
+        state.host.accent2_r,
+        state.host.accent2_g,
+        state.host.accent2_b,
+    );
+    let colorize = state.host.colorize_menu;
+    let emission = state.host.use_primary_as_emission;
+
+    ui.row(|ui| {
+        ui.txt("Player Colors & Menu Theme")
+            .sz(12.5)
+            .bold()
+            .fg(accent)
+            .grow(1.0);
+
+        ui.row(|ui| {
+            ui.txt("").w(14.0).h(14.0).bg(p1).bd(1.0, TEXT_PRIMARY).r(3.0);
+            ui.txt("Primary").sz(10.0).fg(TEXT_MUTED);
+            ui.txt("").w(14.0).h(14.0).bg(p2).bd(1.0, TEXT_PRIMARY).r(3.0);
+            ui.txt("Secondary").sz(10.0).fg(TEXT_MUTED);
+        })
+        .align_center()
+        .gap(5.0)
+        .px(8.0)
+        .py(3.5)
+        .bg(card_inner_bg())
+        .bd(1.0, border_subtle())
+        .bevel_rounded(5.5, 1.3);
+    })
+    .align_center()
+    .gap(8.0)
+    .px(3.0);
+
+    ui.row(|ui| {
+        let (clk_col, hov_col) =
+            compact_toggle_cell(ui, "mm_pc_colorize", "Colorize Menu", colorize);
+        if clk_col {
+            push_click(actions);
+            actions.push(UiAction::SetColorizeMenu { enabled: !colorize });
+        }
+        if hov_col {
+            state.main_menu.hovered_tooltip = String::from(
+                "ON: Secondary color is accent and Primary subtly tints panels. OFF: Official ChilloutVR dark orange theme.",
+            );
+        }
+
+        let (clk_em, hov_em) =
+            compact_toggle_cell(ui, "mm_pc_emission", "Use Primary as Emission", emission);
+        if clk_em {
+            push_click(actions);
+            actions.push(UiAction::SetPlayerColorEmission { enabled: !emission });
+        }
+        if hov_em {
+            state.main_menu.hovered_tooltip =
+                String::from("Use your Primary player color as the emission color on player indicators.");
+        }
+    })
+    .align_center()
+    .gap(6.0);
+
+    let presets = state.host.player_color_presets.clone();
+    if !presets.is_empty() {
+        ui.txt("Presets")
+            .sz(11.0)
+            .bold()
+            .fg(TEXT_MUTED)
+            .pt(4.0)
+            .px(3.0);
+
+        for row in presets.chunks(4) {
+            ui.row(|ui| {
+                for pr in row {
+                    let c1 = Color::rgb(pr.r1, pr.g1, pr.b1);
+                    let c2 = Color::rgb(pr.r2, pr.g2, pr.b2);
+                    let selected = pr.r1 == state.host.accent_r
+                        && pr.g1 == state.host.accent_g
+                        && pr.b1 == state.host.accent_b
+                        && pr.r2 == state.host.accent2_r
+                        && pr.g2 == state.host.accent2_g
+                        && pr.b2 == state.host.accent2_b;
+                    if ui
+                        .btn_with(&format!("mm_pc_preset_{}", pr.id), |ui| {
+                            ui.row(|ui| {
+                                ui.row(|ui| {
+                                    ui.txt("").w(12.0).h(18.0).bg(c1).r(3.0);
+                                    ui.txt("").w(12.0).h(18.0).bg(c2).r(3.0);
+                                })
+                                .gap(2.0);
+                                ui.txt(&pr.name)
+                                    .sz(10.5)
+                                    .semibold()
+                                    .fg(TEXT_PRIMARY)
+                                    .ellipsis()
+                                    .grow(1.0);
+                            })
+                            .align_center()
+                            .gap(6.0)
+                            .grow(1.0);
+                        })
+                        .grow(1.0)
+                        .px(7.0)
+                        .py(6.0)
+                        .bg(if selected {
+                            tint_alpha(accent, 45)
+                        } else {
+                            card_inner_bg()
+                        })
+                        .hover_bg(tile_idle_hover())
+                        .bd(
+                            if selected { 1.5 } else { 1.0 },
+                            if selected { accent } else { border_subtle() },
+                        )
+                        .bevel_rounded(6.0, 1.3)
+                        .clicked()
+                    {
+                        push_click(actions);
+                        actions.push(UiAction::SetPlayerColorPreset { preset_id: pr.id });
+                    }
+                }
+                for _ in row.len()..4 {
+                    ui.col(|_| {}).grow(1.0);
+                }
+            })
+            .gap(6.0);
+        }
+    }
+
+    let swatches = state.host.player_color_swatches.clone();
+    if !swatches.is_empty() {
+        for (is_primary, heading, prefix, cur_r, cur_g, cur_b) in [
+            (
+                true,
+                "Primary Color (Menu Panel Tint)",
+                "mm_pc_sw1",
+                state.host.accent_r,
+                state.host.accent_g,
+                state.host.accent_b,
+            ),
+            (
+                false,
+                "Secondary Color (Menu Accent)",
+                "mm_pc_sw2",
+                state.host.accent2_r,
+                state.host.accent2_g,
+                state.host.accent2_b,
+            ),
+        ] {
+            ui.txt(heading)
+                .sz(11.0)
+                .bold()
+                .fg(TEXT_MUTED)
+                .pt(5.0)
+                .px(3.0);
+
+            for row in swatches.chunks(11) {
+                ui.row(|ui| {
+                    for sw in row {
+                        let col = Color::rgb(sw.r, sw.g, sw.b);
+                        let active = sw.r == cur_r && sw.g == cur_g && sw.b == cur_b;
+                        let resp = ui
+                            .btn_with(&format!("{prefix}_{}", sw.id), |ui| {
+                                ui.txt("").h(22.0);
+                            })
+                            .grow(1.0)
+                            .h(26.0)
+                            .bg(col)
+                            .hover_bg(col)
+                            .bd(
+                                if active { 2.2 } else { 1.0 },
+                                if active {
+                                    TEXT_PRIMARY
+                                } else {
+                                    Color::rgba(255, 255, 255, 65)
+                                },
+                            )
+                            .bevel_rounded(5.5, 1.2);
+                        if resp.hovered() {
+                            state.main_menu.hovered_tooltip = sw.name.clone();
+                        }
+                        if resp.clicked() {
+                            push_click(actions);
+                            if is_primary {
+                                actions.push(UiAction::SetPlayerColorPrimary { swatch_id: sw.id });
+                            } else {
+                                actions.push(UiAction::SetPlayerColorSecondary { swatch_id: sw.id });
+                            }
+                        }
+                    }
+                    for _ in row.len()..11 {
+                        ui.col(|_| {}).grow(1.0);
+                    }
+                })
+                .gap(5.0);
+            }
+        }
+    }
 }

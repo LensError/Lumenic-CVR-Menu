@@ -379,6 +379,8 @@ pub struct UserDetailSnapshot {
     pub note: String,
     pub note_saving: bool,
     pub note_status: String,
+    pub profile_saving: bool,
+    pub profile_status: String,
     pub featured_badge: String,
     pub featured_badge_image_key: String,
     pub featured_group: String,
@@ -657,6 +659,29 @@ pub struct UiLibSnapshot {
     pub toast: String,
 }
 
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(default)]
+pub struct PlayerColorPresetItem {
+    pub id: i32,
+    pub name: String,
+    pub r1: u8,
+    pub g1: u8,
+    pub b1: u8,
+    pub r2: u8,
+    pub g2: u8,
+    pub b2: u8,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(default)]
+pub struct PlayerColorSwatchItem {
+    pub id: i32,
+    pub name: String,
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+}
+
 /// Snapshot of live ChilloutVR host state pushed from C# only when values change.
 #[derive(Clone, Debug, Deserialize)]
 #[serde(default)]
@@ -695,7 +720,7 @@ pub struct HostStateSnapshot {
     pub nav_seq: u32,
     pub nav_tab: String,
 
-    // Live CVR PlayerColorsManager accent
+    // Live CVR PlayerColorsManager accent & panel colorizing
     pub accent_r: u8,
     pub accent_g: u8,
     pub accent_b: u8,
@@ -703,6 +728,10 @@ pub struct HostStateSnapshot {
     pub accent2_g: u8,
     pub accent2_b: u8,
     pub has_player_accent: bool,
+    pub colorize_menu: bool,
+    pub use_primary_as_emission: bool,
+    pub player_color_presets: Vec<PlayerColorPresetItem>,
+    pub player_color_swatches: Vec<PlayerColorSwatchItem>,
 
     // Active Quick Menu notifications
     pub notifications: Vec<NotificationItem>,
@@ -793,13 +822,17 @@ impl Default for HostStateSnapshot {
             audio_video_player: 100,
             nav_seq: 0,
             nav_tab: String::new(),
-            accent_r: 168,
-            accent_g: 85,
-            accent_b: 247,
-            accent2_r: 56,
-            accent2_g: 189,
-            accent2_b: 248,
+            accent_r: 34,
+            accent_g: 34,
+            accent_b: 34,
+            accent2_r: 228,
+            accent2_g: 54,
+            accent2_b: 0,
             has_player_accent: false,
+            colorize_menu: false,
+            use_primary_as_emission: false,
+            player_color_presets: Vec::new(),
+            player_color_swatches: Vec::new(),
             notifications: Vec::new(),
             featured_badge: String::new(),
             featured_badge_image_key: String::new(),
@@ -902,6 +935,10 @@ pub struct MainMenuState {
     pub user_detail_tab: usize, // 0 = Overview, 1 = Badges, 2 = Groups
     pub user_note_user_id: String,
     pub user_note_input: TextEditState,
+    pub profile_edit_user_id: String,
+    pub profile_pronouns_input: TextEditState,
+    pub profile_bio_input: TextEditState,
+    pub profile_editing: bool,
     pub discover_tab: usize,    // 0 = Random Worlds, 1 = Random Avatars, 2 = Random Props
     pub messages_filter: String,
     pub settings_tab: usize,
@@ -956,6 +993,10 @@ impl Default for MainMenuState {
             user_detail_tab: 0,
             user_note_user_id: String::new(),
             user_note_input: TextEditState::new(),
+            profile_edit_user_id: String::new(),
+            profile_pronouns_input: TextEditState::new(),
+            profile_bio_input: TextEditState::new(),
+            profile_editing: false,
             discover_tab: 0,
             messages_filter: String::from("all"),
             settings_tab: 0,
@@ -1241,6 +1282,27 @@ pub enum UiAction {
     SocialSaveUserNote {
         user_id: String,
         note: String,
+    },
+    SocialUpdateOwnProfile {
+        pronouns: String,
+        bio: String,
+        update_pronouns: bool,
+        update_bio: bool,
+    },
+    SetColorizeMenu {
+        enabled: bool,
+    },
+    SetPlayerColorPreset {
+        preset_id: i32,
+    },
+    SetPlayerColorPrimary {
+        swatch_id: i32,
+    },
+    SetPlayerColorSecondary {
+        swatch_id: i32,
+    },
+    SetPlayerColorEmission {
+        enabled: bool,
     },
     SocialCloseUserDetail,
     SocialInvitePlayer {

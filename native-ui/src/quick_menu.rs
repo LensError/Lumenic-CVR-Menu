@@ -4,8 +4,8 @@ use crate::icons;
 use crate::state::{AppState, GroupModPromptSnapshot, UiAction};
 use crate::theme::{
     push_click, resolve_player_accent, tint_alpha, AMBER, BG_GLOW_FRAG as QM_BG_GLOW_FRAG,
-    BORDER_SUBTLE, CARD_BG, CARD_INNER_BG, EMERALD, RED, SHADOW_CARD, TEXT_DIM, TEXT_MUTED,
-    TEXT_PRIMARY, TILE_DISABLED_BG, TILE_IDLE_BG, TILE_IDLE_HOVER,
+    border_subtle, card_bg, card_inner_bg, EMERALD, RED, SHADOW_CARD, TEXT_DIM, TEXT_MUTED,
+    TEXT_PRIMARY, TILE_DISABLED_BG, tile_idle_bg, tile_idle_hover,
 };
 use crate::uilib_view::{render_uilib_modal, render_uilib_page, render_uilib_toast};
 
@@ -40,9 +40,9 @@ fn action_tile(
         )
     } else {
         (
-            TILE_IDLE_BG,
-            TILE_IDLE_HOVER,
-            BORDER_SUBTLE,
+            tile_idle_bg(),
+            tile_idle_hover(),
+            border_subtle(),
             Color::rgb(203, 213, 225),
             TEXT_PRIMARY,
             TEXT_MUTED,
@@ -102,6 +102,7 @@ pub fn render_quick_menu(
         state.quick.video_slider = state.host.audio_video_player.clamp(0, 100) as f32;
     }
 
+    crate::theme::begin_frame(state);
     let accent = resolve_player_accent(state);
     state.quick.avatar_preview_rendered = false;
     let accent_border = tint_alpha(accent, 110);
@@ -281,15 +282,15 @@ pub fn render_quick_menu(
                     .bg(if state.quick.show_info_modal {
                         tint_alpha(accent, 45)
                     } else {
-                        CARD_INNER_BG
+                        card_inner_bg()
                     })
-                    .hover_bg(TILE_IDLE_HOVER)
+                    .hover_bg(tile_idle_hover())
                     .bd(
                         1.0,
                         if state.quick.show_info_modal {
                             accent
                         } else {
-                            BORDER_SUBTLE
+                            border_subtle()
                         },
                     )
                     .px(10.0)
@@ -338,7 +339,7 @@ pub fn render_quick_menu(
         .px(11.0)
         .py(7.0)
         .gap(10.0)
-        .bg(CARD_BG)
+        .bg(card_bg())
         .bd(1.0, accent_border)
         .bevel_rounded(10.9, 2.0)
         .shadow(14.0, SHADOW_CARD);
@@ -370,7 +371,7 @@ pub fn render_quick_menu(
                                 tint_alpha(accent, 210),
                             )
                         } else {
-                            (TILE_IDLE_BG, TILE_IDLE_HOVER, BORDER_SUBTLE)
+                            (tile_idle_bg(), tile_idle_hover(), border_subtle())
                         };
 
                         if ui
@@ -459,8 +460,8 @@ pub fn render_quick_menu(
         .px(10.0)
         .py(8.0)
         .gap(8.0)
-        .bg(CARD_BG)
-        .bd(1.0, BORDER_SUBTLE)
+        .bg(card_bg())
+        .bd(1.0, border_subtle())
         .bevel_rounded(10.1, 2.0)
         .shadow(12.0, SHADOW_CARD);
     })
@@ -531,8 +532,8 @@ fn info_stat_row(ui: &mut UiContext, label: &str, value: &str, value_col: Color)
     .align_center()
     .px(9.0)
     .py(6.0)
-    .bg(CARD_INNER_BG)
-    .bd(1.0, BORDER_SUBTLE)
+    .bg(card_inner_bg())
+    .bd(1.0, border_subtle())
     .bevel_rounded(5.0, 1.3);
 }
 
@@ -727,14 +728,14 @@ fn render_home_center(
                                             } else if btn.is_decline {
                                                 tint_alpha(RED, 55)
                                             } else {
-                                                TILE_IDLE_BG
+                                                tile_idle_bg()
                                             };
                                             let btn_bd = if btn.is_accept {
                                                 EMERALD
                                             } else if btn.is_decline {
                                                 RED
                                             } else {
-                                                BORDER_SUBTLE
+                                                border_subtle()
                                             };
                                             let btn_id = format!("nbtn_{}", btn.id);
                                             if ui
@@ -784,8 +785,8 @@ fn render_home_center(
                             .px(8.0)
                             .py(5.5)
                             .gap(6.0)
-                            .bg(CARD_INNER_BG)
-                            .bd(1.0, BORDER_SUBTLE)
+                            .bg(card_inner_bg())
+                            .bd(1.0, border_subtle())
                             .bevel_rounded(6.2, 1.3);
                         }
                     })
@@ -811,8 +812,8 @@ fn render_home_center(
             .px(10.0)
             .py(8.0)
             .gap(6.0)
-            .bg(CARD_BG)
-            .bd(1.0, BORDER_SUBTLE)
+            .bg(card_bg())
+            .bd(1.0, border_subtle())
             .bevel_rounded(10.1, 2.0)
             .shadow(12.0, SHADOW_CARD);
 
@@ -850,9 +851,9 @@ fn render_home_center(
                             })
                             .px(7.0)
                             .py(3.0)
-                            .bg(TILE_IDLE_BG)
-                            .hover_bg(TILE_IDLE_HOVER)
-                            .bd(1.0, BORDER_SUBTLE)
+                            .bg(tile_idle_bg())
+                            .hover_bg(tile_idle_hover())
+                            .bd(1.0, border_subtle())
                             .bevel_rounded(4.5, 1.0)
                             .clicked()
                         {
@@ -878,15 +879,15 @@ fn render_home_center(
                         .bg(if reorder_mode {
                             tint_alpha(accent, 52)
                         } else {
-                            TILE_IDLE_BG
+                            tile_idle_bg()
                         })
-                        .hover_bg(TILE_IDLE_HOVER)
+                        .hover_bg(tile_idle_hover())
                         .bd(
                             1.0,
                             if reorder_mode {
                                 tint_alpha(accent, 195)
                             } else {
-                                BORDER_SUBTLE
+                                border_subtle()
                             },
                         )
                         .bevel_rounded(4.5, 1.0)
@@ -1135,8 +1136,8 @@ fn render_home_center(
             .grow(1.0)
             .p(10.0)
             .gap(7.0)
-            .bg(CARD_BG)
-            .bd(1.0, BORDER_SUBTLE)
+            .bg(card_bg())
+            .bd(1.0, border_subtle())
             .bevel_rounded(10.1, 2.0)
             .shadow(14.0, SHADOW_CARD);
 
@@ -1171,9 +1172,9 @@ fn render_home_center(
                                 .gap(5.0)
                                 .grow(1.0);
                             })
-                            .bg(TILE_IDLE_BG)
+                            .bg(tile_idle_bg())
                             .hover_bg(tint_alpha(accent, 64))
-                            .bd(1.0, BORDER_SUBTLE)
+                            .bd(1.0, border_subtle())
                             .min_h(34.0)
                             .px(8.0)
                             .py(4.0)
@@ -1211,9 +1212,9 @@ fn render_home_center(
                                 .gap(5.0)
                                 .grow(1.0);
                             })
-                            .bg(TILE_IDLE_BG)
+                            .bg(tile_idle_bg())
                             .hover_bg(tint_alpha(accent, 64))
-                            .bd(1.0, BORDER_SUBTLE)
+                            .bd(1.0, border_subtle())
                             .min_h(34.0)
                             .px(8.0)
                             .py(4.0)
@@ -1234,8 +1235,8 @@ fn render_home_center(
             })
             .p(10.0)
             .gap(6.0)
-            .bg(CARD_BG)
-            .bd(1.0, BORDER_SUBTLE)
+            .bg(card_bg())
+            .bd(1.0, border_subtle())
             .bevel_rounded(10.1, 2.0)
             .shadow(14.0, SHADOW_CARD);
         })
@@ -1325,8 +1326,8 @@ fn render_home_center(
                 .h_frac(1.0)
                 .p(9.0)
                 .gap(6.0)
-                .bg(CARD_BG)
-                .bd(1.0, BORDER_SUBTLE)
+                .bg(card_bg())
+                .bd(1.0, border_subtle())
                 .bevel_rounded(10.9, 2.0)
                 .shadow(14.0, SHADOW_CARD);
 
@@ -1353,15 +1354,15 @@ fn render_home_center(
                             .bg(if edit_mode {
                                 tint_alpha(accent, 50)
                             } else {
-                                TILE_IDLE_BG
+                                tile_idle_bg()
                             })
-                            .hover_bg(TILE_IDLE_HOVER)
+                            .hover_bg(tile_idle_hover())
                             .bd(
                                 1.0,
                                 if edit_mode {
                                     tint_alpha(accent, 190)
                                 } else {
-                                    BORDER_SUBTLE
+                                    border_subtle()
                                 },
                             )
                             .bevel_rounded(4.5, 1.0)
@@ -1393,15 +1394,15 @@ fn render_home_center(
                                 .bg(if active {
                                     tint_alpha(accent, 44)
                                 } else {
-                                    CARD_INNER_BG
+                                    card_inner_bg()
                                 })
-                                .hover_bg(TILE_IDLE_HOVER)
+                                .hover_bg(tile_idle_hover())
                                 .bd(
                                     1.0,
                                     if active {
                                         tint_alpha(accent, 180)
                                     } else {
-                                        BORDER_SUBTLE
+                                        border_subtle()
                                     },
                                 )
                                 .bevel_rounded(5.0, 1.2)
@@ -1473,7 +1474,7 @@ fn render_home_center(
                                                     .center()
                                                     .w(34.0)
                                                     .h(34.0)
-                                                    .bg(CARD_BG)
+                                                    .bg(card_bg())
                                                     .bevel_rounded(5.0, 1.1);
                                                     false
                                                 };
@@ -1495,9 +1496,9 @@ fn render_home_center(
                                         .grow(1.0)
                                         .px(7.0)
                                         .py(5.5)
-                                        .bg(CARD_INNER_BG)
-                                        .hover_bg(TILE_IDLE_HOVER)
-                                        .bd(1.0, BORDER_SUBTLE)
+                                        .bg(card_inner_bg())
+                                        .hover_bg(tile_idle_hover())
+                                        .bd(1.0, border_subtle())
                                         .bevel_rounded(5.5, 1.2)
                                         .clicked()
                                         && !edit_mode
@@ -1557,8 +1558,8 @@ fn render_home_center(
                 .h_frac(1.0)
                 .p(9.0)
                 .gap(6.0)
-                .bg(CARD_BG)
-                .bd(1.0, BORDER_SUBTLE)
+                .bg(card_bg())
+                .bd(1.0, border_subtle())
                 .bevel_rounded(10.9, 2.0)
                 .shadow(14.0, SHADOW_CARD);
             })
@@ -1590,9 +1591,9 @@ fn render_home_center(
                         })
                         .px(7.5)
                         .py(3.5)
-                        .bg(TILE_IDLE_BG)
+                        .bg(tile_idle_bg())
                         .hover_bg(tint_alpha(accent, 64))
-                        .bd(1.0, BORDER_SUBTLE)
+                        .bd(1.0, border_subtle())
                         .bevel_rounded(5.0, 1.2)
                         .clicked()
                     {
@@ -1667,8 +1668,8 @@ fn render_home_center(
             })
             .p(11.0)
             .gap(5.0)
-            .bg(CARD_BG)
-            .bd(1.0, BORDER_SUBTLE)
+            .bg(card_bg())
+            .bd(1.0, border_subtle())
             .bevel_rounded(10.9, 2.0)
             .shadow(14.0, SHADOW_CARD);
         })
@@ -1748,15 +1749,15 @@ fn render_qm_world_instance_modal(
                                     .bg(if active {
                                         tint_alpha(accent, 48)
                                     } else {
-                                        TILE_IDLE_BG
+                                        tile_idle_bg()
                                     })
-                                    .hover_bg(TILE_IDLE_HOVER)
+                                    .hover_bg(tile_idle_hover())
                                     .bd(
                                         1.0,
                                         if active {
                                             tint_alpha(accent, 190)
                                         } else {
-                                            BORDER_SUBTLE
+                                            border_subtle()
                                         },
                                     )
                                     .bevel_rounded(5.5, 1.3)
@@ -1790,15 +1791,15 @@ fn render_qm_world_instance_modal(
                                     .bg(if active {
                                         tint_alpha(accent, 48)
                                     } else {
-                                        TILE_IDLE_BG
+                                        tile_idle_bg()
                                     })
-                                    .hover_bg(TILE_IDLE_HOVER)
+                                    .hover_bg(tile_idle_hover())
                                     .bd(
                                         1.0,
                                         if active {
                                             tint_alpha(accent, 190)
                                         } else {
-                                            BORDER_SUBTLE
+                                            border_subtle()
                                         },
                                     )
                                     .bevel_rounded(5.5, 1.3)
@@ -1855,15 +1856,15 @@ fn render_qm_world_instance_modal(
                                             .bg(if active {
                                                 tint_alpha(EMERALD, 48)
                                             } else {
-                                                CARD_INNER_BG
+                                                card_inner_bg()
                                             })
-                                            .hover_bg(TILE_IDLE_HOVER)
+                                            .hover_bg(tile_idle_hover())
                                             .bd(
                                                 1.0,
                                                 if active {
                                                     tint_alpha(EMERALD, 185)
                                                 } else {
-                                                    BORDER_SUBTLE
+                                                    border_subtle()
                                                 },
                                             )
                                             .bevel_rounded(5.0, 1.3)
@@ -1897,15 +1898,15 @@ fn render_qm_world_instance_modal(
                                     .bg(if active {
                                         tint_alpha(accent, 48)
                                     } else {
-                                        TILE_IDLE_BG
+                                        tile_idle_bg()
                                     })
-                                    .hover_bg(TILE_IDLE_HOVER)
+                                    .hover_bg(tile_idle_hover())
                                     .bd(
                                         1.0,
                                         if active {
                                             tint_alpha(accent, 190)
                                         } else {
-                                            BORDER_SUBTLE
+                                            border_subtle()
                                         },
                                     )
                                     .bevel_rounded(5.5, 1.3)
@@ -1974,9 +1975,9 @@ fn render_qm_world_instance_modal(
                                 })
                                 .px(12.0)
                                 .py(9.0)
-                                .bg(TILE_IDLE_BG)
-                                .hover_bg(TILE_IDLE_HOVER)
-                                .bd(1.0, BORDER_SUBTLE)
+                                .bg(tile_idle_bg())
+                                .hover_bg(tile_idle_hover())
+                                .bd(1.0, border_subtle())
                                 .bevel_rounded(6.5, 1.3)
                                 .clicked()
                             {
@@ -2052,8 +2053,8 @@ pub fn render_group_mod_prompt_modal(
                                     icons::icon(ui, icons::CLOSE, 13.0).fg(TEXT_MUTED);
                                 })
                                 .p(5.0)
-                                .bg(TILE_IDLE_BG)
-                                .hover_bg(TILE_IDLE_HOVER)
+                                .bg(tile_idle_bg())
+                                .hover_bg(tile_idle_hover())
                                 .r(5.0)
                                 .clicked()
                             {
@@ -2122,8 +2123,8 @@ pub fn render_group_mod_prompt_modal(
                         })
                         .p(10.0)
                         .gap(5.0)
-                        .bg(CARD_INNER_BG)
-                        .bd(1.0, BORDER_SUBTLE)
+                        .bg(card_inner_bg())
+                        .bd(1.0, border_subtle())
                         .r(8.0);
 
                         ui.row(|ui| {
@@ -2138,9 +2139,9 @@ pub fn render_group_mod_prompt_modal(
                                 })
                                 .px(12.0)
                                 .py(8.5)
-                                .bg(TILE_IDLE_BG)
-                                .hover_bg(TILE_IDLE_HOVER)
-                                .bd(1.0, BORDER_SUBTLE)
+                                .bg(tile_idle_bg())
+                                .hover_bg(tile_idle_hover())
+                                .bd(1.0, border_subtle())
                                 .bevel_rounded(6.5, 1.3)
                                 .clicked()
                             {
@@ -2162,9 +2163,9 @@ pub fn render_group_mod_prompt_modal(
                                 })
                                 .px(10.0)
                                 .py(8.5)
-                                .bg(TILE_IDLE_BG)
-                                .hover_bg(TILE_IDLE_HOVER)
-                                .bd(1.0, BORDER_SUBTLE)
+                                .bg(tile_idle_bg())
+                                .hover_bg(tile_idle_hover())
+                                .bd(1.0, border_subtle())
                                 .bevel_rounded(6.5, 1.3)
                                 .clicked()
                             {

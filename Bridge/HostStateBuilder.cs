@@ -89,7 +89,10 @@ internal sealed class HostStateBuilder
 
         Color32 p1 = PlayerColorsManager.CurrentColors.PrimaryColor;
         Color32 p2 = PlayerColorsManager.CurrentColors.SecondaryColor;
-        bool hasAccent = (p1.r | p1.g | p1.b) != 0;
+        bool usePrimaryAsEmission = PlayerColorsManager.CurrentColors.UsePrimaryAsEmission;
+        bool colorizeMenu = settings != null && settings.GetSettingsBool(PlayerColorsManager.ColourizeMenuSettingKey);
+        bool hasAccent = colorizeMenu && ((p1.r | p1.g | p1.b | p2.r | p2.g | p2.b) != 0);
+        EnsurePlayerColorCatalog();
 
         string worldName = string.Empty;
         try
@@ -289,6 +292,10 @@ internal sealed class HostStateBuilder
             accent2_g = p2.g,
             accent2_b = p2.b,
             has_player_accent = hasAccent,
+            colorize_menu = colorizeMenu,
+            use_primary_as_emission = usePrimaryAsEmission,
+            player_color_presets = _cachedColorPresets,
+            player_color_swatches = _cachedColorSwatches,
 
             notifications = CollectQmNotifications(),
             featured_badge = featuredBadge,
@@ -445,5 +452,80 @@ internal sealed class HostStateBuilder
             // Keep UI alive even if message list mutates mid-read.
         }
         return list;
+    }
+
+    private static List<object> _cachedColorPresets;
+    private static List<object> _cachedColorSwatches;
+
+    private static void EnsurePlayerColorCatalog()
+    {
+        if (_cachedColorPresets != null && _cachedColorSwatches != null)
+            return;
+
+        var presets = new List<object>();
+        try
+        {
+            foreach (PlayerColorPresets p in Enum.GetValues(typeof(PlayerColorPresets)))
+            {
+                if (!PlayerColorsUtility.ColorPresetToColor.TryGetValue(p, out var pair))
+                    continue;
+                Color32 c1 = p == PlayerColorPresets.ChilloutVR ? (Color32)pair.Item2 : (Color32)pair.Item1;
+                Color32 c2 = p == PlayerColorPresets.ChilloutVR ? (Color32)pair.Item1 : (Color32)pair.Item2;
+                presets.Add(new
+                {
+                    id = (int)p,
+                    name = PrettyEnumName(p.ToString()),
+                    r1 = c1.r,
+                    g1 = c1.g,
+                    b1 = c1.b,
+                    r2 = c2.r,
+                    g2 = c2.g,
+                    b2 = c2.b
+                });
+            }
+        }
+        catch
+        {
+            // Keep empty list if enum unavailable.
+        }
+
+        var swatches = new List<object>();
+        try
+        {
+            foreach (KeyValuePair<PlayerColorSwatches, Color> kv in PlayerColorsUtility.ColorSwatchToColor)
+            {
+                Color32 c = kv.Value;
+                swatches.Add(new
+                {
+                    id = (int)kv.Key,
+                    name = PrettyEnumName(kv.Key.ToString()),
+                    r = c.r,
+                    g = c.g,
+                    b = c.b
+                });
+            }
+        }
+        catch
+        {
+            // Keep empty list if enum unavailable.
+        }
+
+        _cachedColorPresets = presets;
+        _cachedColorSwatches = swatches;
+    }
+
+    private static string PrettyEnumName(string raw)
+    {
+        if (string.IsNullOrEmpty(raw))
+            return string.Empty;
+        var sb = new System.Text.StringBuilder(raw.Length + 4);
+        for (int i = 0; i < raw.Length; i++)
+        {
+            char ch = raw[i];
+            if (i > 0 && char.IsUpper(ch) && !char.IsUpper(raw[i - 1]))
+                sb.Append(' ');
+            sb.Append(ch);
+        }
+        return sb.ToString();
     }
 }
