@@ -1176,6 +1176,24 @@ impl Default for QuickMenuState {
     }
 }
 
+pub struct ExtTextInputSlot {
+    pub edit: TextEditState,
+    pub last_host: String,
+    pub last_sent: String,
+    pub was_focused: bool,
+}
+
+impl ExtTextInputSlot {
+    pub fn new(initial: &str) -> Self {
+        Self {
+            edit: TextEditState::with_text(initial),
+            last_host: initial.to_owned(),
+            last_sent: initial.to_owned(),
+            was_focused: false,
+        }
+    }
+}
+
 /// Complete pure-Rust UI state shared between Main Menu and Quick Menu renderers.
 #[derive(Default)]
 pub struct AppState {
@@ -1185,8 +1203,8 @@ pub struct AppState {
     pub quick: QuickMenuState,
     pub main_textures: SurfaceTextureCache,
     pub quick_textures: SurfaceTextureCache,
-    pub ext_sliders: HashMap<String, (f32, f32)>,
-    pub ext_text_inputs: HashMap<String, (TextEditState, String)>,
+    pub ext_sliders: HashMap<String, (f32, f32, f32)>,
+    pub ext_text_inputs: HashMap<String, ExtTextInputSlot>,
 }
 
 /// Typed actions emitted by Rust UI and executed by C# on Unity's main thread.

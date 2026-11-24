@@ -952,7 +952,7 @@ pub unsafe extern "C" fn lumenic_cvr_commit_virtual_keyboard(
                     );
                     hnd.state.ext_text_inputs.insert(
                         widget_id,
-                        (lumenic::TextEditState::with_text(text), text.to_owned()),
+                        crate::state::ExtTextInputSlot::new(text),
                     );
                     hnd.actions.push(UiAction::ExtEvent {
                         ext_id: parts[2].to_owned(),

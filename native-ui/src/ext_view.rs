@@ -1,4 +1,4 @@
-use lumenic::{Color, DropdownStyle, ImageFit, StyleBuilder, TextAlign, TextEditState, UiContext};
+use lumenic::{Color, DropdownStyle, ImageFit, StyleBuilder, TextAlign, UiContext};
 
 use crate::ext::{
     ExtDropdownStyle, ExtModalSnapshot, ExtNode, ExtNodeStyle, ExtPageSnapshot, ExtSlotEntry,
@@ -1031,13 +1031,16 @@ pub fn render_ext_node(
                 min_v + 1.0
             };
             let host_v = node.value.clamp(min_v, max_v);
-            let (cur_v, last_host) = state
+            let (cur_v, last_host, last_sent) = state
                 .ext_sliders
                 .entry(widget_id.clone())
-                .or_insert((host_v, host_v));
+                .or_insert((host_v, host_v, host_v));
             if (*last_host - host_v).abs() > 0.0001 {
-                *cur_v = host_v;
                 *last_host = host_v;
+                if (*last_sent - host_v).abs() > 0.0001 {
+                    *cur_v = host_v;
+                    *last_sent = host_v;
+                }
             }
             let mut v = *cur_v;
             let fill_col = resolve_color_token(&node.fg, accent).unwrap_or(accent);
@@ -1058,8 +1061,8 @@ pub fn render_ext_node(
                     v.clamp(min_v, max_v)
                 };
                 *cur_v = snapped;
-                if (snapped - *last_host).abs() > 0.0001 {
-                    *last_host = snapped;
+                if (snapped - *last_sent).abs() > 0.0001 {
+                    *last_sent = snapped;
                     push_ext_event(
                         actions,
                         ext_id,
@@ -1079,19 +1082,22 @@ pub fn render_ext_node(
         }
 
         "input" => {
-            let (edit_state, last_host) = state
+            let slot = state
                 .ext_text_inputs
                 .entry(widget_id.clone())
-                .or_insert_with(|| (TextEditState::with_text(&node.text), node.text.clone()));
-            if *last_host != node.text {
-                edit_state.set_text(&node.text);
-                *last_host = node.text.clone();
+                .or_insert_with(|| crate::state::ExtTextInputSlot::new(&node.text));
+            if slot.last_host != node.text {
+                slot.last_host = node.text.clone();
+                if (!slot.was_focused || node.text.is_empty()) && slot.edit.text() != node.text {
+                    slot.edit.set_text(&node.text);
+                    slot.last_sent = node.text.clone();
+                }
             }
 
             let mut sb = if node.password {
-                ui.password_input(&widget_id, edit_state)
+                ui.password_input(&widget_id, &mut slot.edit)
             } else {
-                ui.input(&widget_id, edit_state)
+                ui.input(&widget_id, &mut slot.edit)
             }
             .bg(card_inner_bg())
             .fg(text_primary())
@@ -1110,14 +1116,16 @@ pub fn render_ext_node(
             if let Some(v) = node.style.grow { sb = sb.grow(v); }
             if let Some(c) = resolve_color_token(&node.style.bg, accent) { sb = sb.bg(c); }
             if let Some(op) = node.style.opacity { sb = sb.opacity(op.clamp(0.0, 1.0)); }
+            let focused = sb.focused();
             let hovered = sb.hovered();
             let clicked = sb.clicked();
             let changed = sb.changed();
             let submitted = sb.submitted();
-            let current_text = edit_state.text();
+            slot.was_focused = focused;
+            let current_text = slot.edit.text();
 
             if !node.disabled && submitted {
-                *last_host = current_text.clone();
+                slot.last_sent = current_text.clone();
                 push_ext_event(
                     actions,
                     ext_id,
@@ -1128,8 +1136,8 @@ pub fn render_ext_node(
                     0.0,
                     false,
                 );
-            } else if !node.disabled && changed && current_text != *last_host {
-                *last_host = current_text.clone();
+            } else if !node.disabled && changed && current_text != slot.last_sent {
+                slot.last_sent = current_text.clone();
                 push_ext_event(
                     actions,
                     ext_id,
@@ -1174,13 +1182,13 @@ pub fn render_ext_node(
 
             let (changed, hovered) = if node.searchable {
                 let query_key = format!("{widget_id}_q");
-                let (query_state, _) = state
+                let slot = state
                     .ext_text_inputs
                     .entry(query_key)
-                    .or_insert_with(|| (TextEditState::new(), String::new()));
+                    .or_insert_with(|| crate::state::ExtTextInputSlot::new(""));
 
                 let sb = ui
-                    .combobox_styled(&widget_id, &mut sel, query_state, &opt_refs, &dd_style)
+                    .combobox_styled(&widget_id, &mut sel, &mut slot.edit, &opt_refs, &dd_style)
                     .bg(tile_idle_bg())
                     .hover_bg(tile_idle_hover())
                     .fg(text_primary())
