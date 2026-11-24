@@ -50,7 +50,7 @@ pub fn render_uix_mod_settings(
                     ui.row(|ui| {
                         icons::icon(ui, icons::BACK, 14.0).fg(TEXT_PRIMARY);
                         ui.txt(crate::main_menu::back_button_label(state, "Home"))
-                            .sz(11.5)
+                            .sz(crate::theme::fs(11.5))
                             .semibold()
                             .fg(TEXT_PRIMARY);
                     })
@@ -71,14 +71,14 @@ pub fn render_uix_mod_settings(
 
             icons::icon(ui, icons::PUZZLE, 16.0).fg(accent);
             ui.txt("Mod Settings (UIExpansionKit)")
-                .sz(14.5)
+                .sz(crate::theme::fs(14.5))
                 .bold()
                 .fg(TEXT_PRIMARY)
                 .grow(1.0);
 
             let count_txt = format!("{} Mods", state.host.uix_categories.len());
             ui.txt(&count_txt)
-                .sz(11.0)
+                .sz(crate::theme::fs(11.0))
                 .fg(accent)
                 .bg(tint_alpha(accent, 30))
                 .px(8.0)
@@ -89,7 +89,7 @@ pub fn render_uix_mod_settings(
                 .btn_with("mm_uix_refresh", |ui| {
                     ui.row(|ui| {
                         icons::icon(ui, icons::RELOAD, 13.0).fg(TEXT_PRIMARY);
-                        ui.txt("Refresh").sz(11.0).semibold().fg(TEXT_PRIMARY);
+                        ui.txt("Refresh").sz(crate::theme::fs(11.0)).semibold().fg(TEXT_PRIMARY);
                     })
                     .center()
                     .gap(5.0);
@@ -122,11 +122,11 @@ pub fn render_uix_mod_settings(
             ui.col(|ui| {
                 icons::icon(ui, icons::PUZZLE, 34.0).fg(TEXT_DIM);
                 ui.txt("UIExpansionKit Not Detected")
-                    .sz(16.0)
+                    .sz(crate::theme::fs(16.0))
                     .bold()
                     .fg(TEXT_PRIMARY);
                 ui.txt("Install UI Expansion Kit.dll in ChilloutVR/Mods to configure mod preferences here.")
-                    .sz(12.0)
+                    .sz(crate::theme::fs(12.0))
                     .fg(TEXT_MUTED);
             })
             .center()
@@ -190,7 +190,7 @@ pub fn render_uix_mod_settings(
                     ui.scroll("mm_uix_cat_scroll", |ui| {
                         if categories.is_empty() {
                             ui.txt("No matching mods")
-                                .sz(11.5)
+                                .sz(crate::theme::fs(11.5))
                                 .fg(TEXT_DIM)
                                 .p(10.0);
                         } else {
@@ -201,14 +201,14 @@ pub fn render_uix_mod_settings(
                                     .btn_with(&btn_id, |ui| {
                                         ui.row(|ui| {
                                             ui.txt(display)
-                                                .sz(11.5)
+                                                .sz(crate::theme::fs(11.5))
                                                 .semibold()
                                                 .fg(if active { TEXT_PRIMARY } else { TEXT_MUTED })
                                                 .ellipsis()
                                                 .grow(1.0);
                                             let cnt = format!("{count}");
                                             ui.txt(&cnt)
-                                                .sz(10.0)
+                                                .sz(crate::theme::fs(10.0))
                                                 .fg(if active { accent } else { TEXT_DIM });
                                         })
                                         .align_center()
@@ -265,12 +265,12 @@ pub fn render_uix_mod_settings(
                     if let Some(cat) = selected_cat {
                         ui.row(|ui| {
                             ui.txt(&cat.display_name)
-                                .sz(15.0)
+                                .sz(crate::theme::fs(15.0))
                                 .bold()
                                 .fg(TEXT_PRIMARY)
                                 .grow(1.0);
                             if cat.display_name != cat.id {
-                                ui.txt(&cat.id).sz(10.5).fg(TEXT_DIM);
+                                ui.txt(&cat.id).sz(crate::theme::fs(10.5)).fg(TEXT_DIM);
                             }
                         })
                         .align_center()
@@ -284,12 +284,12 @@ pub fn render_uix_mod_settings(
                                         ui.row(|ui| {
                                             ui.col(|ui| {
                                                 ui.txt(&entry.display_name)
-                                                    .sz(12.0)
+                                                    .sz(crate::theme::fs(12.0))
                                                     .semibold()
                                                     .fg(TEXT_PRIMARY);
                                                 if !entry.description.is_empty() {
                                                     ui.txt(&entry.description)
-                                                        .sz(10.5)
+                                                        .sz(crate::theme::fs(10.5))
                                                         .fg(TEXT_MUTED)
                                                         .wrap();
                                                 }
@@ -302,7 +302,7 @@ pub fn render_uix_mod_settings(
                                             if ui
                                                 .btn_with(&btn_id, |ui| {
                                                     ui.txt(if active { "ON" } else { "OFF" })
-                                                        .sz(11.0)
+                                                        .sz(crate::theme::fs(11.0))
                                                         .bold()
                                                         .align(TextAlign::Center)
                                                         .fg(if active { EMERALD } else { TEXT_MUTED })
@@ -405,12 +405,12 @@ pub fn render_uix_mod_settings(
                                         ui.row(|ui| {
                                             ui.col(|ui| {
                                                 ui.txt(&entry.display_name)
-                                                    .sz(12.0)
+                                                    .sz(crate::theme::fs(12.0))
                                                     .semibold()
                                                     .fg(TEXT_PRIMARY);
                                                 if !entry.description.is_empty() {
                                                     ui.txt(&entry.description)
-                                                        .sz(10.5)
+                                                        .sz(crate::theme::fs(10.5))
                                                         .fg(TEXT_MUTED)
                                                         .wrap();
                                                 }
@@ -430,7 +430,7 @@ pub fn render_uix_mod_settings(
                                             let clicked = ui
                                                 .btn_with(&apply_id, |ui| {
                                                     ui.txt("Apply")
-                                                        .sz(10.5)
+                                                        .sz(crate::theme::fs(10.5))
                                                         .semibold()
                                                         .fg(TEXT_PRIMARY);
                                                 })
@@ -480,12 +480,12 @@ pub fn render_uix_mod_settings(
 
                                         ui.col(|ui| {
                                             ui.txt(&entry.display_name)
-                                                .sz(12.0)
+                                                .sz(crate::theme::fs(12.0))
                                                 .semibold()
                                                 .fg(TEXT_PRIMARY);
                                             if !entry.description.is_empty() {
                                                 ui.txt(&entry.description)
-                                                    .sz(10.5)
+                                                    .sz(crate::theme::fs(10.5))
                                                     .fg(TEXT_MUTED)
                                                     .wrap();
                                             }
@@ -502,7 +502,7 @@ pub fn render_uix_mod_settings(
                                                 let clicked = ui
                                                     .btn_with(&apply_id, |ui| {
                                                         ui.txt("Save")
-                                                            .sz(10.5)
+                                                            .sz(crate::theme::fs(10.5))
                                                             .semibold()
                                                             .fg(TEXT_PRIMARY);
                                                     })
@@ -536,12 +536,12 @@ pub fn render_uix_mod_settings(
                                     "enum" => {
                                         ui.col(|ui| {
                                             ui.txt(&entry.display_name)
-                                                .sz(12.0)
+                                                .sz(crate::theme::fs(12.0))
                                                 .semibold()
                                                 .fg(TEXT_PRIMARY);
                                             if !entry.description.is_empty() {
                                                 ui.txt(&entry.description)
-                                                    .sz(10.5)
+                                                    .sz(crate::theme::fs(10.5))
                                                     .fg(TEXT_MUTED)
                                                     .wrap();
                                             }
@@ -557,7 +557,7 @@ pub fn render_uix_mod_settings(
                                                         if ui
                                                             .btn_with(&opt_id, |ui| {
                                                                 ui.txt(opt)
-                                                                    .sz(11.0)
+                                                                    .sz(crate::theme::fs(11.0))
                                                                     .semibold()
                                                                     .align(TextAlign::Center)
                                                                     .fg(if active {
@@ -628,17 +628,54 @@ pub fn render_uix_mod_settings(
 
                                                     let idx_badge =
                                                         format!("{} ({}/{})", cur_lbl, cur_idx + 1, len);
-                                                    ui.txt(&idx_badge)
-                                                        .sz(11.5)
-                                                        .semibold()
-                                                        .align(TextAlign::Center)
-                                                        .fg(TEXT_PRIMARY)
-                                                        .bg(tile_idle_bg())
-                                                        .bd(1.0, tint_alpha(accent, 140))
+                                                    let dd_id = format!("mm_uix_edd_{full_key}");
+                                                    if ui
+                                                        .btn_with(&dd_id, |ui| {
+                                                            ui.row(|ui| {
+                                                                ui.txt(&idx_badge)
+                                                                    .sz(crate::theme::fs(11.5))
+                                                                    .semibold()
+                                                                    .align(TextAlign::Center)
+                                                                    .fg(TEXT_PRIMARY)
+                                                                    .ellipsis()
+                                                                    .grow(1.0);
+                                                                icons::icon(ui, icons::CHEVRON_DOWN, 14.0)
+                                                                    .fg(accent);
+                                                            })
+                                                            .align_center()
+                                                            .gap(6.0)
+                                                            .grow(1.0);
+                                                        })
+                                                        .grow(1.0)
                                                         .px(10.0)
                                                         .py(5.5)
+                                                        .bg(tile_idle_bg())
+                                                        .hover_bg(tile_idle_hover())
+                                                        .bd(1.0, tint_alpha(accent, 140))
                                                         .bevel_rounded(5.5, 1.3)
-                                                        .grow(1.0);
+                                                        .clicked()
+                                                    {
+                                                        push_click(actions);
+                                                        let options = entry
+                                                            .enum_options
+                                                            .iter()
+                                                            .enumerate()
+                                                            .map(|(idx, opt)| crate::state::DropdownOption {
+                                                                label: opt.clone(),
+                                                                action: UiAction::UixSetEnum {
+                                                                    category: cat.id.clone(),
+                                                                    entry: entry.id.clone(),
+                                                                    index: idx as i32,
+                                                                },
+                                                                selected: idx as i32 == cur_idx,
+                                                            })
+                                                            .collect();
+                                                        state.main_menu.active_dropdown =
+                                                            Some(crate::state::ActiveDropdown {
+                                                                title: entry.display_name.clone(),
+                                                                options,
+                                                            });
+                                                    }
 
                                                     if ui
                                                         .btn_with(&next_id, |ui| {
@@ -680,7 +717,7 @@ pub fn render_uix_mod_settings(
                             // Custom controls injected via ExpansionKitApi.GetSettingsCategory(...)
                             if !cat.custom_controls.is_empty() {
                                 ui.txt("Mod Actions")
-                                    .sz(11.0)
+                                    .sz(crate::theme::fs(11.0))
                                     .semibold()
                                     .fg(TEXT_MUTED)
                                     .pt(6.0);
@@ -695,7 +732,7 @@ pub fn render_uix_mod_settings(
                                             if ui
                                                 .btn_with(&btn_id, |ui| {
                                                     ui.txt(&ctrl.text)
-                                                        .sz(11.5)
+                                                        .sz(crate::theme::fs(11.5))
                                                         .semibold()
                                                         .align(TextAlign::Center)
                                                         .fg(TEXT_PRIMARY)
@@ -724,14 +761,14 @@ pub fn render_uix_mod_settings(
                                             );
                                             ui.row(|ui| {
                                                 ui.txt(&ctrl.text)
-                                                    .sz(12.0)
+                                                    .sz(crate::theme::fs(12.0))
                                                     .semibold()
                                                     .fg(TEXT_PRIMARY)
                                                     .grow(1.0);
                                                 if ui
                                                     .btn_with(&btn_id, |ui| {
                                                         ui.txt(if active { "ON" } else { "OFF" })
-                                                            .sz(11.0)
+                                                            .sz(crate::theme::fs(11.0))
                                                             .bold()
                                                             .align(TextAlign::Center)
                                                             .fg(if active {
@@ -777,7 +814,7 @@ pub fn render_uix_mod_settings(
                                         }
                                         "label" => {
                                             ui.txt(&ctrl.text)
-                                                .sz(11.5)
+                                                .sz(crate::theme::fs(11.5))
                                                 .fg(TEXT_MUTED)
                                                 .wrap()
                                                 .px(6.0)
@@ -796,7 +833,7 @@ pub fn render_uix_mod_settings(
                     } else {
                         ui.col(|ui| {
                             ui.txt("Select a mod category from the left.")
-                                .sz(12.5)
+                                .sz(crate::theme::fs(12.5))
                                 .fg(TEXT_MUTED);
                         })
                         .center()

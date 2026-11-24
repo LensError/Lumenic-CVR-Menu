@@ -1,8 +1,8 @@
 {
   "_id": -1,
   "name": "LumenicMenu",
-  "modversion": "0.2.3",
-  "gameversion": "2026r183",
+  "modversion": "0.3.0",
+  "gameversion": "2026.3.0",
   "loaderversion": "0.7.2",
   "modtype": "Mod",
   "author": "LensError",
@@ -19,6 +19,6 @@
   "requirements": [],
   "downloadlink": "https://github.com/LensError/Lumenic-CVR-Menu/releases/latest/download/LumenicMenu.dll",
   "sourcelink": "https://github.com/LensError/Lumenic-CVR-Menu",
-  "changelog": "Use ChilloutVR Noto Sans fonts, clean top bars and rank tags across all views, normalize QM Main Menu buttons and Props Undo/Redo placement, split User Detail Actions and Moderation cards, clean up LumenicMenu settings with SoftSub default, Recent History toggle, and UserData clear controls.",
+  "changelog": "Added full MelonLoader C# Extension API (LumenicMenu.Api) with custom Quick Menu / Main Menu tabs, shared Extensions hub, declarative UiBuilder with styled dropdowns/comboboxes and masked password inputs, named section injection/override/replacement, global theme/layout/font overrides, live Texture2D uploads, Text Size presets (75%/100%/125%/150%), Support & Update Check tab, system alerts forwarding, and updated Lumenic v0.1.4.",
   "embedcolor": "#321D71"
 }

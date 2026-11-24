@@ -1,5 +1,7 @@
 pub mod avatar_settings_view;
 pub mod content_browser;
+pub mod ext;
+pub mod ext_view;
 pub mod icons;
 pub mod main_menu;
 pub mod quick_menu;
@@ -10,7 +12,7 @@ pub mod theme;
 pub mod uilib_view;
 pub mod uix_view;
 
-pub const ABI_VERSION: u32 = 4;
+pub const ABI_VERSION: u32 = 5;
 
 pub const SURFACE_MAIN: u32 = 0;
 pub const SURFACE_QUICK: u32 = 1;
@@ -848,6 +850,12 @@ pub unsafe extern "C" fn lumenic_cvr_clear_focus(handle: *mut HostHandle, surfac
             }
             hnd.state.main_menu.safety_confirm_action.clear();
         }
+        if hnd.state.ext_sliders.len() > 256 {
+            hnd.state.ext_sliders.clear();
+        }
+        if hnd.state.ext_text_inputs.len() > 256 {
+            hnd.state.ext_text_inputs.clear();
+        }
     })) {
         set_last_error(panic_payload_to_string(payload));
     }
@@ -933,6 +941,29 @@ pub unsafe extern "C" fn lumenic_cvr_commit_virtual_keyboard(
                     hnd.actions.push(UiAction::AvatarSaveProfile { profile: trimmed });
                 }
                 hnd.state.main_menu.aas_new_profile_input = lumenic::TextEditState::new();
+            }
+            other if other.starts_with("ext:") => {
+                // Format: ext:<surface>:<ext_id>:<target_id>:<node_id>
+                let parts: Vec<&str> = other.splitn(5, ':').collect();
+                if parts.len() == 5 {
+                    let widget_id = format!(
+                        "ext_{}_{}_{}_{}",
+                        parts[1], parts[2], parts[3], parts[4]
+                    );
+                    hnd.state.ext_text_inputs.insert(
+                        widget_id,
+                        (lumenic::TextEditState::with_text(text), text.to_owned()),
+                    );
+                    hnd.actions.push(UiAction::ExtEvent {
+                        ext_id: parts[2].to_owned(),
+                        target_id: parts[3].to_owned(),
+                        node_id: parts[4].to_owned(),
+                        kind: String::from("submit"),
+                        string_val: text.to_owned(),
+                        float_val: 0.0,
+                        bool_val: false,
+                    });
+                }
             }
             _ => {}
         }
@@ -1123,6 +1154,114 @@ pub unsafe extern "C" fn lumenic_cvr_push_state_json(
         }
         hnd.state.host = snapshot;
         hnd.mark_all_dirty();
+        Ok(())
+    }));
+
+    match res {
+        Ok(Ok(())) => true,
+        Ok(Err(err)) => {
+            set_last_error(err);
+            false
+        }
+        Err(payload) => {
+            set_last_error(panic_payload_to_string(payload));
+            false
+        }
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn lumenic_cvr_push_extensions_json(
+    handle: *mut HostHandle,
+    utf8_ptr: *const u8,
+    len: usize,
+) -> bool {
+    clear_last_error();
+    let Some(hnd) = (unsafe { handle.as_mut() }) else {
+        set_last_error("lumenic_cvr_push_extensions_json: null handle");
+        return false;
+    };
+    if utf8_ptr.is_null() || len == 0 {
+        set_last_error("lumenic_cvr_push_extensions_json: empty payload");
+        return false;
+    }
+    let res = catch_unwind(AssertUnwindSafe(|| -> Result<(), String> {
+        let bytes = unsafe { checked_slice(utf8_ptr, len)? };
+        let snapshot: crate::ext::ExtensionsSnapshot =
+            serde_json::from_slice(bytes).map_err(|e| format!("extensions JSON parse error: {e}"))?;
+        hnd.state.extensions = snapshot;
+        hnd.mark_all_dirty();
+        Ok(())
+    }));
+
+    match res {
+        Ok(Ok(())) => true,
+        Ok(Err(err)) => {
+            set_last_error(err);
+            false
+        }
+        Err(payload) => {
+            set_last_error(panic_payload_to_string(payload));
+            false
+        }
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn lumenic_cvr_upload_rgba_texture(
+    handle: *mut HostHandle,
+    surface_id: u32,
+    key_ptr: *const u8,
+    key_len: usize,
+    width: u32,
+    height: u32,
+    rgba_ptr: *const u8,
+    rgba_len: usize,
+) -> bool {
+    clear_last_error();
+    let Some(hnd) = (unsafe { handle.as_mut() }) else {
+        set_last_error("lumenic_cvr_upload_rgba_texture: null handle");
+        return false;
+    };
+    if key_ptr.is_null() || key_len == 0 || rgba_ptr.is_null() || width == 0 || height == 0 {
+        set_last_error("lumenic_cvr_upload_rgba_texture: invalid arguments");
+        return false;
+    }
+    let expected_len = (width as usize)
+        .saturating_mul(height as usize)
+        .saturating_mul(4);
+    if rgba_len < expected_len {
+        set_last_error("lumenic_cvr_upload_rgba_texture: rgba buffer too small");
+        return false;
+    }
+    let res = catch_unwind(AssertUnwindSafe(|| -> Result<(), String> {
+        let Some(sid) = hnd.surface_id(surface_id) else {
+            return Err(format!("invalid surface_id: {surface_id}"));
+        };
+        let key_bytes = unsafe { checked_slice(key_ptr, key_len)? };
+        let key = std::str::from_utf8(key_bytes)
+            .map_err(|e| format!("invalid image key utf8: {e}"))?
+            .to_owned();
+        let rgba = unsafe { checked_slice(rgba_ptr, expected_len)? };
+
+        let HostHandle { host, state, .. } = hnd;
+        let guard = MakeNotCurrentGuard(host);
+        let surf = guard
+            .0
+            .surface_mut(sid)
+            .ok_or_else(|| String::from("surface missing"))?;
+        let tex_id = surf
+            .app_mut()
+            .create_texture_rgba(width, height, rgba)
+            .map_err(|e| format!("create_texture_rgba({key}): {e}"))?;
+
+        let cache = if surface_id == SURFACE_MAIN {
+            &mut state.main_textures
+        } else {
+            &mut state.quick_textures
+        };
+        cache.insert(surf.app_mut(), key, tex_id);
+        surf.mark_dirty();
         Ok(())
     }));
 

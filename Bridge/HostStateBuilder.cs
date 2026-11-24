@@ -323,6 +323,11 @@ internal sealed class HostStateBuilder
             ui_click_sounds = Settings.UiClickSounds,
             ui_sound_pack = Settings.UiSoundPack,
             enable_recent_history = Settings.EnableRecentHistory,
+            disclaimer_accepted = Settings.DisclaimerAccepted,
+            show_whats_new = !string.Equals(Settings.LastSeenVersion, LumenicMenuMod.ModVersion, StringComparison.OrdinalIgnoreCase),
+            whats_new_notes = ModUpdateService.BundledChangelog,
+            update_status = mod.Updates?.BuildSnapshot() ?? new UpdateStatusDto { current_version = LumenicMenuMod.ModVersion },
+            system_alert = mod.SystemAlerts?.PeekActive(),
             desktop_scroll_multiplier = Settings.DesktopScrollMultiplier,
             vr_scroll_multiplier = Settings.VrScrollMultiplier,
             qm_quick_actions_order = ParseOrderCsv(Settings.QmQuickActionsOrder),
@@ -341,6 +346,7 @@ internal sealed class HostStateBuilder
             qm_upload_ms = Settings.PerfLogging ? (float)Math.Round(quickSurface.LastUploadMs, 2) : 0f,
             qm_blit_ms = Settings.PerfLogging ? (float)Math.Round(quickSurface.LastBlitMs, 2) : 0f,
             max_refresh_hz = Settings.MaxRefreshHz,
+            font_scale = Settings.FontScale,
             linear_texture = Settings.LinearTextureMode,
             perf_logging = Settings.PerfLogging
         };

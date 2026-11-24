@@ -12,6 +12,7 @@ internal static class Settings
     private static MelonPreferences_Entry<bool> _enableQuickMenu;
     private static MelonPreferences_Entry<int> _maxRefreshHz;
     private static MelonPreferences_Entry<float> _uiScale;
+    private static MelonPreferences_Entry<float> _fontScale;
     private static MelonPreferences_Entry<float> _desktopScrollMultiplier;
     private static MelonPreferences_Entry<float> _vrScrollMultiplier;
     private static MelonPreferences_Entry<bool> _linearTextureMode;
@@ -19,6 +20,9 @@ internal static class Settings
     private static MelonPreferences_Entry<bool> _uiClickSounds;
     private static MelonPreferences_Entry<string> _uiSoundPack;
     private static MelonPreferences_Entry<bool> _enableRecentHistory;
+    private static MelonPreferences_Entry<bool> _disclaimerAccepted;
+    private static MelonPreferences_Entry<string> _lastSeenVersion;
+    private static MelonPreferences_Entry<string> _dismissedUpdateVersion;
     private static MelonPreferences_Entry<string> _qmQuickActionsOrder;
     private static MelonPreferences_Entry<string> _mmQuickToolsOrder;
 
@@ -28,6 +32,7 @@ internal static class Settings
     public static bool EnableQuickMenu => _enableQuickMenu?.Value ?? true;
     public static int MaxRefreshHz => Mathf.Clamp(_maxRefreshHz?.Value ?? 60, 15, 144);
     public static float UiScale => Mathf.Clamp(_uiScale?.Value ?? 1.0f, 0.5f, 2.0f);
+    public static float FontScale => Mathf.Clamp(_fontScale?.Value ?? 1.0f, 0.5f, 2.5f);
     public static float DesktopScrollMultiplier => Mathf.Clamp(_desktopScrollMultiplier?.Value ?? 24.0f, 4.0f, 64.0f);
     public static float VrScrollMultiplier => Mathf.Clamp(_vrScrollMultiplier?.Value ?? 3.0f, 0.5f, 12.0f);
     public static bool LinearTextureMode => _linearTextureMode?.Value ?? false;
@@ -35,6 +40,9 @@ internal static class Settings
     public static bool UiClickSounds => _uiClickSounds?.Value ?? true;
     public static string UiSoundPack => _uiSoundPack?.Value ?? "SoftSub";
     public static bool EnableRecentHistory => _enableRecentHistory?.Value ?? true;
+    public static bool DisclaimerAccepted => _disclaimerAccepted?.Value ?? false;
+    public static string LastSeenVersion => _lastSeenVersion?.Value ?? string.Empty;
+    public static string DismissedUpdateVersion => _dismissedUpdateVersion?.Value ?? string.Empty;
     public static string QmQuickActionsOrder => _qmQuickActionsOrder?.Value ?? string.Empty;
     public static string MmQuickToolsOrder => _mmQuickToolsOrder?.Value ?? string.Empty;
 
@@ -65,6 +73,12 @@ internal static class Settings
             1.0f,
             "UI Scale Factor",
             "DPI scale factor passed to Lumenic surfaces (0.5-2.0).");
+
+        _fontScale = _category.CreateEntry(
+            "FontScale",
+            1.0f,
+            "Text Size",
+            "Global text size multiplier across Lumenic menus (presets: 75%, 100%, 125%, 150%; range 0.5-2.5).");
 
         _desktopScrollMultiplier = _category.CreateEntry(
             "DesktopScrollMultiplier",
@@ -108,6 +122,24 @@ internal static class Settings
             "Track Local Recent History",
             "Records and shows local Recent categories (Worlds, Avatars, Props, Users) in UserData/LumenicMenu/recent-history.json.");
 
+        _disclaimerAccepted = _category.CreateEntry(
+            "DisclaimerAccepted",
+            false,
+            "First-Use Disclaimer Accepted",
+            "Tracks whether the LumenicMenu first-use support and bug-reporting disclaimer modal has been acknowledged.");
+
+        _lastSeenVersion = _category.CreateEntry(
+            "LastSeenVersion",
+            string.Empty,
+            "Last Seen Mod Version",
+            "Tracks the last LumenicMenu version whose bundled changelog modal was shown.");
+
+        _dismissedUpdateVersion = _category.CreateEntry(
+            "DismissedUpdateVersion",
+            string.Empty,
+            "Dismissed Update Version",
+            "Version string skipped by the user so the update modal does not reopen for that release.");
+
         _qmQuickActionsOrder = _category.CreateEntry(
             "QmQuickActionsOrder",
             string.Empty,
@@ -124,6 +156,7 @@ internal static class Settings
         _enableQuickMenu.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
         _maxRefreshHz.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
         _uiScale.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
+        _fontScale.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
         _desktopScrollMultiplier.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
         _vrScrollMultiplier.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
         _linearTextureMode.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
@@ -131,6 +164,9 @@ internal static class Settings
         _uiClickSounds.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
         _uiSoundPack.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
         _enableRecentHistory.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
+        _disclaimerAccepted.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
+        _lastSeenVersion.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
+        _dismissedUpdateVersion.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
         _qmQuickActionsOrder.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
         _mmQuickToolsOrder.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
     }
@@ -183,6 +219,16 @@ internal static class Settings
         }
     }
 
+    public static void SetFontScale(float scale)
+    {
+        float clamped = Mathf.Clamp(scale, 0.5f, 2.5f);
+        if (_fontScale != null && Math.Abs(_fontScale.Value - clamped) > 0.001f)
+        {
+            _fontScale.Value = clamped;
+            MelonPreferences.Save();
+        }
+    }
+
     public static void SetEnableMainMenu(bool value)
     {
         if (_enableMainMenu != null && _enableMainMenu.Value != value)
@@ -215,6 +261,35 @@ internal static class Settings
         if (_enableRecentHistory != null && _enableRecentHistory.Value != value)
         {
             _enableRecentHistory.Value = value;
+            MelonPreferences.Save();
+        }
+    }
+
+    public static void SetDisclaimerAccepted(bool value)
+    {
+        if (_disclaimerAccepted != null && _disclaimerAccepted.Value != value)
+        {
+            _disclaimerAccepted.Value = value;
+            MelonPreferences.Save();
+        }
+    }
+
+    public static void SetLastSeenVersion(string version)
+    {
+        string safe = version ?? string.Empty;
+        if (_lastSeenVersion != null && _lastSeenVersion.Value != safe)
+        {
+            _lastSeenVersion.Value = safe;
+            MelonPreferences.Save();
+        }
+    }
+
+    public static void SetDismissedUpdateVersion(string version)
+    {
+        string safe = version ?? string.Empty;
+        if (_dismissedUpdateVersion != null && _dismissedUpdateVersion.Value != safe)
+        {
+            _dismissedUpdateVersion.Value = safe;
             MelonPreferences.Save();
         }
     }

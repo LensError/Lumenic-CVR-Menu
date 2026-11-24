@@ -702,6 +702,17 @@ internal sealed class SocialService
     {
         if (!string.IsNullOrWhiteSpace(userId))
         {
+            string myId = MetaPort.Instance?.ownerId ?? AuthManager.UserId;
+            if (!string.IsNullOrEmpty(myId) && string.Equals(userId, myId, StringComparison.OrdinalIgnoreCase))
+            {
+                ABI_RC.Systems.UI.UILib.QuickMenuAPI.ShowNotice(
+                    "Be Kind to Yourself",
+                    "You can't unfriend yourself! Someone has to stay on your friends list.",
+                    null,
+                    "I'll be nice");
+                return;
+            }
+
             ViewManager.Instance?.Unfriend(userId);
             lock (_lock)
             {
@@ -716,6 +727,17 @@ internal sealed class SocialService
     {
         if (string.IsNullOrWhiteSpace(userId))
             return;
+
+        string myId = MetaPort.Instance?.ownerId ?? AuthManager.UserId;
+        if (blocked && !string.IsNullOrEmpty(myId) && string.Equals(userId, myId, StringComparison.OrdinalIgnoreCase))
+        {
+            ABI_RC.Systems.UI.UILib.QuickMenuAPI.ShowNotice(
+                "Nice Try",
+                "You can't block yourself. You're stuck with you forever.",
+                null,
+                "Fine...");
+            return;
+        }
 
         if (blocked)
             ViewManager.Instance?.BlockUser(userId, contactApi: true);

@@ -338,9 +338,80 @@ internal sealed class UiLibBridge
         InvokeModCallback("Category.OnCollapse", () => cat.OnCollapse?.Invoke(next));
     }
 
+    private int _selfActionJokeIndex;
+
+    private static readonly (string Title, string Body, string Ok)[] SelfBlockJokes =
+    {
+        ("Nice Try", "You can't block yourself. You're stuck with you forever.", "Fine..."),
+        ("Paradox Detected", "Blocking yourself would create a paradox and delete the universe. Request denied.", "Fair enough"),
+        ("Mirror Check", "Running away from your own reflection isn't supported yet.", "Okay, okay"),
+        ("Error 418", "Cannot block your own inner monologue. Drink some water instead.", "Got it")
+    };
+
+    private static readonly (string Title, string Body, string Ok)[] SelfUnfriendJokes =
+    {
+        ("Be Kind to Yourself", "You can't unfriend yourself! Someone has to stay on your friends list.", "I'll be nice"),
+        ("Friendship Forever", "Self-unfriending failed: you're already your own best friend.", "Fair enough"),
+        ("Breakup Denied", "No breaking up with yourself in ChilloutVR. Take a deep breath instead.", "Okay, okay"),
+        ("Nice Try", "You can't unfriend yourself. You two are stuck together.", "Fine...")
+    };
+
+    private bool IsSelfModerationButton(QMUIElement el, out bool isBlock, out bool isFriendAction)
+    {
+        isBlock = false;
+        isFriendAction = false;
+        if (el is not Button btn || _navStack.Count == 0)
+            return false;
+
+        Page activePage = _navStack[_navStack.Count - 1];
+        if (activePage == null || GetElementKey(activePage) != "CVRUI-QMUI-PlayerSelectPage")
+            return false;
+
+        string myId = MetaPort.Instance?.ownerId ?? ABI_RC.Core.Networking.AuthManager.UserId;
+        string selId = QuickMenuAPI.SelectedPlayerID;
+        bool isSelf = string.IsNullOrEmpty(selId)
+            || (!string.IsNullOrEmpty(myId) && string.Equals(selId, myId, StringComparison.OrdinalIgnoreCase));
+        if (!isSelf)
+            return false;
+
+        string text = (btn.ButtonText ?? string.Empty).ToLowerInvariant();
+        string tip = (btn.ButtonTooltip ?? string.Empty).ToLowerInvariant();
+        isBlock = (text.Contains("block") && !text.Contains("unblock"))
+            || tip.Contains("blocks the selected user");
+        isFriendAction = text.Contains("unfriend")
+            || text.Contains("remove friend")
+            || text.Contains("add friend")
+            || tip.Contains("unfriend")
+            || tip.Contains("friend request");
+        return isBlock || isFriendAction;
+    }
+
+    private bool TryInterceptSelfModerationClick(QMUIElement el)
+    {
+        if (!IsSelfModerationButton(el, out bool isBlock, out bool isFriendAction))
+            return false;
+
+        if (isBlock)
+        {
+            var joke = SelfBlockJokes[_selfActionJokeIndex++ % SelfBlockJokes.Length];
+            HandleShowNotice(joke.Title, joke.Body, null, joke.Ok);
+            return true;
+        }
+        if (isFriendAction)
+        {
+            var joke = SelfUnfriendJokes[_selfActionJokeIndex++ % SelfUnfriendJokes.Length];
+            HandleShowNotice(joke.Title, joke.Body, null, joke.Ok);
+            return true;
+        }
+        return false;
+    }
+
     public void ClickElement(string elementId)
     {
         if (!_elementsById.TryGetValue(elementId, out QMUIElement el) || el == null)
+            return;
+
+        if (TryInterceptSelfModerationClick(el))
             return;
 
         if (GetBoolField(ElementDisabledField, el))
@@ -1106,13 +1177,15 @@ internal sealed class UiLibBridge
                     {
                         string subId = GetElementKey(subBtn);
                         _elementsById[subId] = subBtn;
+                        bool subDisabled = GetBoolField(ElementDisabledField, subBtn)
+                            && !IsSelfModerationButton(subBtn, out _, out _);
                         extraBtns.Add(new
                         {
                             id = subId,
                             label = subBtn.ButtonText ?? string.Empty,
                             icon_key = images.RequestUiLibIcon(NativeBridge.SurfaceQuick, modName, subBtn.ButtonIcon),
                             tooltip = subBtn.ButtonTooltip ?? string.Empty,
-                            disabled = GetBoolField(ElementDisabledField, subBtn)
+                            disabled = subDisabled
                         });
                     }
                 }

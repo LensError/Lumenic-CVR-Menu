@@ -21,8 +21,8 @@ impl SurfaceTextureCache {
             app.destroy_texture(old);
             self.order.retain(|k| k != &key);
         }
-        // Keep local PFP and UILib mod icons pinned so browsing content thumbnails never evicts them.
-        if key != "local_pfp" && !key.starts_with("uilib:") {
+        // Keep local PFP, UILib mod icons, and extension assets pinned so browsing content thumbnails never evicts them.
+        if key != "local_pfp" && !key.starts_with("uilib:") && !key.starts_with("ext:") {
             self.order.push_back(key);
         }
 
@@ -774,6 +774,11 @@ pub struct HostStateSnapshot {
     pub ui_click_sounds: bool,
     pub ui_sound_pack: String,
     pub enable_recent_history: bool,
+    pub disclaimer_accepted: bool,
+    pub show_whats_new: bool,
+    pub whats_new_notes: String,
+    pub update_status: UpdateStatusDto,
+    pub system_alert: Option<SystemAlertDto>,
     pub desktop_scroll_multiplier: f32,
     pub vr_scroll_multiplier: f32,
 
@@ -791,8 +796,49 @@ pub struct HostStateSnapshot {
     pub qm_upload_ms: f32,
     pub qm_blit_ms: f32,
     pub max_refresh_hz: u32,
+    pub font_scale: f32,
     pub linear_texture: bool,
     pub perf_logging: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct UpdateStatusDto {
+    pub status: String,
+    pub current_version: String,
+    pub latest_version: String,
+    pub release_title: String,
+    pub release_notes: String,
+    pub release_url: String,
+    pub download_url: String,
+    pub error_message: String,
+    pub show_modal: bool,
+}
+
+impl Default for UpdateStatusDto {
+    fn default() -> Self {
+        Self {
+            status: String::from("idle"),
+            current_version: String::from(env!("CARGO_PKG_VERSION")),
+            latest_version: String::new(),
+            release_title: String::new(),
+            release_notes: String::new(),
+            release_url: String::from("https://github.com/LensError/Lumenic-CVR-Menu/releases/latest"),
+            download_url: String::from("https://github.com/LensError/Lumenic-CVR-Menu/releases/latest/download/LumenicMenu.dll"),
+            error_message: String::new(),
+            show_modal: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct SystemAlertDto {
+    pub id: i64,
+    pub kind: String,
+    pub title: String,
+    pub message: String,
+    pub confirm_id: String,
 }
 
 impl Default for HostStateSnapshot {
@@ -864,6 +910,11 @@ impl Default for HostStateSnapshot {
             ui_click_sounds: true,
             ui_sound_pack: String::from("SoftSub"),
             enable_recent_history: true,
+            disclaimer_accepted: true,
+            show_whats_new: false,
+            whats_new_notes: String::new(),
+            update_status: UpdateStatusDto::default(),
+            system_alert: None,
             desktop_scroll_multiplier: 24.0,
             vr_scroll_multiplier: 3.0,
             mm_width: 2560,
@@ -879,6 +930,7 @@ impl Default for HostStateSnapshot {
             qm_upload_ms: 0.0,
             qm_blit_ms: 0.0,
             max_refresh_hz: 60,
+            font_scale: 1.0,
             linear_texture: false,
             perf_logging: false,
         }
@@ -906,6 +958,19 @@ pub enum MainNavEntry {
         tab: String,
         group_id: String,
     },
+}
+
+#[derive(Debug, Clone)]
+pub struct DropdownOption {
+    pub label: String,
+    pub action: UiAction,
+    pub selected: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct ActiveDropdown {
+    pub title: String,
+    pub options: Vec<DropdownOption>,
 }
 
 /// Local UI state for the Phase 3A Main Menu Shell & Home Dashboard.
@@ -963,6 +1028,7 @@ pub struct MainMenuState {
     pub hovered_tooltip: String,
     pub mm_tools_reorder_mode: bool,
     pub mm_tools_reorder_selected: Option<usize>,
+    pub active_dropdown: Option<ActiveDropdown>,
 }
 
 impl Default for MainMenuState {
@@ -1021,6 +1087,7 @@ impl Default for MainMenuState {
             hovered_tooltip: String::new(),
             mm_tools_reorder_mode: false,
             mm_tools_reorder_selected: None,
+            active_dropdown: None,
         }
     }
 }
@@ -1113,10 +1180,13 @@ impl Default for QuickMenuState {
 #[derive(Default)]
 pub struct AppState {
     pub host: HostStateSnapshot,
+    pub extensions: crate::ext::ExtensionsSnapshot,
     pub main_menu: MainMenuState,
     pub quick: QuickMenuState,
     pub main_textures: SurfaceTextureCache,
     pub quick_textures: SurfaceTextureCache,
+    pub ext_sliders: HashMap<String, (f32, f32)>,
+    pub ext_text_inputs: HashMap<String, (TextEditState, String)>,
 }
 
 /// Typed actions emitted by Rust UI and executed by C# on Unity's main thread.
@@ -1413,12 +1483,61 @@ pub enum UiAction {
     ClearRecentHistory,
     ClearPinnedItems,
     ResetTileLayouts,
+    OpenHardcodedUrl {
+        key: String,
+    },
+    OpenExternalUrl {
+        url: String,
+    },
+    CopyText {
+        text: String,
+    },
+    AttemptEatBread,
+    OpenLogsFolder,
+    AcceptDisclaimer,
+    CheckForUpdates,
+    RemindUpdateLater,
+    SkipUpdateVersion {
+        version: String,
+    },
+    DismissWhatsNew,
+    DismissSystemAlert {
+        id: i64,
+    },
+    RespondSystemConfirm {
+        id: i64,
+        confirmed: bool,
+    },
     SetMaxRefreshHz {
         hz: i32,
+    },
+    SetFontScale {
+        scale: f32,
     },
     SetTileOrder {
         target: String,
         order: Vec<String>,
+    },
+
+    // Extension API actions
+    ExtSelectTab {
+        surface: String,
+        tab_id: String,
+    },
+    ExtGoBack {
+        surface: String,
+    },
+    ExtCloseModal {
+        surface: String,
+    },
+    ExtEvent {
+        ext_id: String,
+        target_id: String,
+        node_id: String,
+        kind: String,
+        string_val: String,
+        float_val: f32,
+        bool_val: bool,
     },
 
     // Advanced Avatar Settings & Preview actions

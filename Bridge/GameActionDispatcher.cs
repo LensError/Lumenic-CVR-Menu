@@ -31,6 +31,12 @@ internal static class GameActionDispatcher
 {
     private static readonly MethodInfo OnClickFromCohtmlMethod =
         AccessTools.Method(typeof(UIMessageManager), "OnClickFromCohtml", new[] { typeof(string) });
+    private static readonly MethodInfo AttemptEatBreadMethod =
+        AccessTools.Method(typeof(ViewManager), "AttemptEatBread");
+    private static readonly MethodInfo OpenLogsFolderMethod =
+        AccessTools.Method(typeof(ViewManager), "OpenLogsFolder");
+    private static readonly MethodInfo HandleUiConfirmMethod =
+        AccessTools.Method(typeof(ViewManager), "HandleUiConfirm", new[] { typeof(string), typeof(string), typeof(string) });
 
     public static void DispatchActionsJson(string actionsJson, LumenicMenuMod mod)
     {
@@ -105,6 +111,11 @@ internal static class GameActionDispatcher
 
             case "SetVrScrollMultiplier":
                 Settings.SetVrScrollMultiplier(obj.Value<float>("value"));
+                mod.MarkStateDirty();
+                break;
+
+            case "SetFontScale":
+                Settings.SetFontScale(obj.Value<float>("scale"));
                 mod.MarkStateDirty();
                 break;
 
@@ -275,6 +286,85 @@ internal static class GameActionDispatcher
                 RootLogic.Instance?.QuitApplication();
                 break;
 
+            case "OpenHardcodedUrl":
+            {
+                string key = obj.Value<string>("key") ?? string.Empty;
+                if (!string.IsNullOrWhiteSpace(key))
+                    ABI_RC.Core.CVRWebLinks.OpenHardcodedUrl(key);
+                break;
+            }
+
+            case "OpenExternalUrl":
+            {
+                string url = obj.Value<string>("url") ?? string.Empty;
+                if (url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                    Application.OpenURL(url);
+                break;
+            }
+
+            case "CopyText":
+            {
+                string text = obj.Value<string>("text") ?? string.Empty;
+                if (!string.IsNullOrEmpty(text) && text.Contains("@"))
+                    Application.OpenURL("mailto:" + text);
+                break;
+            }
+
+            case "AcceptDisclaimer":
+                Settings.SetDisclaimerAccepted(true);
+                mod.MarkStateDirty();
+                break;
+
+            case "CheckForUpdates":
+                mod.Updates?.CheckForUpdates(manual: true);
+                break;
+
+            case "RemindUpdateLater":
+                mod.Updates?.DismissForSession();
+                break;
+
+            case "SkipUpdateVersion":
+            {
+                string version = obj.Value<string>("version") ?? string.Empty;
+                if (!string.IsNullOrEmpty(version))
+                    Settings.SetDismissedUpdateVersion(version);
+                mod.Updates?.DismissForSession();
+                mod.MarkStateDirty();
+                break;
+            }
+
+            case "DismissWhatsNew":
+                Settings.SetLastSeenVersion(LumenicMenuMod.ModVersion);
+                mod.MarkStateDirty();
+                break;
+
+            case "DismissSystemAlert":
+            {
+                long id = obj.Value<long?>("id") ?? 0;
+                mod.SystemAlerts?.Dismiss(id);
+                break;
+            }
+
+            case "RespondSystemConfirm":
+            {
+                long id = obj.Value<long?>("id") ?? 0;
+                bool confirmed = obj.Value<bool?>("confirmed") ?? false;
+                SystemAlertDto alert = mod.SystemAlerts?.Dismiss(id);
+                if (alert != null && !string.IsNullOrEmpty(alert.confirm_id) && ViewManager.Instance != null)
+                    HandleUiConfirmMethod?.Invoke(ViewManager.Instance, new object[] { alert.confirm_id, confirmed ? "true" : "false", string.Empty });
+                break;
+            }
+
+            case "AttemptEatBread":
+                if (ViewManager.Instance != null)
+                    AttemptEatBreadMethod?.Invoke(ViewManager.Instance, null);
+                break;
+
+            case "OpenLogsFolder":
+                if (ViewManager.Instance != null)
+                    OpenLogsFolderMethod?.Invoke(ViewManager.Instance, null);
+                break;
+
             case "OpenLocalPlayerQmPage":
                 mod.UiLib.OpenLocalPlayerPage();
                 mod.MarkStateDirty();
@@ -388,8 +478,49 @@ internal static class GameActionDispatcher
             }
 
             case "UiLibSelectTab":
+                Api.LumenicApi.Host.ClearActiveTab(Api.ExtSurface.QuickMenu);
                 mod.UiLib.SelectTab(obj.Value<string>("tab_id"));
                 mod.MarkStateDirty();
+                break;
+
+            case "ExtSelectTab":
+            {
+                string surf = obj.Value<string>("surface") ?? "quick";
+                string tabId = obj.Value<string>("tab_id") ?? string.Empty;
+                if (surf == "main")
+                {
+                    Api.LumenicApi.Host.SelectTab(Api.ExtSurface.MainMenu, tabId);
+                }
+                else
+                {
+                    Api.LumenicApi.Host.SelectTab(Api.ExtSurface.QuickMenu, tabId);
+                }
+                break;
+            }
+
+            case "ExtGoBack":
+            {
+                string surf = obj.Value<string>("surface") ?? "quick";
+                Api.LumenicApi.Host.PopSubPage(surf == "main" ? Api.ExtSurface.MainMenu : Api.ExtSurface.QuickMenu);
+                break;
+            }
+
+            case "ExtCloseModal":
+            {
+                string surf = obj.Value<string>("surface") ?? "quick";
+                Api.LumenicApi.Host.CloseModal(surf == "main" ? Api.ExtSurface.MainMenu : Api.ExtSurface.QuickMenu);
+                break;
+            }
+
+            case "ExtEvent":
+                Api.LumenicApi.Host.DispatchEvent(
+                    obj.Value<string>("ext_id") ?? string.Empty,
+                    obj.Value<string>("target_id") ?? string.Empty,
+                    obj.Value<string>("node_id") ?? string.Empty,
+                    obj.Value<string>("kind") ?? string.Empty,
+                    obj.Value<string>("string_val") ?? string.Empty,
+                    obj.Value<float>("float_val"),
+                    obj.Value<bool>("bool_val"));
                 break;
 
             case "UiLibGoBack":

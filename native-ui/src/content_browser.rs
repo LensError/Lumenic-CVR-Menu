@@ -85,7 +85,7 @@ pub fn render_content_browser(
         // =====================================================================
         ui.row(|ui| {
             icons::icon(ui, icon_path, 17.0).fg(accent);
-            ui.txt(title).sz(15.0).bold().fg(TEXT_PRIMARY);
+            ui.txt(title).sz(crate::theme::fs(15.0)).bold().fg(TEXT_PRIMARY);
 
             if !list.items.is_empty() {
                 let count_txt = if list.has_more {
@@ -95,7 +95,7 @@ pub fn render_content_browser(
                 };
                 ui.row(|ui| {
                     ui.txt(&count_txt)
-                        .sz(10.0)
+                        .sz(crate::theme::fs(10.0))
                         .semibold()
                         .fg(accent);
                 })
@@ -139,7 +139,7 @@ pub fn render_content_browser(
                 if ui
                     .btn_with(&id, |ui| {
                         ui.txt(lbl)
-                            .sz(10.5)
+                            .sz(crate::theme::fs(10.5))
                             .semibold()
                             .align(TextAlign::Center)
                             .fg(if active { TEXT_PRIMARY } else { TEXT_MUTED })
@@ -181,7 +181,7 @@ pub fn render_content_browser(
             if ui
                 .btn_with(&format!("mm_cb_dir_{tab_id}"), |ui| {
                     ui.txt(dir_lbl)
-                        .sz(10.5)
+                        .sz(crate::theme::fs(10.5))
                         .semibold()
                         .align(TextAlign::Center)
                         .fg(TEXT_PRIMARY)
@@ -245,7 +245,7 @@ pub fn render_content_browser(
             // --- LEFT SIDEBAR: CATEGORIES ---
             ui.col(|ui| {
                 ui.txt("Categories")
-                    .sz(11.5)
+                    .sz(crate::theme::fs(11.5))
                     .semibold()
                     .fg(TEXT_MUTED)
                     .px(4.0);
@@ -257,7 +257,7 @@ pub fn render_content_browser(
                         } else {
                             "Loading categories..."
                         })
-                        .sz(11.0)
+                        .sz(crate::theme::fs(11.0))
                         .fg(TEXT_DIM)
                         .p(8.0);
                     } else {
@@ -272,7 +272,7 @@ pub fn render_content_browser(
 
                         if !recent_cats.is_empty() {
                             ui.txt("Recent")
-                                .sz(10.5)
+                                .sz(crate::theme::fs(10.5))
                                 .semibold()
                                 .fg(accent)
                                 .px(4.0);
@@ -283,7 +283,7 @@ pub fn render_content_browser(
 
                         if !sys_cats.is_empty() {
                             ui.txt("System")
-                                .sz(10.5)
+                                .sz(crate::theme::fs(10.5))
                                 .semibold()
                                 .fg(TEXT_DIM)
                                 .pt(6.0)
@@ -295,7 +295,7 @@ pub fn render_content_browser(
 
                         if !usr_cats.is_empty() {
                             ui.txt("Favorites & Lists")
-                                .sz(10.5)
+                                .sz(crate::theme::fs(10.5))
                                 .semibold()
                                 .fg(TEXT_DIM)
                                 .pt(8.0)
@@ -348,14 +348,14 @@ pub fn render_content_browser(
                 if list.loading && filtered.is_empty() {
                     ui.col(|ui| {
                         icons::icon(ui, icon_path, 28.0).fg(accent);
-                        ui.txt("Loading...").sz(13.0).semibold().fg(TEXT_MUTED);
+                        ui.txt("Loading...").sz(crate::theme::fs(13.0)).semibold().fg(TEXT_MUTED);
                     })
                     .center()
                     .grow(1.0)
                     .gap(6.0);
                 } else if !list.error.is_empty() && filtered.is_empty() {
                     ui.col(|ui| {
-                        ui.txt(&list.error).sz(12.0).fg(AMBER).wrap();
+                        ui.txt(&list.error).sz(crate::theme::fs(12.0)).fg(AMBER).wrap();
                     })
                     .center()
                     .grow(1.0)
@@ -363,7 +363,7 @@ pub fn render_content_browser(
                 } else if filtered.is_empty() {
                     ui.col(|ui| {
                         icons::icon(ui, icon_path, 28.0).fg(TEXT_DIM);
-                        ui.txt("No items found").sz(12.5).semibold().fg(TEXT_MUTED);
+                        ui.txt("No items found").sz(crate::theme::fs(12.5)).semibold().fg(TEXT_MUTED);
                     })
                     .center()
                     .grow(1.0)
@@ -398,7 +398,7 @@ pub fn render_content_browser(
                                 ui.row(|ui| {
                                     icons::icon(ui, icons::RELOAD, 12.5).fg(accent);
                                     ui.txt("Loading more...")
-                                        .sz(11.0)
+                                        .sz(crate::theme::fs(11.0))
                                         .semibold()
                                         .fg(TEXT_MUTED);
                                 })
@@ -410,11 +410,11 @@ pub fn render_content_browser(
                                 .bd(1.0, tint_alpha(accent, 95))
                                 .bevel_rounded(6.0, 1.3);
                             } else if !list.error.is_empty() && list.has_more {
-                                ui.txt(&list.error).sz(10.5).fg(AMBER);
+                                ui.txt(&list.error).sz(crate::theme::fs(10.5)).fg(AMBER);
                                 if ui
                                     .btn_with(&format!("mm_cb_retry_more_{tab_id}"), |ui| {
                                         ui.txt("Retry")
-                                            .sz(10.5)
+                                            .sz(crate::theme::fs(10.5))
                                             .semibold()
                                             .fg(TEXT_PRIMARY);
                                     })
@@ -439,7 +439,7 @@ pub fn render_content_browser(
                                 if ui
                                     .btn_with(&format!("mm_cb_load_more_{tab_id}"), |ui| {
                                         ui.txt("Load More")
-                                            .sz(11.0)
+                                            .sz(crate::theme::fs(11.0))
                                             .semibold()
                                             .fg(TEXT_PRIMARY);
                                     })
@@ -462,7 +462,7 @@ pub fn render_content_browser(
                                 }
                             } else {
                                 ui.txt(&format!("End of list ({} items)", filtered.len()))
-                                    .sz(10.5)
+                                    .sz(crate::theme::fs(10.5))
                                     .fg(TEXT_DIM);
                             }
                         })
@@ -553,7 +553,7 @@ pub fn render_discover_page(
         ui.row(|ui| {
             icons::icon(ui, icons::COMPASS, 17.0).fg(accent);
             ui.txt("Discover Random Content")
-                .sz(15.0)
+                .sz(crate::theme::fs(15.0))
                 .bold()
                 .fg(TEXT_PRIMARY)
                 .grow(1.0);
@@ -570,7 +570,7 @@ pub fn render_discover_page(
                             icons::icon(ui, ic, 13.0)
                                 .fg(if active { accent } else { TEXT_DIM });
                             ui.txt(lbl)
-                                .sz(11.0)
+                                .sz(crate::theme::fs(11.0))
                                 .semibold()
                                 .fg(if active { TEXT_PRIMARY } else { TEXT_MUTED });
                         })
@@ -605,7 +605,7 @@ pub fn render_discover_page(
                 .btn_with("mm_disc_refresh", |ui| {
                     ui.row(|ui| {
                         icons::icon(ui, icons::RELOAD, 13.5).fg(TEXT_PRIMARY);
-                        ui.txt("Roll Again").sz(11.0).semibold().fg(TEXT_PRIMARY);
+                        ui.txt("Roll Again").sz(crate::theme::fs(11.0)).semibold().fg(TEXT_PRIMARY);
                     })
                     .center()
                     .gap(5.0);
@@ -657,13 +657,13 @@ pub fn render_discover_page(
                 ui.col(|ui| {
                     icons::icon(ui, icons::INFO, 30.0).fg(AMBER);
                     ui.txt(&state.host.content.discover_error)
-                        .sz(12.5)
+                        .sz(crate::theme::fs(12.5))
                         .semibold()
                         .fg(TEXT_MUTED);
                     if ui
                         .btn_with("mm_disc_retry", |ui| {
                             ui.txt("Retry")
-                                .sz(11.0)
+                                .sz(crate::theme::fs(11.0))
                                 .bold()
                                 .fg(TEXT_PRIMARY);
                         })
@@ -686,7 +686,7 @@ pub fn render_discover_page(
                 ui.col(|ui| {
                     icons::icon(ui, icons::COMPASS, 30.0).fg(accent);
                     ui.txt("Rolling random content...")
-                        .sz(13.0)
+                        .sz(crate::theme::fs(13.0))
                         .semibold()
                         .fg(TEXT_MUTED);
                 })
@@ -697,7 +697,7 @@ pub fn render_discover_page(
                 ui.col(|ui| {
                     icons::icon(ui, fallback_icon, 30.0).fg(TEXT_DIM);
                     ui.txt("No random items loaded yet.")
-                        .sz(13.0)
+                        .sz(crate::theme::fs(13.0))
                         .semibold()
                         .fg(TEXT_MUTED);
                 })
@@ -776,7 +776,7 @@ pub fn render_global_search_view(
                     ui.row(|ui| {
                         icons::icon(ui, icons::BACK, 14.0).fg(TEXT_PRIMARY);
                         ui.txt(crate::main_menu::back_button_label(state, "Home"))
-                            .sz(11.5)
+                            .sz(crate::theme::fs(11.5))
                             .semibold()
                             .fg(TEXT_PRIMARY);
                     })
@@ -806,7 +806,7 @@ pub fn render_global_search_view(
 
             let go_clicked = ui
                 .btn_with("mm_srch_page_go", |ui| {
-                    ui.txt("Search").sz(11.0).semibold().fg(TEXT_PRIMARY);
+                    ui.txt("Search").sz(crate::theme::fs(11.0)).semibold().fg(TEXT_PRIMARY);
                 })
                 .px(12.0)
                 .py(6.0)
@@ -848,7 +848,7 @@ pub fn render_global_search_view(
                     if ui
                         .btn_with(&format!("mm_srch_f_{k}"), |ui| {
                             ui.txt(lbl)
-                                .sz(11.0)
+                                .sz(crate::theme::fs(11.0))
                                 .semibold()
                                 .align(TextAlign::Center)
                                 .fg(if active { TEXT_PRIMARY } else { TEXT_MUTED })
@@ -878,7 +878,7 @@ pub fn render_global_search_view(
                     }
                 }
                 ui.txt(&format!("{} results", state.host.content.search_results.len()))
-                    .sz(11.0)
+                    .sz(crate::theme::fs(11.0))
                     .align(TextAlign::Right)
                     .fg(TEXT_DIM)
                     .grow(1.0);
@@ -900,7 +900,7 @@ pub fn render_global_search_view(
                 ui.col(|ui| {
                     icons::icon(ui, icons::SEARCH, 28.0).fg(accent);
                     ui.txt("Searching ChilloutVR...")
-                        .sz(13.0)
+                        .sz(crate::theme::fs(13.0))
                         .semibold()
                         .fg(TEXT_MUTED);
                 })
@@ -911,7 +911,7 @@ pub fn render_global_search_view(
                 ui.col(|ui| {
                     icons::icon(ui, icons::SEARCH, 28.0).fg(TEXT_DIM);
                     ui.txt("No matching results")
-                        .sz(13.0)
+                        .sz(crate::theme::fs(13.0))
                         .semibold()
                         .fg(TEXT_MUTED);
                 })
@@ -983,7 +983,7 @@ fn render_category_btn(
     if ui
         .btn_with(&btn_id, |ui| {
             ui.txt(&cat.name)
-                .sz(11.5)
+                .sz(crate::theme::fs(11.5))
                 .semibold()
                 .fg(if active { TEXT_PRIMARY } else { TEXT_MUTED })
                 .ellipsis()
@@ -1057,7 +1057,7 @@ fn render_content_card(
                 // Footer: Title + optional player count pill
                 ui.row(|ui| {
                     ui.txt(&item.name)
-                        .sz(11.5)
+                        .sz(crate::theme::fs(11.5))
                         .semibold()
                         .fg(TEXT_PRIMARY)
                         .ellipsis()
@@ -1065,7 +1065,7 @@ fn render_content_card(
                     if show_players && item.player_count > 0 {
                         let pc = format!("{}", item.player_count);
                         ui.txt(&pc)
-                            .sz(10.0)
+                            .sz(crate::theme::fs(10.0))
                             .bold()
                             .fg(EMERALD)
                             .bg(tint_alpha(EMERALD, 30))
@@ -1125,7 +1125,7 @@ fn render_detail_view(
                 .btn_with("mm_det_back", |ui| {
                     ui.row(|ui| {
                         icons::icon(ui, icons::BACK, 14.0).fg(TEXT_PRIMARY);
-                        ui.txt("Back").sz(11.5).semibold().fg(TEXT_PRIMARY);
+                        ui.txt("Back").sz(crate::theme::fs(11.5)).semibold().fg(TEXT_PRIMARY);
                     })
                     .center()
                     .gap(4.0);
@@ -1152,7 +1152,7 @@ fn render_detail_view(
                 "Loading details..."
             };
             ui.txt(title)
-                .sz(15.0)
+                .sz(crate::theme::fs(15.0))
                 .bold()
                 .fg(TEXT_PRIMARY)
                 .ellipsis()
@@ -1171,7 +1171,7 @@ fn render_detail_view(
             ui.col(|ui| {
                 icons::icon(ui, icon_p, 30.0).fg(accent);
                 ui.txt("Loading details...")
-                    .sz(13.0)
+                    .sz(crate::theme::fs(13.0))
                     .semibold()
                     .fg(TEXT_MUTED);
             })
@@ -1184,7 +1184,7 @@ fn render_detail_view(
             .shadow(14.0, SHADOW_CARD);
         } else if !detail.error.is_empty() {
             ui.col(|ui| {
-                ui.txt(&detail.error).sz(12.5).fg(AMBER).wrap();
+                ui.txt(&detail.error).sz(crate::theme::fs(12.5)).fg(AMBER).wrap();
             })
             .center()
             .grow(1.0)
@@ -1205,12 +1205,12 @@ fn render_detail_view(
                         ui.row(|ui| {
                             icons::icon(ui, icons::AVATAR, 14.0).fg(accent);
                             ui.txt("3D Avatar Studio")
-                                .sz(11.5)
+                                .sz(crate::theme::fs(11.5))
                                 .semibold()
                                 .fg(TEXT_PRIMARY)
                                 .grow(1.0);
                             ui.txt("Live")
-                                .sz(9.5)
+                                .sz(crate::theme::fs(9.5))
                                 .semibold()
                                 .fg(EMERALD)
                                 .px(6.0)
@@ -1254,7 +1254,7 @@ fn render_detail_view(
 
                         if detail.kind == "avatar" {
                             ui.txt("3D Studio previews avatars worn in this instance")
-                                .sz(9.5)
+                                .sz(crate::theme::fs(9.5))
                                 .align(TextAlign::Center)
                                 .fg(TEXT_DIM)
                                 .w_frac(1.0);
@@ -1270,7 +1270,7 @@ fn render_detail_view(
                             } else {
                                 "Private Prop - No Access"
                             })
-                            .sz(11.5)
+                            .sz(crate::theme::fs(11.5))
                             .semibold()
                             .align(TextAlign::Center)
                             .fg(TEXT_MUTED)
@@ -1292,7 +1292,7 @@ fn render_detail_view(
                                         } else {
                                             "Wear Avatar"
                                         })
-                                        .sz(12.5)
+                                        .sz(crate::theme::fs(12.5))
                                         .bold()
                                         .fg(TEXT_PRIMARY);
                                     })
@@ -1318,7 +1318,7 @@ fn render_detail_view(
                                 && ui
                                     .btn_with("mm_det_open_aas", |ui| {
                                         ui.txt("Settings")
-                                            .sz(11.5)
+                                            .sz(crate::theme::fs(11.5))
                                             .semibold()
                                             .fg(TEXT_PRIMARY);
                                     })
@@ -1343,7 +1343,7 @@ fn render_detail_view(
                                 ui.row(|ui| {
                                     icons::icon(ui, icons::CUBE, 15.0).fg(accent);
                                     ui.txt("Spawn Prop")
-                                        .sz(12.5)
+                                        .sz(crate::theme::fs(12.5))
                                         .bold()
                                         .fg(TEXT_PRIMARY);
                                 })
@@ -1365,7 +1365,7 @@ fn render_detail_view(
                             });
                         }
                         ui.txt("Place to spawn - Right-Click (Desktop) or Grip (VR) to cancel")
-                            .sz(9.5)
+                            .sz(crate::theme::fs(9.5))
                             .align(TextAlign::Center)
                             .fg(TEXT_DIM)
                             .w_frac(1.0);
@@ -1389,7 +1389,7 @@ fn render_detail_view(
                                         } else {
                                             "Pin to Quick Menu"
                                         })
-                                        .sz(11.0)
+                                        .sz(crate::theme::fs(11.0))
                                         .semibold()
                                         .fg(if is_pinned { TEXT_PRIMARY } else { TEXT_MUTED });
                                     })
@@ -1460,7 +1460,7 @@ fn render_detail_view(
                                             .to_string();
                                         ui.col(|ui| {
                                             ui.txt(&init)
-                                                .sz(15.0)
+                                                .sz(crate::theme::fs(15.0))
                                                 .bold()
                                                 .align(TextAlign::Center)
                                                 .fg(accent);
@@ -1475,9 +1475,9 @@ fn render_detail_view(
                                     }
 
                                     ui.col(|ui| {
-                                        ui.txt("Creator").sz(9.5).semibold().fg(TEXT_DIM);
+                                        ui.txt("Creator").sz(crate::theme::fs(9.5)).semibold().fg(TEXT_DIM);
                                         ui.txt(&detail.author_name)
-                                            .sz(13.0)
+                                            .sz(crate::theme::fs(13.0))
                                             .bold()
                                             .fg(TEXT_PRIMARY)
                                             .ellipsis();
@@ -1488,7 +1488,7 @@ fn render_detail_view(
                                     if !detail.author_id.is_empty() {
                                         ui.row(|ui| {
                                             ui.txt("View Profile")
-                                                .sz(10.0)
+                                                .sz(crate::theme::fs(10.0))
                                                 .semibold()
                                                 .fg(TEXT_MUTED);
                                             icons::icon(ui, icons::CHEVRON_RIGHT, 12.0)
@@ -1530,7 +1530,7 @@ fn render_detail_view(
                             ("Private", TEXT_MUTED)
                         };
                         ui.row(|ui| {
-                            ui.txt(vis_lbl).sz(10.0).semibold().fg(vis_col);
+                            ui.txt(vis_lbl).sz(crate::theme::fs(10.0)).semibold().fg(vis_col);
                         })
                         .px(8.0)
                         .py(3.5)
@@ -1541,7 +1541,7 @@ fn render_detail_view(
                         if !detail.file_size_text.is_empty() {
                             ui.row(|ui| {
                                 ui.txt(&detail.file_size_text)
-                                    .sz(10.0)
+                                    .sz(crate::theme::fs(10.0))
                                     .semibold()
                                     .fg(TEXT_PRIMARY);
                             })
@@ -1555,7 +1555,7 @@ fn render_detail_view(
                         if !detail.uploaded_at.is_empty() {
                             ui.row(|ui| {
                                 ui.txt(&format!("Uploaded {}", detail.uploaded_at))
-                                    .sz(10.0)
+                                    .sz(crate::theme::fs(10.0))
                                     .fg(TEXT_MUTED);
                             })
                             .px(8.0)
@@ -1568,7 +1568,7 @@ fn render_detail_view(
                         if !detail.updated_at.is_empty() && detail.updated_at != detail.uploaded_at {
                             ui.row(|ui| {
                                 ui.txt(&format!("Updated {}", detail.updated_at))
-                                    .sz(10.0)
+                                    .sz(crate::theme::fs(10.0))
                                     .fg(TEXT_MUTED);
                             })
                             .px(8.0)
@@ -1580,7 +1580,7 @@ fn render_detail_view(
 
                         for plat in detail.platforms.iter().take(2) {
                             ui.row(|ui| {
-                                ui.txt(plat).sz(10.0).semibold().fg(accent);
+                                ui.txt(plat).sz(crate::theme::fs(10.0)).semibold().fg(accent);
                             })
                             .px(8.0)
                             .py(3.5)
@@ -1595,7 +1595,7 @@ fn render_detail_view(
                     // Description Card
                     ui.col(|ui| {
                         ui.txt("Description")
-                            .sz(10.5)
+                            .sz(crate::theme::fs(10.5))
                             .semibold()
                             .fg(TEXT_DIM);
                         ui.scroll("mm_det_desc_scroll", |ui| {
@@ -1604,7 +1604,7 @@ fn render_detail_view(
                             } else {
                                 &detail.description
                             };
-                            ui.txt(desc).sz(12.0).fg(TEXT_MUTED).wrap();
+                            ui.txt(desc).sz(crate::theme::fs(12.0)).fg(TEXT_MUTED).wrap();
                         })
                         .grow(1.0)
                         .no_scrollbar();
@@ -1631,7 +1631,7 @@ fn render_detail_view(
                             ui.row(|ui| {
                                 icons::icon(ui, icons::STAR, 12.0).fg(AMBER);
                                 ui.txt("Favorites & Lists")
-                                    .sz(10.5)
+                                    .sz(crate::theme::fs(10.5))
                                     .semibold()
                                     .fg(TEXT_MUTED);
                             })
@@ -1648,7 +1648,7 @@ fn render_detail_view(
                                         if ui
                                             .btn_with(&format!("mm_det_cat_{ckey}"), |ui| {
                                                 ui.txt(cname)
-                                                    .sz(10.5)
+                                                    .sz(crate::theme::fs(10.5))
                                                     .semibold()
                                                     .align(TextAlign::Center)
                                                     .fg(if assigned {
@@ -1721,7 +1721,7 @@ fn render_detail_view(
                         ui.row(|ui| {
                             icons::icon(ui, icons::AVATAR, 14.0).fg(accent);
                             ui.txt("3D Avatar")
-                                .sz(12.0)
+                                .sz(crate::theme::fs(12.0))
                                 .semibold()
                                 .fg(TEXT_PRIMARY)
                                 .grow(1.0);
@@ -1760,13 +1760,13 @@ fn render_detail_view(
                             .col(|ui| {
                                 ui.row(|ui| {
                                     ui.txt("360° World Preview - Drag to look")
-                                        .sz(9.5)
+                                        .sz(crate::theme::fs(9.5))
                                         .semibold()
                                         .fg(TEXT_MUTED)
                                         .grow(1.0);
                                     if ui
                                         .btn_with("mm_det_pano_toggle_2d", |ui| {
-                                            ui.txt("2D Image").sz(9.5).semibold().fg(TEXT_PRIMARY);
+                                            ui.txt("2D Image").sz(crate::theme::fs(9.5)).semibold().fg(TEXT_PRIMARY);
                                         })
                                         .px(7.0)
                                         .py(2.5)
@@ -1872,7 +1872,7 @@ fn render_detail_view(
                             if ui
                                 .btn_with("mm_det_pano_toggle_360", |ui| {
                                     ui.txt("Open 360° World Preview")
-                                        .sz(10.5)
+                                        .sz(crate::theme::fs(10.5))
                                         .semibold()
                                         .fg(TEXT_PRIMARY)
                                         .align(TextAlign::Center)
@@ -1917,7 +1917,7 @@ fn render_detail_view(
                                             .to_string();
                                         ui.col(|ui| {
                                             ui.txt(&init)
-                                                .sz(13.5)
+                                                .sz(crate::theme::fs(13.5))
                                                 .bold()
                                                 .align(TextAlign::Center)
                                                 .fg(accent);
@@ -1932,9 +1932,9 @@ fn render_detail_view(
                                     }
 
                                     ui.col(|ui| {
-                                        ui.txt("Creator").sz(9.0).semibold().fg(TEXT_DIM);
+                                        ui.txt("Creator").sz(crate::theme::fs(9.0)).semibold().fg(TEXT_DIM);
                                         ui.txt(&detail.author_name)
-                                            .sz(12.0)
+                                            .sz(crate::theme::fs(12.0))
                                             .bold()
                                             .fg(TEXT_PRIMARY)
                                             .ellipsis();
@@ -1945,7 +1945,7 @@ fn render_detail_view(
                                     if !detail.author_id.is_empty() {
                                         ui.row(|ui| {
                                             ui.txt("View Profile")
-                                                .sz(10.0)
+                                                .sz(crate::theme::fs(10.0))
                                                 .semibold()
                                                 .fg(TEXT_MUTED);
                                             icons::icon(ui, icons::CHEVRON_RIGHT, 12.0)
@@ -1983,7 +1983,7 @@ fn render_detail_view(
                         } else {
                             &detail.description
                         };
-                        ui.txt(desc).sz(12.0).fg(TEXT_MUTED).wrap();
+                        ui.txt(desc).sz(crate::theme::fs(12.0)).fg(TEXT_MUTED).wrap();
                     })
                     .grow(1.0)
                     .no_scrollbar();
@@ -2010,7 +2010,7 @@ fn render_detail_view(
                                 if ui
                                     .btn_with(&format!("mm_det_cat_{ckey}"), |ui| {
                                         ui.txt(cname)
-                                            .sz(10.0)
+                                            .sz(crate::theme::fs(10.0))
                                             .semibold()
                                             .fg(if assigned { TEXT_PRIMARY } else { TEXT_MUTED })
                                             .ellipsis();
@@ -2056,7 +2056,7 @@ fn render_detail_view(
                                         ui.row(|ui| {
                                             icons::icon(ui, icons::CHECK, 15.0).fg(EMERALD);
                                             ui.txt("Wear Avatar")
-                                                .sz(12.5)
+                                                .sz(crate::theme::fs(12.5))
                                                 .bold()
                                                 .fg(TEXT_PRIMARY);
                                         })
@@ -2084,7 +2084,7 @@ fn render_detail_view(
                                         ui.row(|ui| {
                                             icons::icon(ui, icons::CUBE, 15.0).fg(accent);
                                             ui.txt("Spawn Prop")
-                                                .sz(12.5)
+                                                .sz(crate::theme::fs(12.5))
                                                 .bold()
                                                 .fg(TEXT_PRIMARY);
                                         })
@@ -2112,7 +2112,7 @@ fn render_detail_view(
                                         ui.row(|ui| {
                                             icons::icon(ui, icons::HOME, 15.0).fg(accent);
                                             ui.txt("Set as Home World")
-                                                .sz(12.0)
+                                                .sz(crate::theme::fs(12.0))
                                                 .semibold()
                                                 .fg(TEXT_PRIMARY);
                                         })
@@ -2153,7 +2153,7 @@ fn render_detail_view(
                         // Create Instance Card
                         ui.col(|ui| {
                             ui.txt("Create New Instance")
-                                .sz(13.0)
+                                .sz(crate::theme::fs(13.0))
                                 .bold()
                                 .fg(TEXT_PRIMARY);
 
@@ -2169,7 +2169,7 @@ fn render_detail_view(
                                     if ui
                                         .btn_with(&format!("mm_ci_p_{val}"), |ui| {
                                             ui.txt(lbl)
-                                                .sz(10.0)
+                                                .sz(crate::theme::fs(10.0))
                                                 .semibold()
                                                 .align(TextAlign::Center)
                                                 .fg(if active { TEXT_PRIMARY } else { TEXT_MUTED })
@@ -2212,7 +2212,7 @@ fn render_detail_view(
                                     if ui
                                         .btn_with(&format!("mm_ci_p_{val}"), |ui| {
                                             ui.txt(lbl)
-                                                .sz(10.0)
+                                                .sz(crate::theme::fs(10.0))
                                                 .semibold()
                                                 .align(TextAlign::Center)
                                                 .fg(if active { TEXT_PRIMARY } else { TEXT_MUTED })
@@ -2261,7 +2261,7 @@ fn render_detail_view(
 
                                 if my_groups.is_empty() {
                                     ui.txt("You are not in any groups.")
-                                        .sz(10.5)
+                                        .sz(crate::theme::fs(10.5))
                                         .fg(AMBER);
                                 } else {
                                     ui.hscroll("mm_ci_grp_pick", |ui| {
@@ -2276,7 +2276,7 @@ fn render_detail_view(
                                             if ui
                                                 .btn_with(&format!("mm_ci_g_{}", g.id), |ui| {
                                                     ui.txt(&lbl)
-                                                        .sz(10.0)
+                                                        .sz(crate::theme::fs(10.0))
                                                         .semibold()
                                                         .fg(if active {
                                                             TEXT_PRIMARY
@@ -2319,7 +2319,7 @@ fn render_detail_view(
                                     if ui
                                         .btn_with(&format!("mm_ci_r_{val}"), |ui| {
                                             ui.txt(lbl)
-                                                .sz(10.5)
+                                                .sz(crate::theme::fs(10.5))
                                                 .semibold()
                                                 .align(TextAlign::Center)
                                                 .fg(if active { TEXT_PRIMARY } else { TEXT_MUTED })
@@ -2360,7 +2360,7 @@ fn render_detail_view(
                                         } else {
                                             "Create & Join"
                                         })
-                                        .sz(11.0)
+                                        .sz(crate::theme::fs(11.0))
                                         .bold()
                                         .align(TextAlign::Center)
                                         .fg(TEXT_PRIMARY)
@@ -2409,7 +2409,7 @@ fn render_detail_view(
 
                             if !state.host.content.create_instance_error.is_empty() {
                                 ui.txt(&state.host.content.create_instance_error)
-                                    .sz(10.5)
+                                    .sz(crate::theme::fs(10.5))
                                     .fg(AMBER)
                                     .wrap();
                             }
@@ -2424,14 +2424,14 @@ fn render_detail_view(
                         // Active Instances List
                         ui.col(|ui| {
                             ui.txt(&format!("Active Instances ({})", detail.instances.len()))
-                                .sz(13.0)
+                                .sz(crate::theme::fs(13.0))
                                 .bold()
                                 .fg(TEXT_PRIMARY);
 
                             if detail.instances.is_empty() {
                                 ui.col(|ui| {
                                     ui.txt("No active public/friend instances right now.")
-                                        .sz(11.5)
+                                        .sz(crate::theme::fs(11.5))
                                         .fg(TEXT_DIM);
                                 })
                                 .center()
@@ -2442,7 +2442,7 @@ fn render_detail_view(
                                         ui.row(|ui| {
                                             ui.col(|ui| {
                                                 ui.txt(&inst.name)
-                                                    .sz(12.0)
+                                                    .sz(crate::theme::fs(12.0))
                                                     .semibold()
                                                     .fg(TEXT_PRIMARY)
                                                     .ellipsis();
@@ -2456,7 +2456,7 @@ fn render_detail_view(
                                                         &inst.region
                                                     }
                                                 );
-                                                ui.txt(&meta).sz(10.5).fg(TEXT_MUTED);
+                                                ui.txt(&meta).sz(crate::theme::fs(10.5)).fg(TEXT_MUTED);
                                             })
                                             .gap(2.0)
                                             .grow(1.0);
@@ -2464,7 +2464,7 @@ fn render_detail_view(
                                             if ui
                                                 .btn_with(&format!("mm_det_view_{}", inst.id), |ui| {
                                                     ui.txt("View")
-                                                        .sz(10.5)
+                                                        .sz(crate::theme::fs(10.5))
                                                         .semibold()
                                                         .align(TextAlign::Center)
                                                         .fg(TEXT_PRIMARY)
@@ -2488,7 +2488,7 @@ fn render_detail_view(
                                             if ui
                                                 .btn_with(&format!("mm_det_portal_{}", inst.id), |ui| {
                                                     ui.txt("Portal")
-                                                        .sz(10.5)
+                                                        .sz(crate::theme::fs(10.5))
                                                         .semibold()
                                                         .align(TextAlign::Center)
                                                         .fg(TEXT_PRIMARY)
@@ -2511,7 +2511,7 @@ fn render_detail_view(
                                             if ui
                                                 .btn_with(&format!("mm_det_join_{}", inst.id), |ui| {
                                                     ui.txt("Join")
-                                                        .sz(11.0)
+                                                        .sz(crate::theme::fs(11.0))
                                                         .bold()
                                                         .align(TextAlign::Center)
                                                         .fg(TEXT_PRIMARY)
@@ -2596,7 +2596,7 @@ fn render_instance_detail_view(
                 .btn_with("mm_id_back", |ui| {
                     ui.row(|ui| {
                         icons::icon(ui, icons::BACK, 14.0).fg(TEXT_PRIMARY);
-                        ui.txt("Back").sz(11.5).semibold().fg(TEXT_PRIMARY);
+                        ui.txt("Back").sz(crate::theme::fs(11.5)).semibold().fg(TEXT_PRIMARY);
                     })
                     .center()
                     .gap(4.0);
@@ -2621,10 +2621,10 @@ fn render_instance_detail_view(
                 } else {
                     &inst.name
                 };
-                ui.txt(title).sz(14.5).bold().fg(TEXT_PRIMARY).ellipsis();
+                ui.txt(title).sz(crate::theme::fs(14.5)).bold().fg(TEXT_PRIMARY).ellipsis();
                 if !inst.world_name.is_empty() {
                     ui.txt(&inst.world_name)
-                        .sz(10.5)
+                        .sz(crate::theme::fs(10.5))
                         .fg(TEXT_MUTED)
                         .ellipsis();
                 }
@@ -2645,7 +2645,7 @@ fn render_instance_detail_view(
             ui.col(|ui| {
                 icons::icon(ui, icons::INSTANCE, 28.0).fg(accent);
                 ui.txt("Loading instance details...")
-                    .sz(13.0)
+                    .sz(crate::theme::fs(13.0))
                     .semibold()
                     .fg(TEXT_MUTED);
             })
@@ -2661,7 +2661,7 @@ fn render_instance_detail_view(
 
         if !inst.error.is_empty() {
             ui.col(|ui| {
-                ui.txt(&inst.error).sz(12.5).fg(AMBER).wrap();
+                ui.txt(&inst.error).sz(crate::theme::fs(12.5)).fg(AMBER).wrap();
             })
             .center()
             .grow(1.0)
@@ -2707,7 +2707,7 @@ fn render_instance_detail_view(
                                 &inst.world_name
                             };
                             ui.txt(wname)
-                                .sz(14.0)
+                                .sz(crate::theme::fs(14.0))
                                 .bold()
                                 .fg(TEXT_PRIMARY)
                                 .ellipsis();
@@ -2715,7 +2715,7 @@ fn render_instance_detail_view(
                                 if ui
                                     .btn_with("mm_id_world_author", |ui| {
                                         ui.txt(&format!("by {}", inst.world_author_name))
-                                            .sz(10.5)
+                                            .sz(crate::theme::fs(10.5))
                                             .fg(TEXT_MUTED)
                                             .ellipsis();
                                     })
@@ -2746,7 +2746,7 @@ fn render_instance_detail_view(
                                     ui.row(|ui| {
                                         icons::icon(ui, icons::WORLD, 12.5).fg(TEXT_PRIMARY);
                                         ui.txt("World Details")
-                                            .sz(10.5)
+                                            .sz(crate::theme::fs(10.5))
                                             .semibold()
                                             .fg(TEXT_PRIMARY);
                                     })
@@ -2777,7 +2777,7 @@ fn render_instance_detail_view(
                     ui.row(|ui| {
                         if !inst.privacy.is_empty() {
                             ui.row(|ui| {
-                                ui.txt(&inst.privacy).sz(10.5).semibold().fg(priv_col);
+                                ui.txt(&inst.privacy).sz(crate::theme::fs(10.5)).semibold().fg(priv_col);
                             })
                             .px(8.0)
                             .py(4.5)
@@ -2787,7 +2787,7 @@ fn render_instance_detail_view(
                         }
                         if !inst.region.is_empty() {
                             ui.row(|ui| {
-                                ui.txt(&inst.region).sz(10.5).semibold().fg(TEXT_PRIMARY);
+                                ui.txt(&inst.region).sz(crate::theme::fs(10.5)).semibold().fg(TEXT_PRIMARY);
                             })
                             .px(8.0)
                             .py(4.5)
@@ -2797,7 +2797,7 @@ fn render_instance_detail_view(
                         }
                         let cnt = format!("{shown_players} / {max_players} Players");
                         ui.row(|ui| {
-                            ui.txt(&cnt).sz(10.5).semibold().fg(EMERALD);
+                            ui.txt(&cnt).sz(crate::theme::fs(10.5)).semibold().fg(EMERALD);
                         })
                         .px(8.0)
                         .py(4.5)
@@ -2810,9 +2810,9 @@ fn render_instance_detail_view(
 
                     if !inst.game_mode_name.is_empty() {
                         ui.row(|ui| {
-                            ui.txt("Game Mode").sz(10.5).fg(TEXT_DIM).grow(1.0);
+                            ui.txt("Game Mode").sz(crate::theme::fs(10.5)).fg(TEXT_DIM).grow(1.0);
                             ui.txt(&inst.game_mode_name)
-                                .sz(11.0)
+                                .sz(crate::theme::fs(11.0))
                                 .semibold()
                                 .fg(TEXT_PRIMARY);
                         })
@@ -2847,7 +2847,7 @@ fn render_instance_detail_view(
                                             .to_string();
                                         ui.col(|ui| {
                                             ui.txt(&init)
-                                                .sz(14.0)
+                                                .sz(crate::theme::fs(14.0))
                                                 .bold()
                                                 .align(TextAlign::Center)
                                                 .fg(accent);
@@ -2863,19 +2863,19 @@ fn render_instance_detail_view(
 
                                     ui.col(|ui| {
                                         ui.txt("Instance Host")
-                                            .sz(9.5)
+                                            .sz(crate::theme::fs(9.5))
                                             .semibold()
                                             .fg(TEXT_DIM);
                                         ui.row(|ui| {
                                             ui.txt(&inst.owner_name)
-                                                .sz(12.0)
+                                                .sz(crate::theme::fs(12.0))
                                                 .semibold()
                                                 .fg(TEXT_PRIMARY)
                                                 .ellipsis()
                                                 .grow(1.0);
                                             if !inst.owner_rank.is_empty() {
                                                 ui.txt(&inst.owner_rank)
-                                                    .sz(9.5)
+                                                    .sz(crate::theme::fs(9.5))
                                                     .fg(TEXT_MUTED);
                                             }
                                         })
@@ -2929,11 +2929,11 @@ fn render_instance_detail_view(
                                         } else {
                                             "Group Instance"
                                         })
-                                        .sz(9.5)
+                                        .sz(crate::theme::fs(9.5))
                                         .semibold()
                                         .fg(Color::rgb(56, 189, 248));
                                         ui.txt(&inst.group_name)
-                                            .sz(12.0)
+                                            .sz(crate::theme::fs(12.0))
                                             .semibold()
                                             .fg(TEXT_PRIMARY)
                                             .ellipsis();
@@ -2966,7 +2966,7 @@ fn render_instance_detail_view(
                     if !inst.can_join && !inst.cannot_join_reason.is_empty() {
                         ui.row(|ui| {
                             ui.txt(&inst.cannot_join_reason)
-                                .sz(11.0)
+                                .sz(crate::theme::fs(11.0))
                                 .fg(AMBER)
                                 .wrap()
                                 .grow(1.0);
@@ -2990,7 +2990,7 @@ fn render_instance_detail_view(
                             } else {
                                 "Cannot Join"
                             })
-                            .sz(12.0)
+                            .sz(crate::theme::fs(12.0))
                             .bold()
                             .align(TextAlign::Center)
                             .fg(if inst.can_join { TEXT_PRIMARY } else { TEXT_DIM })
@@ -3030,7 +3030,7 @@ fn render_instance_detail_view(
                     if ui
                         .btn_with("mm_id_portal", |ui| {
                             ui.txt("Drop Portal")
-                                .sz(11.5)
+                                .sz(crate::theme::fs(11.5))
                                 .semibold()
                                 .align(TextAlign::Center)
                                 .fg(TEXT_PRIMARY)
@@ -3066,7 +3066,7 @@ fn render_instance_detail_view(
                 ui.row(|ui| {
                     icons::icon(ui, icons::PLAYERS, 15.0).fg(accent);
                     ui.txt(&format!("Players in Instance ({})", inst.members.len()))
-                        .sz(12.5)
+                        .sz(crate::theme::fs(12.5))
                         .bold()
                         .fg(TEXT_PRIMARY)
                         .grow(1.0);
@@ -3078,7 +3078,7 @@ fn render_instance_detail_view(
                     ui.col(|ui| {
                         icons::icon(ui, icons::PLAYERS, 28.0).fg(TEXT_DIM);
                         ui.txt("No visible players in this instance.")
-                            .sz(12.5)
+                            .sz(crate::theme::fs(12.5))
                             .semibold()
                             .fg(TEXT_MUTED);
                     })
@@ -3113,7 +3113,7 @@ fn render_instance_detail_view(
                                                         .to_string();
                                                     ui.col(|ui| {
                                                         ui.txt(&init)
-                                                            .sz(15.0)
+                                                            .sz(crate::theme::fs(15.0))
                                                             .bold()
                                                             .align(TextAlign::Center)
                                                             .fg(accent);
@@ -3127,7 +3127,7 @@ fn render_instance_detail_view(
                                                     .r(3.5);
                                                 }
                                                 ui.txt(&m.name)
-                                                    .sz(12.5)
+                                                    .sz(crate::theme::fs(12.5))
                                                     .semibold()
                                                     .fg(TEXT_PRIMARY)
                                                     .ellipsis()

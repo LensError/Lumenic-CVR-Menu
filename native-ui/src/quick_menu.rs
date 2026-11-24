@@ -54,12 +54,12 @@ fn action_tile(
             ui.col(|ui| {
                 icons::icon(ui, icon_path, 19.0).fg(icon_col);
                 ui.txt(label)
-                    .sz(12.0)
+                    .sz(crate::theme::fs(12.0))
                     .semibold()
                     .align(TextAlign::Center)
                     .fg(title_col);
                 ui.txt(status)
-                    .sz(9.5)
+                    .sz(crate::theme::fs(9.5))
                     .medium()
                     .align(TextAlign::Center)
                     .fg(status_col);
@@ -70,8 +70,8 @@ fn action_tile(
         })
         .grow(1.0)
         .h_frac(1.0)
-        .min_h(52.0)
-        .p(5.0)
+        .min_h(crate::theme::tile_min_h())
+        .p(crate::theme::pad(5.0))
         .bg(bg)
         .hover_bg(hover_bg)
         .bd(if active { 1.5 } else { 1.0 }, border)
@@ -108,6 +108,9 @@ pub fn render_quick_menu(
     let accent_border = tint_alpha(accent, 110);
     let active_uilib_page = state.host.uilib.active_page.clone();
     let active_uilib_modal = state.host.uilib.modal.clone();
+    let active_ext_page = state.extensions.qm_active_page.clone();
+    let active_ext_modal = state.extensions.qm_modal.clone();
+    let ext_tabs = state.extensions.qm_tabs.clone();
     let active_toast = state.host.uilib.toast.clone();
     let tabs = state.host.uilib.tabs.clone();
 
@@ -190,7 +193,7 @@ pub fn render_quick_menu(
                                 .to_string();
                             ui.col(|ui| {
                                 ui.txt(&initial)
-                                    .sz(16.0)
+                                    .sz(crate::theme::fs(16.0))
                                     .bold()
                                     .align(TextAlign::Center)
                                     .fg(accent);
@@ -210,7 +213,7 @@ pub fn render_quick_menu(
                                 &state.host.username
                             };
                             let greeting = format!("Welcome, {user}");
-                            ui.txt(&greeting).sz(14.5).bold().fg(TEXT_PRIMARY);
+                            ui.txt(&greeting).sz(crate::theme::fs(14.5)).bold().fg(TEXT_PRIMARY);
 
                             let world_raw = if state.host.world_name.is_empty() {
                                 "Local World"
@@ -224,7 +227,7 @@ pub fn render_quick_menu(
                             } else {
                                 world_raw.to_owned()
                             };
-                            ui.txt(&world).sz(11.0).fg(TEXT_MUTED);
+                            ui.txt(&world).sz(crate::theme::fs(11.0)).fg(TEXT_MUTED);
                         })
                         .gap(1.5)
                         .grow(1.0);
@@ -268,17 +271,17 @@ pub fn render_quick_menu(
                                 .h(6.0)
                                 .r(3.0)
                                 .bg(fps_col);
-                            ui.txt(&fps_txt).sz(11.5).bold().fg(fps_col);
+                            ui.txt(&fps_txt).sz(crate::theme::fs(11.5)).bold().fg(fps_col);
                             ui.col(|_| {})
                                 .w(1.0)
                                 .h(12.0)
                                 .bg(Color::rgba(148, 163, 184, 65));
-                            ui.txt(&ping_txt).sz(11.0).semibold().fg(TEXT_MUTED);
+                            ui.txt(&ping_txt).sz(crate::theme::fs(11.0)).semibold().fg(TEXT_MUTED);
                         })
                         .align_center()
                         .gap(6.0);
                     })
-                    .h(28.0)
+                    .h(crate::theme::text_box(28.0))
                     .bg(if state.quick.show_info_modal {
                         tint_alpha(accent, 45)
                     } else {
@@ -304,7 +307,7 @@ pub fn render_quick_menu(
 
                 ui.col(|_| {})
                     .w(1.0)
-                    .h(28.0)
+                    .h(crate::theme::text_box(28.0))
                     .bg(Color::rgba(148, 163, 184, 55));
 
                 ui.col(|ui| {
@@ -314,21 +317,21 @@ pub fn render_quick_menu(
                         &state.host.clock_text
                     };
                     ui.txt(clock)
-                        .sz(15.5)
+                        .sz(crate::theme::fs(15.5))
                         .bold()
                         .align(TextAlign::Right)
                         .fg(TEXT_PRIMARY)
                         .w_frac(1.0);
                     if !state.host.date_text.is_empty() {
                         ui.txt(&state.host.date_text)
-                            .sz(10.0)
+                            .sz(crate::theme::fs(10.0))
                             .medium()
                             .align(TextAlign::Right)
                             .fg(TEXT_MUTED)
                             .w_frac(1.0);
                     }
                 })
-                .w(78.0)
+                .w(crate::theme::text_box(78.0))
                 .pt(2.0)
                 .gap(1.0);
             })
@@ -345,11 +348,14 @@ pub fn render_quick_menu(
         .shadow(14.0, SHADOW_CARD);
 
         // =====================================================================
-        // 2. CENTER REGION: EITHER ACTIVE UILIB MOD PAGE OR HOME QUICK MENU
+        // 2. CENTER REGION: ACTIVE EXTENSION PAGE, UILIB MOD PAGE, OR HOME
         // =====================================================================
-        if let Some(ref page) = active_uilib_page {
+        if let Some(ref ext_page) = active_ext_page {
+            crate::ext_view::render_ext_page(ui, state, "quick", ext_page, accent, actions);
+        } else if let Some(ref page) = active_uilib_page {
             render_uilib_page(ui, state, page, accent, actions);
         } else {
+            crate::ext_view::render_slot_only(ui, state, "quick", "qm.home.banner", accent, actions);
             render_home_center(ui, state, accent, actions);
         }
 
@@ -361,9 +367,18 @@ pub fn render_quick_menu(
         ui.row(|ui| {
             let hscroll_resp = ui
                 .hscroll("qm_uilib_tabs_hscroll", |ui| {
-                    for tab in &tabs {
+                    let is_official = |t: &crate::state::UiLibTab| {
+                        matches!(t.kind.as_str(), "home" | "players" | "props")
+                    };
+
+                    // Helper closure to render a UILib/official tab button.
+                    let render_uilib_tab =
+                        |ui: &mut UiContext,
+                         state: &mut AppState,
+                         actions: &mut Vec<UiAction>,
+                         tab: &crate::state::UiLibTab| {
                         let tab_btn_id = format!("qm_tab_{}", tab.id);
-                        let is_active = tab.active;
+                        let is_active = tab.active && active_ext_page.is_none();
                         let (bg, hover_bg, bd) = if is_active {
                             (
                                 tint_alpha(accent, 52),
@@ -416,7 +431,7 @@ pub fn render_quick_menu(
                                         }
                                     }
                                     ui.txt(&tab.label)
-                                        .sz(11.5)
+                                        .sz(crate::theme::fs(11.5))
                                         .semibold()
                                         .fg(if is_active { TEXT_PRIMARY } else { TEXT_MUTED })
                                         .ellipsis()
@@ -426,9 +441,9 @@ pub fn render_quick_menu(
                                 .gap(7.0)
                                 .grow(1.0);
                             })
-                            .min_w(88.0)
-                            .max_w(136.0)
-                            .h(44.0)
+                            .min_w(crate::theme::text_box(88.0))
+                            .max_w(crate::theme::text_box(136.0))
+                            .h(crate::theme::text_box(44.0))
                             .px(10.0)
                             .py(6.0)
                             .bg(bg)
@@ -444,6 +459,94 @@ pub fn render_quick_menu(
                                 tab_id: tab.id.clone(),
                             });
                         }
+                    };
+
+                    // 1. Official built-in tabs (Home, Players, Props)
+                    for tab in tabs.iter().filter(|t| is_official(t)) {
+                        render_uilib_tab(ui, state, actions, tab);
+                    }
+
+                    // 2. Lumenic Extension tabs (including shared "Extensions" hub) right after official tabs
+                    for etab in &ext_tabs {
+                        let tab_btn_id = format!("qm_ext_tab_{}_{}", etab.ext_id, etab.id);
+                        let is_active = active_ext_page
+                            .as_ref()
+                            .is_some_and(|p| p.ext_id == etab.ext_id && p.tab_id == etab.id);
+                        let (bg, hover_bg, bd) = if is_active {
+                            (
+                                tint_alpha(accent, 52),
+                                tint_alpha(accent, 75),
+                                tint_alpha(accent, 210),
+                            )
+                        } else {
+                            (tile_idle_bg(), tile_idle_hover(), border_subtle())
+                        };
+
+                        if ui
+                            .btn_with(&tab_btn_id, |ui| {
+                                ui.row(|ui| {
+                                    if !etab.icon_key.is_empty() {
+                                        if let Some(tex) = state.quick_textures.get(&etab.icon_key) {
+                                            ui.img(tex)
+                                                .w(20.0)
+                                                .h(20.0)
+                                                .fit(ImageFit::Contain)
+                                                .bevel_rounded(3.9, 1.3);
+                                        } else {
+                                            let ic = if etab.icon.is_empty() { icons::PUZZLE } else { &etab.icon };
+                                            icons::icon(ui, ic, 17.0)
+                                                .fg(if is_active { accent } else { TEXT_MUTED });
+                                        }
+                                    } else {
+                                        let ic = if etab.icon.is_empty() { icons::PUZZLE } else { &etab.icon };
+                                        icons::icon(ui, ic, 17.0)
+                                            .fg(if is_active { accent } else { TEXT_MUTED });
+                                    }
+                                    ui.txt(&etab.label)
+                                        .sz(crate::theme::fs(11.5))
+                                        .semibold()
+                                        .fg(if is_active { TEXT_PRIMARY } else { TEXT_MUTED })
+                                        .ellipsis()
+                                        .grow(1.0);
+                                    if !etab.badge.is_empty() {
+                                        ui.txt(&etab.badge)
+                                            .sz(crate::theme::fs(9.5))
+                                            .bold()
+                                            .fg(Color::rgb(12, 18, 28))
+                                            .bg(accent)
+                                            .px(4.5)
+                                            .py(1.0)
+                                            .bevel_rounded(3.5, 1.0);
+                                    }
+                                })
+                                .align_center()
+                                .gap(6.0)
+                                .grow(1.0);
+                            })
+                            .min_w(crate::theme::text_box(88.0))
+                            .max_w(crate::theme::text_box(148.0))
+                            .h(crate::theme::text_box(44.0))
+                            .px(10.0)
+                            .py(6.0)
+                            .bg(bg)
+                            .hover_bg(hover_bg)
+                            .bd(if is_active { 1.5 } else { 1.0 }, bd)
+                            .bevel_rounded(7.8, 1.3)
+                            .clicked()
+                            && !suppress_tab_click
+                        {
+                            state.quick.go_home_confirm = false;
+                            push_click(actions);
+                            actions.push(UiAction::ExtSelectTab {
+                                surface: String::from("quick"),
+                                tab_id: format!("{}:{}", etab.ext_id, etab.id),
+                            });
+                        }
+                    }
+
+                    // 3. Remaining UILib mod tabs
+                    for tab in tabs.iter().filter(|t| !is_official(t)) {
+                        render_uilib_tab(ui, state, actions, tab);
                     }
                 })
                 .min_w(0.0)
@@ -470,7 +573,25 @@ pub fn render_quick_menu(
             .p(12.0)
             .gap(10.0);
 
-            if let Some(ref modal) = active_uilib_modal {
+            if !state.host.disclaimer_accepted {
+                crate::settings_view::render_first_use_disclaimer_modal(
+                    ui, state, accent, actions, "qm",
+                );
+            } else if state.host.show_whats_new {
+                crate::settings_view::render_whats_new_modal(
+                    ui, state, accent, actions, "qm",
+                );
+            } else if state.host.update_status.show_modal {
+                crate::settings_view::render_mod_update_modal(
+                    ui, state, accent, actions, "qm",
+                );
+            } else if let Some(alert) = state.host.system_alert.clone() {
+                crate::settings_view::render_system_alert_modal(
+                    ui, state, &alert, accent, actions, "qm",
+                );
+            } else if let Some(ref ext_modal) = active_ext_modal {
+                crate::ext_view::render_ext_modal(ui, state, "quick", ext_modal, accent, actions);
+            } else if let Some(ref modal) = active_uilib_modal {
                 render_uilib_modal(ui, state, modal, accent, actions);
             } else if let Some(prompt) = state.host.content.group_mod_prompt.clone() {
                 state.quick.qm_world_modal = None;
@@ -521,9 +642,9 @@ pub fn render_quick_menu(
 
 fn info_stat_row(ui: &mut UiContext, label: &str, value: &str, value_col: Color) {
     ui.row(|ui| {
-        ui.txt(label).sz(11.5).fg(TEXT_MUTED).grow(1.0);
+        ui.txt(label).sz(crate::theme::fs(11.5)).fg(TEXT_MUTED).grow(1.0);
         ui.txt(value)
-            .sz(11.5)
+            .sz(crate::theme::fs(11.5))
             .semibold()
             .align(TextAlign::Right)
             .fg(value_col);
@@ -554,7 +675,7 @@ fn render_system_info_modal(
                     .col(|ui| {
                         ui.row(|ui| {
                             ui.txt("System & Telemetry")
-                                .sz(15.0)
+                                .sz(crate::theme::fs(15.0))
                                 .bold()
                                 .fg(TEXT_PRIMARY)
                                 .grow(1.0);
@@ -669,12 +790,13 @@ fn render_home_center(
         // LEFT COLUMN: COMPACT NOTIFICATIONS (TOP) + COMPACT QUICK ACTIONS (BOTTOM)
         // =====================================================================
         ui.col(|ui| {
-            // --- TOP LEFT: NOTIFICATIONS CARD ---
+            // --- TOP LEFT: NOTIFICATIONS CARD (section: qm.home.notifications) ---
+            crate::ext_view::render_section(ui, state, "quick", "qm.home.notifications", accent, actions, |ui, state, actions| {
             ui.col(|ui| {
                 ui.row(|ui| {
                     icons::icon(ui, icons::BELL, 14.0).fg(accent);
                     ui.txt("Notifications")
-                        .sz(12.0)
+                        .sz(crate::theme::fs(12.0))
                         .semibold()
                         .fg(TEXT_PRIMARY);
 
@@ -682,7 +804,7 @@ fn render_home_center(
                     if count > 0 {
                         let badge = format!("{count}");
                         ui.txt(&badge)
-                            .sz(10.0)
+                            .sz(crate::theme::fs(10.0))
                             .bold()
                             .fg(Color::rgb(12, 18, 28))
                             .bg(accent)
@@ -691,7 +813,7 @@ fn render_home_center(
                             .bevel_rounded(3.9, 1.3);
                     } else {
                         ui.txt("All caught up")
-                            .sz(11.0)
+                            .sz(crate::theme::fs(11.0))
                             .fg(TEXT_DIM)
                             .grow(1.0);
                     }
@@ -705,13 +827,13 @@ fn render_home_center(
                             ui.row(|ui| {
                                 ui.col(|ui| {
                                     ui.txt(&notif.title)
-                                        .sz(11.5)
+                                        .sz(crate::theme::fs(11.5))
                                         .semibold()
                                         .fg(TEXT_PRIMARY)
                                         .ellipsis();
                                     if !notif.body.is_empty() {
                                         ui.txt(&notif.body)
-                                            .sz(10.0)
+                                            .sz(crate::theme::fs(10.0))
                                             .fg(TEXT_MUTED)
                                             .ellipsis();
                                     }
@@ -740,7 +862,7 @@ fn render_home_center(
                                             if ui
                                                 .btn_with(&btn_id, |ui| {
                                                     ui.txt(&btn.text)
-                                                        .sz(10.0)
+                                                        .sz(crate::theme::fs(10.0))
                                                         .semibold()
                                                         .fg(TEXT_PRIMARY);
                                                 })
@@ -789,7 +911,7 @@ fn render_home_center(
                             .bevel_rounded(6.2, 1.3);
                         }
                     })
-                    .h(88.0)
+                    .h(crate::theme::text_box(88.0))
                     .gap(5.0)
                     .p(3.0)
                     .bg(Color::rgba(10, 14, 22, 115))
@@ -798,11 +920,11 @@ fn render_home_center(
                 } else {
                     ui.col(|ui| {
                         ui.txt("No active notifications")
-                            .sz(11.0)
+                            .sz(crate::theme::fs(11.0))
                             .fg(TEXT_DIM);
                     })
                     .center()
-                    .h(88.0)
+                    .h(crate::theme::text_box(88.0))
                     .w_frac(1.0)
                     .bg(Color::rgba(10, 14, 22, 90))
                     .bevel_rounded(7.0, 1.3);
@@ -815,8 +937,10 @@ fn render_home_center(
             .bd(1.0, border_subtle())
             .bevel_rounded(10.1, 2.0)
             .shadow(12.0, SHADOW_CARD);
+            });
 
-            // --- BOTTOM LEFT: COMPACT 3x3 QUICK ACTIONS (REORDERABLE) ---
+            // --- BOTTOM LEFT: COMPACT QUICK ACTIONS (section: qm.home.actions) ---
+            crate::ext_view::render_section(ui, state, "quick", "qm.home.actions", accent, actions, |ui, state, actions| {
             ui.col(|ui| {
                 const QM_DEFAULT_TILES: [&str; 9] = [
                     "mute", "flight", "seated", "camera", "mirror", "respawn", "home", "chat",
@@ -831,7 +955,7 @@ fn render_home_center(
                 ui.row(|ui| {
                     icons::icon(ui, icons::BOLT, 14.0).fg(accent);
                     ui.txt("Quick Actions")
-                        .sz(12.0)
+                        .sz(crate::theme::fs(12.0))
                         .semibold()
                         .fg(TEXT_PRIMARY)
                         .grow(1.0);
@@ -842,11 +966,11 @@ fn render_home_center(
                         } else {
                             "Tap to swap"
                         };
-                        ui.txt(hint).sz(9.5).fg(accent);
+                        ui.txt(hint).sz(crate::theme::fs(9.5)).fg(accent);
 
                         if ui
                             .btn_with("qm_act_reset_order", |ui| {
-                                ui.txt("Reset").sz(9.5).semibold().fg(TEXT_MUTED);
+                                ui.txt("Reset").sz(crate::theme::fs(9.5)).semibold().fg(TEXT_MUTED);
                             })
                             .px(7.0)
                             .py(3.0)
@@ -869,7 +993,7 @@ fn render_home_center(
                     if ui
                         .btn_with("qm_act_reorder_toggle", |ui| {
                             ui.txt(if reorder_mode { "Done" } else { "Reorder" })
-                                .sz(9.5)
+                                .sz(crate::theme::fs(9.5))
                                 .semibold()
                                 .fg(if reorder_mode { TEXT_PRIMARY } else { TEXT_MUTED });
                         })
@@ -901,10 +1025,20 @@ fn render_home_center(
                 .gap(6.0);
 
                 let mut swapped_pair: Option<(usize, usize)> = None;
-                for row_idx in 0..3 {
+                let cols = crate::theme::qm_action_cols();
+                let visible_indices: Vec<usize> = (0..tile_order.len())
+                    .filter(|&i| {
+                        reorder_mode
+                            || !state
+                                .extensions
+                                .hidden_tiles
+                                .iter()
+                                .any(|h| h == &tile_order[i])
+                    })
+                    .collect();
+                for chunk in visible_indices.chunks(cols) {
                     ui.row(|ui| {
-                        for col_idx in 0..3 {
-                            let slot_idx = row_idx * 3 + col_idx;
+                        for &slot_idx in chunk {
                             let tile_key = tile_order[slot_idx].as_str();
                             let is_selected =
                                 reorder_mode && state.quick.qm_reorder_selected == Some(slot_idx);
@@ -1139,13 +1273,14 @@ fn render_home_center(
             .bd(1.0, border_subtle())
             .bevel_rounded(10.1, 2.0)
             .shadow(14.0, SHADOW_CARD);
+            });
 
             // --- SEPARATE BOTTOM LEFT CARD: MAIN MENU SHORTCUTS ---
             ui.col(|ui| {
                 ui.row(|ui| {
                     icons::icon(ui, icons::HOME, 14.0).fg(accent);
                     ui.txt("Main Menu")
-                        .sz(12.0)
+                        .sz(crate::theme::fs(12.0))
                         .semibold()
                         .fg(TEXT_PRIMARY);
                 })
@@ -1163,7 +1298,7 @@ fn render_home_center(
                                 ui.row(|ui| {
                                     icons::icon(ui, icon, 15.0).fg(accent);
                                     ui.txt(label)
-                                        .sz(11.0)
+                                        .sz(crate::theme::fs(11.0))
                                         .semibold()
                                         .fg(TEXT_PRIMARY);
                                 })
@@ -1174,7 +1309,7 @@ fn render_home_center(
                             .bg(tile_idle_bg())
                             .hover_bg(tint_alpha(accent, 64))
                             .bd(1.0, border_subtle())
-                            .min_h(34.0)
+                            .min_h(crate::theme::text_box(34.0))
                             .px(8.0)
                             .py(4.0)
                             .bevel_rounded(6.5, 1.3)
@@ -1203,7 +1338,7 @@ fn render_home_center(
                                 ui.row(|ui| {
                                     icons::icon(ui, icon, 15.0).fg(accent);
                                     ui.txt(label)
-                                        .sz(11.0)
+                                        .sz(crate::theme::fs(11.0))
                                         .semibold()
                                         .fg(TEXT_PRIMARY);
                                 })
@@ -1214,7 +1349,7 @@ fn render_home_center(
                             .bg(tile_idle_bg())
                             .hover_bg(tint_alpha(accent, 64))
                             .bd(1.0, border_subtle())
-                            .min_h(34.0)
+                            .min_h(crate::theme::text_box(34.0))
                             .px(8.0)
                             .py(4.0)
                             .bevel_rounded(6.5, 1.3)
@@ -1269,7 +1404,7 @@ fn render_home_center(
                     ui.row(|ui| {
                         icons::icon(ui, icons::AVATAR, 14.0).fg(accent);
                         ui.txt("Avatar")
-                            .sz(12.0)
+                            .sz(crate::theme::fs(12.0))
                             .semibold()
                             .fg(TEXT_PRIMARY)
                             .grow(1.0);
@@ -1280,7 +1415,10 @@ fn render_home_center(
                     let qm_modal_open = state.quick.qm_world_modal.is_some()
                         || state.quick.show_info_modal
                         || state.host.content.group_mod_prompt.is_some()
-                        || state.host.uilib.modal.is_some();
+                        || state.host.uilib.modal.is_some()
+                        || state.host.show_whats_new
+                        || state.host.update_status.show_modal
+                        || state.host.system_alert.is_some();
                     crate::avatar_settings_view::render_avatar_turntable_stage(
                         ui,
                         state,
@@ -1297,7 +1435,7 @@ fn render_home_center(
                             ui.row(|ui| {
                                 icons::icon(ui, icons::SLIDERS, 14.0).fg(accent);
                                 ui.txt("Avatar Settings")
-                                    .sz(11.0)
+                                    .sz(crate::theme::fs(11.0))
                                     .semibold()
                                     .fg(TEXT_PRIMARY);
                             })
@@ -1336,7 +1474,7 @@ fn render_home_center(
                     ui.row(|ui| {
                         icons::icon(ui, icons::PIN, 13.5).fg(accent);
                         ui.txt("Pinned")
-                            .sz(11.5)
+                            .sz(crate::theme::fs(11.5))
                             .semibold()
                             .fg(TEXT_PRIMARY)
                             .grow(1.0);
@@ -1344,7 +1482,7 @@ fn render_home_center(
                         if ui
                             .btn_with("qm_pin_edit_toggle", |ui| {
                                 ui.txt(if edit_mode { "Done" } else { "Edit" })
-                                    .sz(9.5)
+                                    .sz(crate::theme::fs(9.5))
                                     .semibold()
                                     .fg(if edit_mode { TEXT_PRIMARY } else { TEXT_MUTED });
                             })
@@ -1437,7 +1575,7 @@ fn render_home_center(
                             } else {
                                 "None in filter"
                             })
-                            .sz(10.0)
+                            .sz(crate::theme::fs(10.0))
                             .align(TextAlign::Center)
                             .fg(TEXT_DIM)
                             .wrap();
@@ -1482,7 +1620,7 @@ fn render_home_center(
                                                     icons::icon(ui, kind_ic, 11.0).fg(TEXT_DIM);
                                                 }
                                                 ui.txt(&p.name)
-                                                    .sz(11.0)
+                                                    .sz(crate::theme::fs(11.0))
                                                     .semibold()
                                                     .fg(TEXT_PRIMARY)
                                                     .ellipsis()
@@ -1571,7 +1709,7 @@ fn render_home_center(
                 ui.row(|ui| {
                     icons::icon(ui, icons::VOLUME, 15.0).fg(accent);
                     ui.txt("Quick Audio")
-                        .sz(12.5)
+                        .sz(crate::theme::fs(12.5))
                         .semibold()
                         .fg(TEXT_PRIMARY)
                         .grow(1.0);
@@ -1581,7 +1719,7 @@ fn render_home_center(
                             ui.row(|ui| {
                                 icons::icon(ui, icons::SETTINGS, 12.0).fg(accent);
                                 ui.txt("Open in Menu")
-                                    .sz(10.0)
+                                    .sz(crate::theme::fs(10.0))
                                     .semibold()
                                     .fg(TEXT_PRIMARY);
                             })
@@ -1702,7 +1840,7 @@ fn render_qm_world_instance_modal(
                         ui.row(|ui| {
                             icons::icon(ui, icons::WORLD, 16.0).fg(accent);
                             ui.txt(world_name)
-                                .sz(14.0)
+                                .sz(crate::theme::fs(14.0))
                                 .bold()
                                 .fg(TEXT_PRIMARY)
                                 .ellipsis()
@@ -1724,7 +1862,7 @@ fn render_qm_world_instance_modal(
                         .align_center()
                         .gap(8.0);
 
-                        ui.txt("Privacy").sz(10.5).semibold().fg(TEXT_MUTED);
+                        ui.txt("Privacy").sz(crate::theme::fs(10.5)).semibold().fg(TEXT_MUTED);
                         ui.row(|ui| {
                             for (val, lbl) in [
                                 ("Public", "Public"),
@@ -1737,7 +1875,7 @@ fn render_qm_world_instance_modal(
                                 if ui
                                     .btn_with(&format!("qm_wm_priv_{val}"), |ui| {
                                         ui.txt(lbl)
-                                            .sz(10.0)
+                                            .sz(crate::theme::fs(10.0))
                                             .semibold()
                                             .align(TextAlign::Center)
                                             .fg(if active { TEXT_PRIMARY } else { TEXT_MUTED })
@@ -1779,7 +1917,7 @@ fn render_qm_world_instance_modal(
                                 if ui
                                     .btn_with(&format!("qm_wm_priv_{val}"), |ui| {
                                         ui.txt(lbl)
-                                            .sz(10.0)
+                                            .sz(crate::theme::fs(10.0))
                                             .semibold()
                                             .align(TextAlign::Center)
                                             .fg(if active { TEXT_PRIMARY } else { TEXT_MUTED })
@@ -1828,7 +1966,7 @@ fn render_qm_world_instance_modal(
 
                             if my_groups.is_empty() {
                                 ui.txt("You are not in any groups.")
-                                    .sz(10.5)
+                                    .sz(crate::theme::fs(10.5))
                                     .fg(AMBER);
                             } else {
                                 ui.hscroll("qm_wm_grp_pick", |ui| {
@@ -1842,7 +1980,7 @@ fn render_qm_world_instance_modal(
                                         if ui
                                             .btn_with(&format!("qm_wm_g_{}", g.id), |ui| {
                                                 ui.txt(&lbl)
-                                                    .sz(10.0)
+                                                    .sz(crate::theme::fs(10.0))
                                                     .semibold()
                                                     .fg(if active {
                                                         TEXT_PRIMARY
@@ -1879,14 +2017,14 @@ fn render_qm_world_instance_modal(
                             }
                         }
 
-                        ui.txt("Region").sz(10.5).semibold().fg(TEXT_MUTED);
+                        ui.txt("Region").sz(crate::theme::fs(10.5)).semibold().fg(TEXT_MUTED);
                         ui.row(|ui| {
                             for (val, lbl) in [("Eu", "EU"), ("Us", "US"), ("As", "Asia")] {
                                 let active = state.quick.qm_world_region == val;
                                 if ui
                                     .btn_with(&format!("qm_wm_reg_{val}"), |ui| {
                                         ui.txt(lbl)
-                                            .sz(10.5)
+                                            .sz(crate::theme::fs(10.5))
                                             .semibold()
                                             .align(TextAlign::Center)
                                             .fg(if active { TEXT_PRIMARY } else { TEXT_MUTED })
@@ -1920,7 +2058,7 @@ fn render_qm_world_instance_modal(
 
                         if !state.host.content.create_instance_error.is_empty() {
                             ui.txt(&state.host.content.create_instance_error)
-                                .sz(10.5)
+                                .sz(crate::theme::fs(10.5))
                                 .fg(AMBER)
                                 .wrap();
                         }
@@ -1934,7 +2072,7 @@ fn render_qm_world_instance_modal(
                                     } else {
                                         "Create & Join"
                                     })
-                                    .sz(11.5)
+                                    .sz(crate::theme::fs(11.5))
                                     .bold()
                                     .align(TextAlign::Center)
                                     .fg(TEXT_PRIMARY)
@@ -1966,7 +2104,7 @@ fn render_qm_world_instance_modal(
                             if ui
                                 .btn_with("qm_wm_details", |ui| {
                                     ui.txt("World Details")
-                                        .sz(11.0)
+                                        .sz(crate::theme::fs(11.0))
                                         .semibold()
                                         .align(TextAlign::Center)
                                         .fg(TEXT_PRIMARY)
@@ -2043,7 +2181,7 @@ pub fn render_group_mod_prompt_modal(
                         ui.row(|ui| {
                             icons::icon(ui, icons::PLAYERS, 16.0).fg(AMBER);
                             ui.txt("Group Moderated Instance")
-                                .sz(13.5)
+                                .sz(crate::theme::fs(13.5))
                                 .bold()
                                 .fg(TEXT_PRIMARY)
                                 .grow(1.0);
@@ -2071,12 +2209,12 @@ pub fn render_group_mod_prompt_modal(
                             if !prompt.group_name.is_empty() {
                                 ui.row(|ui| {
                                     ui.txt(&prompt.group_name)
-                                        .sz(12.5)
+                                        .sz(crate::theme::fs(12.5))
                                         .bold()
                                         .fg(TEXT_PRIMARY);
                                     if prompt.is_verified {
                                         ui.txt("VERIFIED")
-                                            .sz(9.0)
+                                            .sz(crate::theme::fs(9.0))
                                             .bold()
                                             .fg(EMERALD)
                                             .px(5.0)
@@ -2098,7 +2236,7 @@ pub fn render_group_mod_prompt_modal(
                                 } else {
                                     prompt.instance_name.clone()
                                 };
-                                ui.txt(&label).sz(10.5).fg(TEXT_MUTED).wrap();
+                                ui.txt(&label).sz(crate::theme::fs(10.5)).fg(TEXT_MUTED).wrap();
                             }
                             let privacy_label = if prompt.privacy.is_empty() {
                                 "group"
@@ -2118,7 +2256,7 @@ pub fn render_group_mod_prompt_modal(
                                     privacy_label
                                 )
                             };
-                            ui.txt(&mod_note).sz(10.5).fg(TEXT_DIM).wrap();
+                            ui.txt(&mod_note).sz(crate::theme::fs(10.5)).fg(TEXT_DIM).wrap();
                         })
                         .p(10.0)
                         .gap(5.0)
@@ -2130,7 +2268,7 @@ pub fn render_group_mod_prompt_modal(
                             if ui
                                 .btn_with(&cancel_id, |ui| {
                                     ui.txt("Cancel")
-                                        .sz(11.0)
+                                        .sz(crate::theme::fs(11.0))
                                         .semibold()
                                         .align(TextAlign::Center)
                                         .fg(TEXT_PRIMARY)
@@ -2154,7 +2292,7 @@ pub fn render_group_mod_prompt_modal(
                             if ui
                                 .btn_with(&never_id, |ui| {
                                     ui.txt("Don't Ask Again")
-                                        .sz(10.5)
+                                        .sz(crate::theme::fs(10.5))
                                         .semibold()
                                         .align(TextAlign::Center)
                                         .fg(TEXT_MUTED)
@@ -2178,7 +2316,7 @@ pub fn render_group_mod_prompt_modal(
                             if ui
                                 .btn_with(&join_id, |ui| {
                                     ui.txt("Join Instance")
-                                        .sz(11.5)
+                                        .sz(crate::theme::fs(11.5))
                                         .bold()
                                         .align(TextAlign::Center)
                                         .fg(TEXT_PRIMARY)

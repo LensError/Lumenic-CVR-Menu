@@ -2,6 +2,7 @@ use std::cell::Cell;
 
 use lumenic::{Color, UiContext};
 
+use crate::ext::ExtStyleOverride;
 use crate::state::{AppState, UiAction};
 
 // Official ChilloutVR brand palette defaults (used when Colorize Menu is OFF).
@@ -35,6 +36,10 @@ pub struct PanelPalette {
     pub tile_idle_bg: Color,
     pub tile_idle_hover: Color,
     pub border_subtle: Color,
+    pub text_primary: Color,
+    pub text_muted: Color,
+    pub text_dim: Color,
+    pub shadow_card: Color,
 }
 
 impl Default for PanelPalette {
@@ -45,12 +50,103 @@ impl Default for PanelPalette {
             tile_idle_bg: TILE_IDLE_BG,
             tile_idle_hover: TILE_IDLE_HOVER,
             border_subtle: BORDER_SUBTLE,
+            text_primary: TEXT_PRIMARY,
+            text_muted: TEXT_MUTED,
+            text_dim: TEXT_DIM,
+            shadow_card: SHADOW_CARD,
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct ThemeRuntime {
+    pub font_scale: f32,
+    pub title_scale: f32,
+    pub body_scale: f32,
+    pub caption_scale: f32,
+    pub icon_scale: f32,
+    pub spacing_scale: f32,
+    pub padding_scale: f32,
+    pub radius_scale: f32,
+    pub bevel_scale: f32,
+    pub tile_min_height: f32,
+    pub qm_action_columns: usize,
+    pub glow_intensity: f32,
+}
+
+impl Default for ThemeRuntime {
+    fn default() -> Self {
+        Self {
+            font_scale: 1.0,
+            title_scale: 1.0,
+            body_scale: 1.0,
+            caption_scale: 1.0,
+            icon_scale: 1.0,
+            spacing_scale: 1.0,
+            padding_scale: 1.0,
+            radius_scale: 1.0,
+            bevel_scale: 1.0,
+            tile_min_height: 52.0,
+            qm_action_columns: 3,
+            glow_intensity: 1.0,
         }
     }
 }
 
 thread_local! {
     static ACTIVE_PALETTE: Cell<PanelPalette> = Cell::new(PanelPalette::default());
+    static ACTIVE_THEME: Cell<ThemeRuntime> = Cell::new(ThemeRuntime::default());
+}
+
+/// Parses `#RRGGBB` or `#RRGGBBAA` hex color strings.
+pub fn parse_hex_color(s: &str) -> Option<Color> {
+    let clean = s.trim().trim_start_matches('#');
+    if clean.len() == 6 {
+        let r = u8::from_str_radix(&clean[0..2], 16).ok()?;
+        let g = u8::from_str_radix(&clean[2..4], 16).ok()?;
+        let b = u8::from_str_radix(&clean[4..6], 16).ok()?;
+        Some(Color::rgb(r, g, b))
+    } else if clean.len() == 8 {
+        let r = u8::from_str_radix(&clean[0..2], 16).ok()?;
+        let g = u8::from_str_radix(&clean[2..4], 16).ok()?;
+        let b = u8::from_str_radix(&clean[4..6], 16).ok()?;
+        let a = u8::from_str_radix(&clean[6..8], 16).ok()?;
+        Some(Color::rgba(r, g, b, a))
+    } else {
+        None
+    }
+}
+
+/// Resolves a named Lumenic theme color token or `#RRGGBB`/`#RRGGBBAA` hex string.
+pub fn resolve_color_token(token: &str, accent: Color) -> Option<Color> {
+    let t = token.trim();
+    if t.is_empty() {
+        return None;
+    }
+    match t {
+        "transparent" => Some(Color::TRANSPARENT),
+        "card" | "card_bg" => Some(card_bg()),
+        "card_inner" | "card_inner_bg" => Some(card_inner_bg()),
+        "tile" | "tile_idle" => Some(tile_idle_bg()),
+        "tile_hover" => Some(tile_idle_hover()),
+        "border" | "border_subtle" => Some(border_subtle()),
+        "accent" => Some(accent),
+        "accent_soft" => Some(tint_alpha(accent, 48)),
+        "accent_hover" => Some(tint_alpha(accent, 78)),
+        "accent_border" => Some(tint_alpha(accent, 185)),
+        "primary" | "text" | "text_primary" => Some(text_primary()),
+        "muted" | "text_muted" => Some(text_muted()),
+        "dim" | "text_dim" => Some(text_dim()),
+        "emerald" | "green" | "success" => Some(EMERALD),
+        "amber" | "yellow" | "warning" => Some(AMBER),
+        "red" | "danger" | "error" => Some(RED),
+        _ => parse_hex_color(t),
+    }
+}
+
+fn scale_alpha(c: Color, factor: f32) -> Color {
+    let a = ((c.a as f32) * factor.clamp(0.0, 2.0)).clamp(0.0, 255.0) as u8;
+    Color::rgba(c.r, c.g, c.b, a)
 }
 
 fn clamp_luma_rgb(r: f32, g: f32, b: f32, max_luma: f32) -> (f32, f32, f32) {
@@ -70,11 +166,10 @@ fn mix_tinted(base: Color, tint: (f32, f32, f32), amount: f32) -> Color {
     Color::rgba(r, g, b, base.a)
 }
 
-/// Computes the frame's panel palette from CVR's Colorize Menu setting and Primary player color.
-/// Keeps panel tinting dark and tame (never bright/neon) while matching OG menu semantics:
-/// Primary = subtle panel colorizing, Secondary = accent highlights.
+/// Computes the frame's panel palette and typography/density tokens from CVR's Colorize Menu setting,
+/// built-in user FontScale, and any active `LumenicApi.Theme` overrides.
 pub fn begin_frame(state: &AppState) {
-    let palette = if !state.host.colorize_menu {
+    let mut palette = if !state.host.colorize_menu {
         PanelPalette::default()
     } else {
         let pr = state.host.accent_r as f32;
@@ -97,10 +192,220 @@ pub fn begin_frame(state: &AppState) {
                     border_tint.2.clamp(0.0, 255.0) as u8,
                     58,
                 ),
+                ..PanelPalette::default()
             }
         }
     };
+
+    let ext = &state.extensions.theme;
+    let opacity = if ext.panel_opacity.is_finite() {
+        ext.panel_opacity.clamp(0.15, 1.0)
+    } else {
+        1.0
+    };
+    if (opacity - 1.0).abs() > 0.001 {
+        palette.card_bg = scale_alpha(palette.card_bg, opacity);
+        palette.card_inner_bg = scale_alpha(palette.card_inner_bg, opacity);
+        palette.tile_idle_bg = scale_alpha(palette.tile_idle_bg, opacity);
+    }
+
+    let shadow_str = if ext.shadow_strength.is_finite() {
+        ext.shadow_strength.clamp(0.0, 2.0)
+    } else {
+        1.0
+    };
+    if (shadow_str - 1.0).abs() > 0.001 {
+        palette.shadow_card = scale_alpha(palette.shadow_card, shadow_str);
+    }
+
+    if let Some(c) = ext.card_bg.as_deref().and_then(parse_hex_color) {
+        palette.card_bg = c;
+    }
+    if let Some(c) = ext.card_inner_bg.as_deref().and_then(parse_hex_color) {
+        palette.card_inner_bg = c;
+    }
+    if let Some(c) = ext.tile_idle_bg.as_deref().and_then(parse_hex_color) {
+        palette.tile_idle_bg = c;
+    }
+    if let Some(c) = ext.tile_idle_hover.as_deref().and_then(parse_hex_color) {
+        palette.tile_idle_hover = c;
+    }
+    if let Some(c) = ext.border_subtle.as_deref().and_then(parse_hex_color) {
+        palette.border_subtle = c;
+    }
+    if let Some(c) = ext.text_primary.as_deref().and_then(parse_hex_color) {
+        palette.text_primary = c;
+    }
+    if let Some(c) = ext.text_muted.as_deref().and_then(parse_hex_color) {
+        palette.text_muted = c;
+    }
+    if let Some(c) = ext.text_dim.as_deref().and_then(parse_hex_color) {
+        palette.text_dim = c;
+    }
+
+    let host_fs = if state.host.font_scale.is_finite() && state.host.font_scale > 0.0 {
+        state.host.font_scale.clamp(0.5, 2.5)
+    } else {
+        1.0
+    };
+    let base_fs = ext
+        .font_scale_override
+        .filter(|v| v.is_finite() && *v > 0.0)
+        .unwrap_or(host_fs);
+    let mul_fs = if ext.font_scale_mul.is_finite() && ext.font_scale_mul > 0.0 {
+        ext.font_scale_mul
+    } else {
+        1.0
+    };
+
+    let clamp_scale = |v: f32, lo: f32, hi: f32| {
+        if v.is_finite() && v > 0.0 {
+            v.clamp(lo, hi)
+        } else {
+            1.0
+        }
+    };
+
+    let runtime = ThemeRuntime {
+        font_scale: (base_fs * mul_fs).clamp(0.5, 2.5),
+        title_scale: clamp_scale(ext.title_scale, 0.5, 2.5),
+        body_scale: clamp_scale(ext.body_scale, 0.5, 2.5),
+        caption_scale: clamp_scale(ext.caption_scale, 0.5, 2.5),
+        icon_scale: clamp_scale(ext.icon_scale, 0.5, 2.5),
+        spacing_scale: clamp_scale(ext.spacing_scale, 0.4, 2.5),
+        padding_scale: clamp_scale(ext.padding_scale, 0.4, 2.5),
+        radius_scale: clamp_scale(ext.radius_scale, 0.0, 2.5),
+        bevel_scale: clamp_scale(ext.bevel_scale, 0.0, 2.5),
+        tile_min_height: ext
+            .tile_min_height
+            .filter(|v| v.is_finite())
+            .map(|v| v.clamp(28.0, 140.0))
+            .unwrap_or_else(|| (52.0 * (base_fs * mul_fs).clamp(0.85, 1.85)).clamp(44.0, 120.0)),
+        qm_action_columns: ext
+            .qm_action_columns
+            .map(|c| c.clamp(2, 6))
+            .unwrap_or(3),
+        glow_intensity: if ext.glow_intensity.is_finite() {
+            ext.glow_intensity.clamp(0.0, 2.0)
+        } else {
+            1.0
+        },
+    };
+
     ACTIVE_PALETTE.with(|p| p.set(palette));
+    ACTIVE_THEME.with(|t| t.set(runtime));
+}
+
+/// Temporarily applies a named section's style/layout overrides while rendering that section.
+pub fn with_style_override<R>(ov: Option<&ExtStyleOverride>, f: impl FnOnce() -> R) -> R {
+    let Some(ov) = ov else {
+        return f();
+    };
+    let prev_theme = ACTIVE_THEME.with(|t| t.get());
+    let prev_palette = ACTIVE_PALETTE.with(|p| p.get());
+
+    let mut next_theme = prev_theme;
+    if let Some(fs) = ov.font_scale.filter(|v| v.is_finite() && *v > 0.0) {
+        next_theme.font_scale = fs.clamp(0.5, 2.5);
+    }
+    if let Some(sp) = ov.spacing_scale.filter(|v| v.is_finite() && *v > 0.0) {
+        next_theme.spacing_scale = sp.clamp(0.4, 2.5);
+    }
+    if let Some(pd) = ov.padding_scale.filter(|v| v.is_finite() && *v > 0.0) {
+        next_theme.padding_scale = pd.clamp(0.4, 2.5);
+    }
+    if let Some(cols) = ov.columns {
+        next_theme.qm_action_columns = cols.clamp(1, 8);
+    }
+    if let Some(mh) = ov.min_height.filter(|v| v.is_finite() && *v > 0.0) {
+        next_theme.tile_min_height = mh.clamp(24.0, 200.0);
+    }
+
+    let mut next_palette = prev_palette;
+    if let Some(c) = ov.card_bg.as_deref().and_then(parse_hex_color) {
+        next_palette.card_bg = c;
+    }
+    if let Some(c) = ov.border.as_deref().and_then(parse_hex_color) {
+        next_palette.border_subtle = c;
+    }
+
+    ACTIVE_THEME.with(|t| t.set(next_theme));
+    ACTIVE_PALETTE.with(|p| p.set(next_palette));
+    let out = f();
+    ACTIVE_THEME.with(|t| t.set(prev_theme));
+    ACTIVE_PALETTE.with(|p| p.set(prev_palette));
+    out
+}
+
+#[inline]
+pub fn fs(base: f32) -> f32 {
+    ACTIVE_THEME.with(|t| {
+        let th = t.get();
+        (base * th.font_scale * th.body_scale).clamp(6.0, 64.0)
+    })
+}
+
+#[inline]
+pub fn fs_title(base: f32) -> f32 {
+    ACTIVE_THEME.with(|t| {
+        let th = t.get();
+        (base * th.font_scale * th.title_scale).clamp(6.0, 72.0)
+    })
+}
+
+#[inline]
+pub fn fs_caption(base: f32) -> f32 {
+    ACTIVE_THEME.with(|t| {
+        let th = t.get();
+        (base * th.font_scale * th.caption_scale).clamp(6.0, 48.0)
+    })
+}
+
+/// Scales fixed container heights/widths (notifications, clock, tabs, pills) proportionally
+/// with `font_scale` so larger text never clips or overflows.
+#[inline]
+pub fn text_box(base: f32) -> f32 {
+    ACTIVE_THEME.with(|t| base * t.get().font_scale.clamp(0.85, 1.85))
+}
+
+#[inline]
+pub fn ic(base: f32) -> f32 {
+    ACTIVE_THEME.with(|t| (base * t.get().icon_scale).clamp(8.0, 96.0))
+}
+
+#[inline]
+pub fn sp(base: f32) -> f32 {
+    ACTIVE_THEME.with(|t| (base * t.get().spacing_scale).clamp(0.0, 96.0))
+}
+
+#[inline]
+pub fn pad(base: f32) -> f32 {
+    ACTIVE_THEME.with(|t| (base * t.get().padding_scale).clamp(0.0, 96.0))
+}
+
+#[inline]
+pub fn rad(base: f32) -> f32 {
+    ACTIVE_THEME.with(|t| (base * t.get().radius_scale).clamp(0.0, 64.0))
+}
+
+#[inline]
+pub fn bev(base: f32) -> f32 {
+    ACTIVE_THEME.with(|t| (base * t.get().bevel_scale).clamp(0.0, 24.0))
+}
+
+#[inline]
+pub fn tile_min_h() -> f32 {
+    ACTIVE_THEME.with(|t| t.get().tile_min_height)
+}
+
+#[inline]
+pub fn qm_action_cols() -> usize {
+    ACTIVE_THEME.with(|t| t.get().qm_action_columns)
+}
+
+#[inline]
+pub fn glow_intensity() -> f32 {
+    ACTIVE_THEME.with(|t| t.get().glow_intensity)
 }
 
 #[inline]
@@ -126,6 +431,26 @@ pub fn tile_idle_hover() -> Color {
 #[inline]
 pub fn border_subtle() -> Color {
     ACTIVE_PALETTE.with(|p| p.get().border_subtle)
+}
+
+#[inline]
+pub fn text_primary() -> Color {
+    ACTIVE_PALETTE.with(|p| p.get().text_primary)
+}
+
+#[inline]
+pub fn text_muted() -> Color {
+    ACTIVE_PALETTE.with(|p| p.get().text_muted)
+}
+
+#[inline]
+pub fn text_dim() -> Color {
+    ACTIVE_PALETTE.with(|p| p.get().text_dim)
+}
+
+#[inline]
+pub fn shadow_card() -> Color {
+    ACTIVE_PALETTE.with(|p| p.get().shadow_card)
 }
 
 pub const BG_GLOW_FRAG: &str = r#"
@@ -217,6 +542,15 @@ void main() {
 "#;
 
 pub fn resolve_player_accent(state: &AppState) -> Color {
+    if let Some(c) = state
+        .extensions
+        .theme
+        .accent_override
+        .as_deref()
+        .and_then(parse_hex_color)
+    {
+        return c;
+    }
     if !state.host.colorize_menu {
         return DEFAULT_ACCENT;
     }

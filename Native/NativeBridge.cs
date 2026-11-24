@@ -15,7 +15,7 @@ namespace LumenicMenu.Native;
 /// </summary>
 internal sealed class NativeBridge : IDisposable
 {
-    public const uint ExpectedAbiVersion = 4;
+    public const uint ExpectedAbiVersion = 5;
     public const uint SurfaceMain = 0;
     public const uint SurfaceQuick = 1;
 
@@ -90,6 +90,18 @@ internal sealed class NativeBridge : IDisposable
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     [return: MarshalAs(UnmanagedType.I1)]
+    private delegate bool UploadRgbaTextureFn(
+        IntPtr handle,
+        uint surfaceId,
+        IntPtr keyPtr,
+        UIntPtr keyLen,
+        uint width,
+        uint height,
+        IntPtr rgbaPtr,
+        UIntPtr rgbaLen);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    [return: MarshalAs(UnmanagedType.I1)]
     private delegate bool RegisterFontFn(
         IntPtr namePtr,
         UIntPtr nameLen,
@@ -147,9 +159,11 @@ internal sealed class NativeBridge : IDisposable
     private SurfaceOnlyFn _clearFocus;
     private CommitVirtualKeyboardFn _commitVirtualKeyboard;
     private UploadImageBytesFn _uploadImageBytes;
+    private UploadRgbaTextureFn _uploadRgbaTexture;
     private RegisterFontFn _registerFont;
     private SetDefaultFontFamilyFn _setDefaultFontFamily;
     private PushStateJsonFn _pushStateJson;
+    private PushStateJsonFn _pushExtensionsJson;
     private PushTelemetryFn _pushTelemetry;
     private StepFn _step;
     private ReadPixelsFn _readPixels;
@@ -309,9 +323,11 @@ internal sealed class NativeBridge : IDisposable
         _clearFocus = Bind<SurfaceOnlyFn>("lumenic_cvr_clear_focus");
         _commitVirtualKeyboard = Bind<CommitVirtualKeyboardFn>("lumenic_cvr_commit_virtual_keyboard");
         _uploadImageBytes = Bind<UploadImageBytesFn>("lumenic_cvr_upload_image_bytes");
+        _uploadRgbaTexture = Bind<UploadRgbaTextureFn>("lumenic_cvr_upload_rgba_texture");
         _registerFont = Bind<RegisterFontFn>("lumenic_cvr_register_font");
         _setDefaultFontFamily = Bind<SetDefaultFontFamilyFn>("lumenic_cvr_set_default_font_family");
         _pushStateJson = Bind<PushStateJsonFn>("lumenic_cvr_push_state_json");
+        _pushExtensionsJson = Bind<PushStateJsonFn>("lumenic_cvr_push_extensions_json");
         _pushTelemetry = Bind<PushTelemetryFn>("lumenic_cvr_push_telemetry");
         _step = Bind<StepFn>("lumenic_cvr_step");
         _readPixels = Bind<ReadPixelsFn>("lumenic_cvr_read_pixels");
@@ -519,7 +535,7 @@ internal sealed class NativeBridge : IDisposable
         }
     }
 
-    private bool RegisterFontBytes(string familyName, byte[] fontBytes)
+    public bool RegisterFontBytes(string familyName, byte[] fontBytes)
     {
         if (_registerFont == null || fontBytes == null || fontBytes.Length == 0)
             return false;
@@ -545,7 +561,7 @@ internal sealed class NativeBridge : IDisposable
         }
     }
 
-    private bool SetDefaultFontFamily(string familyName)
+    public bool SetDefaultFontFamily(string familyName)
     {
         if (_setDefaultFontFamily == null || string.IsNullOrEmpty(familyName))
             return false;
@@ -595,6 +611,54 @@ internal sealed class NativeBridge : IDisposable
             _utf8Scratch = new byte[nextSize];
         }
         return _utf8Scratch;
+    }
+
+    public bool UploadRgbaTexture(uint surfaceId, string key, uint width, uint height, byte[] rgbaBytes)
+    {
+        if (!IsHealthy || _uploadRgbaTexture == null || string.IsNullOrEmpty(key) || rgbaBytes == null || width == 0 || height == 0)
+            return false;
+
+        int expected = checked((int)(width * height * 4));
+        if (rgbaBytes.Length < expected)
+            return false;
+
+        byte[] keyUtf8 = Encoding.UTF8.GetBytes(key);
+        GCHandle pinKey = GCHandle.Alloc(keyUtf8, GCHandleType.Pinned);
+        GCHandle pinRgba = GCHandle.Alloc(rgbaBytes, GCHandleType.Pinned);
+        try
+        {
+            return _uploadRgbaTexture(
+                _handle,
+                surfaceId,
+                pinKey.AddrOfPinnedObject(),
+                (UIntPtr)keyUtf8.Length,
+                width,
+                height,
+                pinRgba.AddrOfPinnedObject(),
+                (UIntPtr)expected);
+        }
+        finally
+        {
+            pinKey.Free();
+            pinRgba.Free();
+        }
+    }
+
+    public bool PushExtensionsJson(string json)
+    {
+        if (!IsHealthy || _pushExtensionsJson == null || string.IsNullOrEmpty(json)) return false;
+        int maxBytes = Encoding.UTF8.GetMaxByteCount(json.Length);
+        byte[] buf = EnsureScratchCapacity(maxBytes);
+        int byteCount = Encoding.UTF8.GetBytes(json, 0, json.Length, buf, 0);
+        GCHandle pin = GCHandle.Alloc(buf, GCHandleType.Pinned);
+        try
+        {
+            return _pushExtensionsJson(_handle, pin.AddrOfPinnedObject(), (UIntPtr)byteCount);
+        }
+        finally
+        {
+            pin.Free();
+        }
     }
 
     public bool PushStateJson(string json)

@@ -20,7 +20,7 @@ pub fn register_material_font() {
 /// Renders an official Google Material Symbols Sharp (Filled) icon by ligature name.
 pub fn icon<'a>(ui: &'a mut UiContext, name: &str, size: f32) -> StyleBuilder<'a> {
     register_material_font();
-    ui.txt(name).font(MATERIAL_FONT_FAMILY).sz(size)
+    ui.txt(name).font(MATERIAL_FONT_FAMILY).sz(crate::theme::ic(size))
 }
 
 pub const MIC: &str = "mic";

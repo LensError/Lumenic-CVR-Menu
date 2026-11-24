@@ -177,6 +177,21 @@ internal static class GameEvents
             harmony,
             AccessTools.Method(typeof(ViewManager), nameof(ViewManager.CancelAndCloseGroupModerationAlertModal)),
             prefix: nameof(Prefix_ViewManager_CancelAndCloseGroupModerationAlertModal));
+
+        PatchSafe(
+            harmony,
+            AccessTools.Method(typeof(ViewManager), "TriggerAlert", new[] { typeof(string), typeof(string), typeof(int), typeof(bool) }),
+            postfix: nameof(Postfix_ViewManager_TriggerAlert));
+
+        PatchSafe(
+            harmony,
+            AccessTools.Method(typeof(ViewManager), "TriggerConfirm", new[] { typeof(string), typeof(string), typeof(string), typeof(bool), typeof(bool) }),
+            postfix: nameof(Postfix_ViewManager_TriggerConfirm));
+
+        PatchSafe(
+            harmony,
+            AccessTools.Method(typeof(ViewManager), "BufferMenuPopup", new[] { typeof(string) }),
+            postfix: nameof(Postfix_ViewManager_BufferMenuPopup));
     }
 
     public static void SubscribeGameEvents()
@@ -887,5 +902,47 @@ internal static class GameEvents
             MelonLogger.Warning($"[LumenicMenu] CancelGroupModerationAlert hook error: {ex.Message}");
         }
         return true;
+    }
+
+    private static void Postfix_ViewManager_TriggerAlert(string headlineText, string content)
+    {
+        try
+        {
+            LumenicMenuMod mod = LumenicMenuMod.Instance;
+            if (mod != null && mod.SystemAlerts != null && (Settings.EnableMainMenu || Settings.EnableQuickMenu))
+                mod.SystemAlerts.EnqueueAlert(headlineText, content);
+        }
+        catch (Exception ex)
+        {
+            MelonLogger.Warning($"[LumenicMenu] TriggerAlert hook error: {ex.Message}");
+        }
+    }
+
+    private static void Postfix_ViewManager_TriggerConfirm(string headlineText, string content, string id)
+    {
+        try
+        {
+            LumenicMenuMod mod = LumenicMenuMod.Instance;
+            if (mod != null && mod.SystemAlerts != null && (Settings.EnableMainMenu || Settings.EnableQuickMenu))
+                mod.SystemAlerts.EnqueueConfirm(headlineText, content, id);
+        }
+        catch (Exception ex)
+        {
+            MelonLogger.Warning($"[LumenicMenu] TriggerConfirm hook error: {ex.Message}");
+        }
+    }
+
+    private static void Postfix_ViewManager_BufferMenuPopup(string message)
+    {
+        try
+        {
+            LumenicMenuMod mod = LumenicMenuMod.Instance;
+            if (mod != null && mod.SystemAlerts != null && (Settings.EnableMainMenu || Settings.EnableQuickMenu))
+                mod.SystemAlerts.EnqueueAlert("System Notice", message);
+        }
+        catch (Exception ex)
+        {
+            MelonLogger.Warning($"[LumenicMenu] BufferMenuPopup hook error: {ex.Message}");
+        }
     }
 }

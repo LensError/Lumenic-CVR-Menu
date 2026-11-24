@@ -7,7 +7,7 @@ use crate::theme::{
     TEXT_MUTED, TEXT_PRIMARY, tile_idle_bg, tile_idle_hover,
 };
 
-const SETTINGS_TABS: [(&str, &str, &str); 12] = [
+const SETTINGS_TABS: [(&str, &str, &str); 13] = [
     ("lumenic", icons::BOLT, "LumenicMenu"),
     ("colors", icons::STAR, "Player Colors"),
     ("general", icons::HOME, "General"),
@@ -20,6 +20,7 @@ const SETTINGS_TABS: [(&str, &str, &str); 12] = [
     ("implementation", icons::PUZZLE, "Implementation"),
     ("safety", icons::CHECK, "Safety & Filter"),
     ("experimental", icons::TOOLBOX, "Experimental"),
+    ("support", icons::MAIL, "Support"),
 ];
 
 fn compact_toggle_cell(
@@ -32,7 +33,7 @@ fn compact_toggle_cell(
     let mut resp = ui
         .row(|ui| {
             ui.txt(label)
-                .sz(11.0)
+                .sz(crate::theme::fs(11.0))
                 .semibold()
                 .fg(TEXT_PRIMARY)
                 .ellipsis()
@@ -41,14 +42,14 @@ fn compact_toggle_cell(
             if ui
                 .btn_with(id, |ui| {
                     ui.txt(if active { "ON" } else { "OFF" })
-                        .sz(10.0)
+                        .sz(crate::theme::fs(10.0))
                         .bold()
                         .align(TextAlign::Center)
                         .fg(if active { EMERALD } else { TEXT_MUTED })
                         .grow(1.0);
                 })
-                .w(50.0)
-                .h(22.0)
+                .w(crate::theme::text_box(50.0))
+                .h(crate::theme::text_box(22.0))
                 .bg(if active {
                     tint_alpha(EMERALD, 45)
                 } else {
@@ -149,67 +150,136 @@ fn render_cvr_item(
         }
         "int_choice" | "str_choice" => {
             let is_int = item.kind == "int_choice";
+            let total_label_chars: usize = item.choice_labels.iter().map(|s| s.len()).sum();
+            let use_dropdown = item.choice_vals.len() > 3 || total_label_chars > 30;
             let mut resp = ui
                 .col(|ui| {
                     ui.txt(&item.label)
-                        .sz(10.5)
+                        .sz(crate::theme::fs(10.5))
                         .semibold()
                         .fg(TEXT_PRIMARY)
                         .ellipsis();
-                    ui.row(|ui| {
-                        for (idx, (val, lbl)) in item
+                    if use_dropdown {
+                        let cur_label = item
                             .choice_vals
                             .iter()
                             .zip(item.choice_labels.iter())
-                            .enumerate()
-                        {
-                            let active = item.str_val == *val;
-                            if ui
-                                .btn_with(&format!("mm_sc_{}_{idx}", item.key), |ui| {
-                                    ui.txt(lbl)
-                                        .sz(10.0)
+                            .find(|(v, _)| *v == &item.str_val)
+                            .map(|(_, l)| l.as_str())
+                            .or_else(|| item.choice_labels.first().map(|s| s.as_str()))
+                            .unwrap_or("Select...");
+                        if ui
+                            .btn_with(&format!("mm_dd_{}", item.key), |ui| {
+                                ui.row(|ui| {
+                                    ui.txt(cur_label)
+                                        .sz(crate::theme::fs(10.5))
                                         .semibold()
-                                        .align(TextAlign::Center)
-                                        .fg(if active { TEXT_PRIMARY } else { TEXT_MUTED })
+                                        .fg(TEXT_PRIMARY)
+                                        .ellipsis()
                                         .grow(1.0);
+                                    icons::icon(ui, icons::CHEVRON_DOWN, 14.0).fg(accent);
                                 })
-                                .grow(1.0)
-                                .py(3.5)
-                                .bg(if active {
-                                    tint_alpha(accent, 52)
-                                } else {
-                                    tile_idle_bg()
-                                })
-                                .hover_bg(tile_idle_hover())
-                                .bd(
-                                    1.0,
-                                    if active {
-                                        tint_alpha(accent, 195)
-                                    } else {
-                                        border_subtle()
-                                    },
-                                )
-                                .bevel_rounded(4.5, 1.3)
-                                .clicked()
-                            {
-                                push_click(actions);
-                                if is_int {
+                                .align_center()
+                                .gap(6.0)
+                                .grow(1.0);
+                            })
+                            .w_frac(1.0)
+                            .px(9.0)
+                            .py(5.0)
+                            .bg(tile_idle_bg())
+                            .hover_bg(tile_idle_hover())
+                            .bd(1.0, tint_alpha(accent, 140))
+                            .bevel_rounded(5.0, 1.3)
+                            .clicked()
+                        {
+                            push_click(actions);
+                            let mut options = Vec::with_capacity(item.choice_vals.len());
+                            for (val, lbl) in item.choice_vals.iter().zip(item.choice_labels.iter()) {
+                                let act = if is_int {
                                     if let Ok(parsed) = val.parse::<i32>() {
-                                        actions.push(UiAction::CvrSetInt {
+                                        UiAction::CvrSetInt {
                                             key: item.key.clone(),
                                             value: parsed,
-                                        });
+                                        }
+                                    } else {
+                                        UiAction::CvrSetString {
+                                            key: item.key.clone(),
+                                            value: val.clone(),
+                                        }
                                     }
                                 } else {
-                                    actions.push(UiAction::CvrSetString {
+                                    UiAction::CvrSetString {
                                         key: item.key.clone(),
                                         value: val.clone(),
-                                    });
+                                    }
+                                };
+                                options.push(crate::state::DropdownOption {
+                                    label: lbl.clone(),
+                                    action: act,
+                                    selected: item.str_val == *val,
+                                });
+                            }
+                            state.main_menu.active_dropdown = Some(crate::state::ActiveDropdown {
+                                title: item.label.clone(),
+                                options,
+                            });
+                        }
+                    } else {
+                        ui.row(|ui| {
+                            for (idx, (val, lbl)) in item
+                                .choice_vals
+                                .iter()
+                                .zip(item.choice_labels.iter())
+                                .enumerate()
+                            {
+                                let active = item.str_val == *val;
+                                if ui
+                                    .btn_with(&format!("mm_sc_{}_{idx}", item.key), |ui| {
+                                        ui.txt(lbl)
+                                            .sz(crate::theme::fs(10.0))
+                                            .semibold()
+                                            .align(TextAlign::Center)
+                                            .fg(if active { TEXT_PRIMARY } else { TEXT_MUTED })
+                                            .grow(1.0);
+                                    })
+                                    .grow(1.0)
+                                    .py(3.5)
+                                    .bg(if active {
+                                        tint_alpha(accent, 52)
+                                    } else {
+                                        tile_idle_bg()
+                                    })
+                                    .hover_bg(tile_idle_hover())
+                                    .bd(
+                                        1.0,
+                                        if active {
+                                            tint_alpha(accent, 195)
+                                        } else {
+                                            border_subtle()
+                                        },
+                                    )
+                                    .bevel_rounded(4.5, 1.3)
+                                    .clicked()
+                                {
+                                    push_click(actions);
+                                    if is_int {
+                                        if let Ok(parsed) = val.parse::<i32>() {
+                                            actions.push(UiAction::CvrSetInt {
+                                                key: item.key.clone(),
+                                                value: parsed,
+                                            });
+                                        }
+                                    } else {
+                                        actions.push(UiAction::CvrSetString {
+                                            key: item.key.clone(),
+                                            value: val.clone(),
+                                        });
+                                    }
                                 }
                             }
-                        }
-                    })
-                    .gap(4.0);
+                        })
+                        .gap(4.0);
+                    }
                 })
                 .grow(1.0)
                 .px(8.0)
@@ -231,14 +301,14 @@ fn render_cvr_item(
             let mut resp = ui
                 .row(|ui| {
                     ui.txt(&item.label)
-                        .sz(10.5)
+                        .sz(crate::theme::fs(10.5))
                         .semibold()
                         .fg(TEXT_PRIMARY)
                         .ellipsis()
                         .grow(1.0);
                     if ui
                         .btn_with(&format!("mm_sm_{}", item.key), |ui| {
-                            ui.txt("-").sz(11.0).bold().fg(TEXT_PRIMARY);
+                            ui.txt("-").sz(crate::theme::fs(11.0)).bold().fg(TEXT_PRIMARY);
                         })
                         .w(24.0)
                         .py(3.0)
@@ -255,14 +325,14 @@ fn render_cvr_item(
                         });
                     }
                     ui.txt(&format!("{}", item.int_val))
-                        .sz(10.5)
+                        .sz(crate::theme::fs(10.5))
                         .bold()
                         .align(TextAlign::Center)
                         .fg(accent)
                         .min_w(38.0);
                     if ui
                         .btn_with(&format!("mm_sp_{}", item.key), |ui| {
-                            ui.txt("+").sz(11.0).bold().fg(TEXT_PRIMARY);
+                            ui.txt("+").sz(crate::theme::fs(11.0)).bold().fg(TEXT_PRIMARY);
                         })
                         .w(24.0)
                         .py(3.0)
@@ -300,14 +370,14 @@ fn render_cvr_item(
             let mut resp = ui
                 .row(|ui| {
                     ui.txt(&item.label)
-                        .sz(10.5)
+                        .sz(crate::theme::fs(10.5))
                         .semibold()
                         .fg(TEXT_PRIMARY)
                         .ellipsis()
                         .grow(1.0);
                     if ui
                         .btn_with(&format!("mm_fm_{}", item.key), |ui| {
-                            ui.txt("-").sz(11.0).bold().fg(TEXT_PRIMARY);
+                            ui.txt("-").sz(crate::theme::fs(11.0)).bold().fg(TEXT_PRIMARY);
                         })
                         .w(24.0)
                         .py(3.0)
@@ -325,14 +395,14 @@ fn render_cvr_item(
                         });
                     }
                     ui.txt(&format!("{:.2}", item.float_val))
-                        .sz(10.5)
+                        .sz(crate::theme::fs(10.5))
                         .bold()
                         .align(TextAlign::Center)
                         .fg(accent)
                         .min_w(42.0);
                     if ui
                         .btn_with(&format!("mm_fp_{}", item.key), |ui| {
-                            ui.txt("+").sz(11.0).bold().fg(TEXT_PRIMARY);
+                            ui.txt("+").sz(crate::theme::fs(11.0)).bold().fg(TEXT_PRIMARY);
                         })
                         .w(24.0)
                         .py(3.0)
@@ -364,7 +434,7 @@ fn render_cvr_item(
             let mut resp = ui
                 .row(|ui| {
                     ui.txt(&item.label)
-                        .sz(10.5)
+                        .sz(crate::theme::fs(10.5))
                         .semibold()
                         .fg(TEXT_PRIMARY)
                         .ellipsis()
@@ -374,7 +444,7 @@ fn render_cvr_item(
                     } else {
                         &item.str_val
                     };
-                    ui.txt(val_txt).sz(10.5).fg(TEXT_MUTED).ellipsis();
+                    ui.txt(val_txt).sz(crate::theme::fs(10.5)).fg(TEXT_MUTED).ellipsis();
                 })
                 .align_center()
                 .grow(1.0)
@@ -404,7 +474,7 @@ pub fn render_settings_page(
         // Header Bar: Title + Live Search across ALL settings + Mod/Vanilla jump
         ui.row(|ui| {
             icons::icon(ui, icons::SETTINGS, 17.0).fg(accent);
-            ui.txt("Settings").sz(15.0).bold().fg(TEXT_PRIMARY);
+            ui.txt("Settings").sz(crate::theme::fs(15.0)).bold().fg(TEXT_PRIMARY);
 
             ui.row(|ui| {
                 icons::icon(ui, icons::SEARCH, 13.0).fg(TEXT_MUTED);
@@ -465,6 +535,8 @@ pub fn render_settings_page(
                             9
                         } else if *cat_id == "colors" {
                             state.host.player_color_presets.len()
+                        } else if *cat_id == "support" {
+                            0
                         } else {
                             state
                                 .host
@@ -480,14 +552,14 @@ pub fn render_settings_page(
                                     icons::icon(ui, icon_p, 13.5)
                                         .fg(if active { accent } else { TEXT_MUTED });
                                     ui.txt(lbl)
-                                        .sz(11.5)
+                                        .sz(crate::theme::fs(11.5))
                                         .semibold()
                                         .fg(if active { TEXT_PRIMARY } else { TEXT_MUTED })
                                         .ellipsis()
                                         .grow(1.0);
                                     if count > 0 {
                                         ui.txt(&format!("{count}"))
-                                            .sz(9.5)
+                                            .sz(crate::theme::fs(9.5))
                                             .fg(if active { accent } else { TEXT_DIM });
                                     }
                                 })
@@ -525,7 +597,7 @@ pub fn render_settings_page(
                                 ui.row(|ui| {
                                     icons::icon(ui, icons::PUZZLE, 13.5).fg(accent);
                                     ui.txt("Mod Settings")
-                                        .sz(11.5)
+                                        .sz(crate::theme::fs(11.5))
                                         .semibold()
                                         .fg(TEXT_PRIMARY)
                                         .ellipsis()
@@ -580,6 +652,8 @@ pub fn render_settings_page(
                         render_lumenic_settings(ui, state, "", accent, actions);
                     } else if q.is_empty() && active_cat == "colors" {
                         render_player_colors_section(ui, state, accent, actions);
+                    } else if q.is_empty() && active_cat == "support" {
+                        render_support_section(ui, state, accent, actions);
                     } else {
                         let mut total_hits = 0usize;
                         if !q.is_empty() {
@@ -590,6 +664,15 @@ pub fn render_settings_page(
                                 || q.contains("colour")
                             {
                                 render_player_colors_section(ui, state, accent, actions);
+                                total_hits += 1;
+                            }
+                            if "support help discord github patreon twitter logs bread bug issue"
+                                .contains(&q)
+                                || q.contains("support")
+                                || q.contains("bread")
+                                || q.contains("logs")
+                            {
+                                render_support_section(ui, state, accent, actions);
                                 total_hits += 1;
                             }
                         }
@@ -626,7 +709,7 @@ pub fn render_settings_page(
                                 }
                                 if !grp.is_empty() {
                                     ui.txt(grp)
-                                        .sz(11.0)
+                                        .sz(crate::theme::fs(11.0))
                                         .bold()
                                         .fg(Color::rgb(196, 210, 230))
                                         .pt(6.0)
@@ -660,7 +743,7 @@ pub fn render_settings_page(
                             ui.col(|ui| {
                                 icons::icon(ui, icons::SEARCH, 26.0).fg(TEXT_DIM);
                                 ui.txt("No matching settings")
-                                    .sz(12.5)
+                                    .sz(crate::theme::fs(12.5))
                                     .semibold()
                                     .fg(TEXT_MUTED);
                             })
@@ -706,13 +789,78 @@ fn render_lumenic_settings(
             || "lumenicmenu".contains(q)
     };
 
+    // --- APPEARANCE & TYPOGRAPHY ---
+    let show_text_size = m("Text Size", "font text size typography scale readability");
+    if show_text_size {
+        if q.is_empty() {
+            ui.txt("Appearance & Typography")
+                .sz(crate::theme::fs(11.0))
+                .bold()
+                .fg(crate::theme::text_muted())
+                .pt(2.0)
+                .px(3.0);
+        }
+        hits += 1;
+        let cur_pct = (state.host.font_scale.clamp(0.5, 2.5) * 100.0).round() as i32;
+        ui.row(|ui| {
+            ui.txt("Text Size")
+                .sz(crate::theme::fs(11.0))
+                .semibold()
+                .fg(crate::theme::text_primary())
+                .min_w(130.0);
+            for (pct, lbl) in [(75, "75%"), (100, "100%"), (125, "125%"), (150, "150%")] {
+                let active = (cur_pct - pct).abs() <= 2;
+                if ui
+                    .btn_with(&format!("mm_set_ts_{pct}"), |ui| {
+                        ui.txt(lbl)
+                            .sz(crate::theme::fs(10.5))
+                            .semibold()
+                            .align(TextAlign::Center)
+                            .fg(if active { TEXT_PRIMARY } else { TEXT_MUTED })
+                            .grow(1.0);
+                    })
+                    .grow(1.0)
+                    .py(5.0)
+                    .bg(if active {
+                        tint_alpha(accent, 52)
+                    } else {
+                        tile_idle_bg()
+                    })
+                    .hover_bg(tile_idle_hover())
+                    .bd(
+                        1.0,
+                        if active {
+                            tint_alpha(accent, 195)
+                        } else {
+                            border_subtle()
+                        },
+                    )
+                    .bevel_rounded(5.0, 1.3)
+                    .clicked()
+                {
+                    push_click(actions);
+                    actions.push(UiAction::SetFontScale {
+                        scale: pct as f32 / 100.0,
+                    });
+                }
+            }
+        })
+        .align_center()
+        .px(8.0)
+        .py(6.0)
+        .gap(6.0)
+        .bg(card_inner_bg())
+        .bd(1.0, border_subtle())
+        .bevel_rounded(6.0, 1.3);
+    }
+
     // --- AUDIO ---
     let show_sound_pack = m("UI Sound Pack", "softsub glass vanilla audio");
     let show_click_sounds = m("UI Click & Hover Sounds", "sound audio feedback");
     if show_sound_pack || show_click_sounds {
         if q.is_empty() {
             ui.txt("Audio")
-                .sz(11.0)
+                .sz(crate::theme::fs(11.0))
                 .bold()
                 .fg(TEXT_MUTED)
                 .pt(2.0)
@@ -722,7 +870,7 @@ fn render_lumenic_settings(
             hits += 1;
             ui.row(|ui| {
                 ui.txt("UI Sound Pack")
-                    .sz(11.0)
+                    .sz(crate::theme::fs(11.0))
                     .semibold()
                     .fg(TEXT_PRIMARY)
                     .min_w(130.0);
@@ -735,7 +883,7 @@ fn render_lumenic_settings(
                     if ui
                         .btn_with(&format!("mm_set_sp_{pack}"), |ui| {
                             ui.txt(lbl)
-                                .sz(10.5)
+                                .sz(crate::theme::fs(10.5))
                                 .semibold()
                                 .align(TextAlign::Center)
                                 .fg(if active { TEXT_PRIMARY } else { TEXT_MUTED })
@@ -803,7 +951,7 @@ fn render_lumenic_settings(
     if show_hz || show_desk_scroll || show_vr_scroll {
         if q.is_empty() {
             ui.txt("Performance & Input")
-                .sz(11.0)
+                .sz(crate::theme::fs(11.0))
                 .bold()
                 .fg(TEXT_MUTED)
                 .pt(6.0)
@@ -934,7 +1082,7 @@ fn render_lumenic_settings(
     if show_recent || show_clear {
         if q.is_empty() {
             ui.txt("Local History & User Data")
-                .sz(11.0)
+                .sz(crate::theme::fs(11.0))
                 .bold()
                 .fg(TEXT_MUTED)
                 .pt(6.0)
@@ -974,7 +1122,7 @@ fn render_lumenic_settings(
                         } else {
                             "Clear Recent History"
                         })
-                        .sz(10.5)
+                        .sz(crate::theme::fs(10.5))
                         .semibold()
                         .align(TextAlign::Center)
                         .fg(if clear_hist_armed {
@@ -1014,7 +1162,7 @@ fn render_lumenic_settings(
                         } else {
                             "Clear Pinned Items"
                         })
-                        .sz(10.5)
+                        .sz(crate::theme::fs(10.5))
                         .semibold()
                         .align(TextAlign::Center)
                         .fg(if clear_pins_armed {
@@ -1053,7 +1201,7 @@ fn render_lumenic_settings(
                         } else {
                             "Reset Tile Layouts"
                         })
-                        .sz(10.5)
+                        .sz(crate::theme::fs(10.5))
                         .semibold()
                         .align(TextAlign::Center)
                         .fg(TEXT_PRIMARY)
@@ -1084,6 +1232,10 @@ fn render_lumenic_settings(
         }
     }
 
+    if q.is_empty() {
+        crate::ext_view::render_slot_only(ui, state, "main", "mm.settings.lumenic", accent, actions);
+    }
+
     hits
 }
 
@@ -1104,16 +1256,16 @@ fn render_player_colors_section(
 
     ui.row(|ui| {
         ui.txt("Player Colors & Menu Theme")
-            .sz(12.5)
+            .sz(crate::theme::fs(12.5))
             .bold()
             .fg(accent)
             .grow(1.0);
 
         ui.row(|ui| {
             ui.txt("").w(14.0).h(14.0).bg(p1).bd(1.0, TEXT_PRIMARY).r(3.0);
-            ui.txt("Primary").sz(10.0).fg(TEXT_MUTED);
+            ui.txt("Primary").sz(crate::theme::fs(10.0)).fg(TEXT_MUTED);
             ui.txt("").w(14.0).h(14.0).bg(p2).bd(1.0, TEXT_PRIMARY).r(3.0);
-            ui.txt("Secondary").sz(10.0).fg(TEXT_MUTED);
+            ui.txt("Secondary").sz(crate::theme::fs(10.0)).fg(TEXT_MUTED);
         })
         .align_center()
         .gap(5.0)
@@ -1157,7 +1309,7 @@ fn render_player_colors_section(
     let presets = state.host.player_color_presets.clone();
     if !presets.is_empty() {
         ui.txt("Presets")
-            .sz(11.0)
+            .sz(crate::theme::fs(11.0))
             .bold()
             .fg(TEXT_MUTED)
             .pt(4.0)
@@ -1183,7 +1335,7 @@ fn render_player_colors_section(
                                 })
                                 .gap(2.0);
                                 ui.txt(&pr.name)
-                                    .sz(10.5)
+                                    .sz(crate::theme::fs(10.5))
                                     .semibold()
                                     .fg(TEXT_PRIMARY)
                                     .ellipsis()
@@ -1242,7 +1394,7 @@ fn render_player_colors_section(
             ),
         ] {
             ui.txt(heading)
-                .sz(11.0)
+                .sz(crate::theme::fs(11.0))
                 .bold()
                 .fg(TEXT_MUTED)
                 .pt(5.0)
@@ -1290,4 +1442,1183 @@ fn render_player_colors_section(
             }
         }
     }
+}
+
+fn render_support_section(
+    ui: &mut UiContext,
+    state: &mut AppState,
+    accent: Color,
+    actions: &mut Vec<UiAction>,
+) {
+    // --- BIG MODDED CLIENT DISCLAIMER ---
+    ui.col(|ui| {
+        ui.row(|ui| {
+            icons::icon(ui, icons::BELL, 15.0).fg(crate::theme::AMBER);
+            ui.txt("IMPORTANT - Read Before Reporting Bugs to ChilloutVR")
+                .sz(crate::theme::fs(12.0))
+                .bold()
+                .fg(crate::theme::AMBER);
+        })
+        .align_center()
+        .gap(6.0);
+
+        ui.txt("If you notice ANY bug even remotely related to the UI, menus, input, or rendering, you MUST completely UNINSTALL LumenicMenu (remove LumenicMenu.dll from Mods/ and restart the game - do NOT just toggle it off) and reproduce the issue on a clean vanilla client before reporting anything to ChilloutVR or the CVR team.")
+            .sz(crate::theme::fs(11.0))
+            .fg(TEXT_PRIMARY)
+            .wrap();
+    })
+    .p(11.0)
+    .gap(6.0)
+    .bg(tint_alpha(crate::theme::AMBER, 26))
+    .bd(1.5, tint_alpha(crate::theme::AMBER, 175))
+    .bevel_rounded(8.5, 1.5);
+
+    // --- LUMENICMENU MOD SUPPORT ---
+    ui.col(|ui| {
+        ui.row(|ui| {
+            icons::icon(ui, icons::BOLT, 14.5).fg(accent);
+            ui.txt("LumenicMenu Support & Mod Issues")
+                .sz(crate::theme::fs(12.5))
+                .bold()
+                .fg(TEXT_PRIMARY);
+        })
+        .align_center()
+        .gap(6.0);
+
+        ui.txt("LumenicMenu is an unofficial community mod and is not affiliated with ChilloutVR or the ChilloutVR team. If you encounter any mod issues or bugs, or want to make a feature request, please open an issue or pull request on GitHub, or DM @LensError on Discord.")
+            .sz(crate::theme::fs(11.0))
+            .fg(TEXT_MUTED)
+            .wrap();
+
+        ui.row(|ui| {
+            if ui
+                .btn_with("mm_sup_lm_gh", |ui| {
+                    ui.row(|ui| {
+                        icons::icon(ui, icons::WORLD, 13.0).fg(accent);
+                        ui.txt("GitHub: LensError/Lumenic-CVR-Menu")
+                            .sz(crate::theme::fs(11.0))
+                            .semibold()
+                            .fg(TEXT_PRIMARY);
+                    })
+                    .center()
+                    .gap(5.0)
+                    .grow(1.0);
+                })
+                .grow(1.0)
+                .py(7.5)
+                .bg(tint_alpha(accent, 42))
+                .hover_bg(tint_alpha(accent, 75))
+                .bd(1.0, tint_alpha(accent, 175))
+                .bevel_rounded(6.5, 1.3)
+                .clicked()
+            {
+                push_click(actions);
+                actions.push(UiAction::OpenExternalUrl {
+                    url: String::from("https://github.com/LensError/Lumenic-CVR-Menu"),
+                });
+            }
+
+            if ui
+                .btn_with("mm_sup_lm_issues", |ui| {
+                    ui.row(|ui| {
+                        icons::icon(ui, icons::MAIL, 13.0).fg(crate::theme::AMBER);
+                        ui.txt("Report Mod Issue / Feature Request")
+                            .sz(crate::theme::fs(11.0))
+                            .semibold()
+                            .fg(TEXT_PRIMARY);
+                    })
+                    .center()
+                    .gap(5.0)
+                    .grow(1.0);
+                })
+                .grow(1.0)
+                .py(7.5)
+                .bg(tile_idle_bg())
+                .hover_bg(tile_idle_hover())
+                .bd(1.0, border_subtle())
+                .bevel_rounded(6.5, 1.3)
+                .clicked()
+            {
+                push_click(actions);
+                actions.push(UiAction::OpenExternalUrl {
+                    url: String::from("https://github.com/LensError/Lumenic-CVR-Menu/issues"),
+                });
+            }
+        })
+        .gap(7.0);
+
+        // --- MOD UPDATES ---
+        let upd = state.host.update_status.clone();
+        let cur_v = if upd.current_version.is_empty() {
+            env!("CARGO_PKG_VERSION")
+        } else {
+            upd.current_version.as_str()
+        };
+        let status_label = match upd.status.as_str() {
+            "checking" => String::from("Checking GitHub Releases..."),
+            "up_to_date" => format!("Up to date (v{cur_v})"),
+            "update_available" => format!("Update available: v{} (installed v{cur_v})", upd.latest_version),
+            "error" => {
+                if upd.error_message.is_empty() {
+                    String::from("Update check failed")
+                } else {
+                    format!("Check failed: {}", upd.error_message)
+                }
+            }
+            _ => format!("Installed v{cur_v}"),
+        };
+        let status_color = match upd.status.as_str() {
+            "update_available" => crate::theme::EMERALD,
+            "error" => crate::theme::AMBER,
+            _ => TEXT_MUTED,
+        };
+
+        ui.row(|ui| {
+            ui.col(|ui| {
+                ui.txt("Mod Updates")
+                    .sz(crate::theme::fs(11.5))
+                    .semibold()
+                    .fg(TEXT_PRIMARY);
+                ui.txt(&status_label)
+                    .sz(crate::theme::fs(10.5))
+                    .fg(status_color)
+                    .wrap();
+            })
+            .grow(1.0)
+            .gap(2.0);
+
+            if ui
+                .btn_with("mm_sup_whats_new", |ui| {
+                    ui.txt("What's New")
+                        .sz(crate::theme::fs(10.5))
+                        .semibold()
+                        .fg(TEXT_PRIMARY);
+                })
+                .px(10.0)
+                .py(7.0)
+                .bg(tile_idle_bg())
+                .hover_bg(tile_idle_hover())
+                .bd(1.0, border_subtle())
+                .bevel_rounded(6.5, 1.3)
+                .clicked()
+            {
+                push_click(actions);
+                state.host.show_whats_new = true;
+            }
+
+            if upd.status == "update_available"
+                && ui
+                    .btn_with("mm_sup_view_upd", |ui| {
+                        ui.txt("View Update")
+                            .sz(crate::theme::fs(10.5))
+                            .bold()
+                            .fg(TEXT_PRIMARY);
+                    })
+                    .px(10.0)
+                    .py(7.0)
+                    .bg(tint_alpha(crate::theme::EMERALD, 50))
+                    .hover_bg(tint_alpha(crate::theme::EMERALD, 85))
+                    .bd(1.0, crate::theme::EMERALD)
+                    .bevel_rounded(6.5, 1.3)
+                    .clicked()
+            {
+                push_click(actions);
+                state.host.update_status.show_modal = true;
+            }
+
+            if ui
+                .btn_with("mm_sup_check_upd", |ui| {
+                    ui.txt(if upd.status == "checking" {
+                        "Checking..."
+                    } else {
+                        "Check for Updates"
+                    })
+                    .sz(crate::theme::fs(10.5))
+                    .semibold()
+                    .fg(TEXT_PRIMARY);
+                })
+                .px(10.0)
+                .py(7.0)
+                .bg(tint_alpha(accent, 42))
+                .hover_bg(tint_alpha(accent, 75))
+                .bd(1.0, tint_alpha(accent, 175))
+                .bevel_rounded(6.5, 1.3)
+                .clicked()
+            {
+                push_click(actions);
+                state.host.update_status.status = String::from("checking");
+                actions.push(UiAction::CheckForUpdates);
+            }
+        })
+        .align_center()
+        .gap(6.0);
+    })
+    .p(11.0)
+    .gap(7.0)
+    .bg(card_inner_bg())
+    .bd(1.0, border_subtle())
+    .bevel_rounded(8.5, 1.5);
+
+    // --- OFFICIAL CHILLOUTVR SUPPORT ---
+    ui.col(|ui| {
+        ui.txt("Thank you for Playing ChilloutVR!")
+            .sz(crate::theme::fs(13.0))
+            .bold()
+            .fg(TEXT_PRIMARY);
+        ui.txt("To get general help or support from the ChilloutVR team, use the official channels below:")
+            .sz(crate::theme::fs(11.0))
+            .fg(TEXT_MUTED)
+            .wrap();
+
+        // 2x2 Contact Grid
+        ui.row(|ui| {
+            if ui
+                .btn_with("mm_sup_cvr_discord", |ui| {
+                    ui.row(|ui| {
+                        icons::icon(ui, icons::PLAYERS, 13.5).fg(accent);
+                        ui.txt("discord.gg/ChilloutVR")
+                            .sz(crate::theme::fs(11.0))
+                            .semibold()
+                            .fg(TEXT_PRIMARY);
+                    })
+                    .center()
+                    .gap(6.0)
+                    .grow(1.0);
+                })
+                .grow(1.0)
+                .py(8.0)
+                .bg(tile_idle_bg())
+                .hover_bg(tile_idle_hover())
+                .bd(1.0, border_subtle())
+                .bevel_rounded(6.5, 1.3)
+                .clicked()
+            {
+                push_click(actions);
+                actions.push(UiAction::OpenHardcodedUrl {
+                    key: String::from("Discord"),
+                });
+            }
+
+            let email_resp = ui
+                .btn_with("mm_sup_cvr_email", |ui| {
+                    ui.row(|ui| {
+                        icons::icon(ui, icons::MAIL, 13.5).fg(TEXT_MUTED);
+                        ui.txt("team@chilloutvr.net")
+                            .sz(crate::theme::fs(11.0))
+                            .semibold()
+                            .fg(TEXT_PRIMARY);
+                    })
+                    .center()
+                    .gap(6.0)
+                    .grow(1.0);
+                })
+                .grow(1.0)
+                .py(8.0)
+                .bg(tile_idle_bg())
+                .hover_bg(tile_idle_hover())
+                .bd(1.0, border_subtle())
+                .bevel_rounded(6.5, 1.3);
+            if email_resp.hovered() {
+                state.main_menu.hovered_tooltip =
+                    String::from("Click to email team@chilloutvr.net.");
+            }
+            if email_resp.clicked() {
+                push_click(actions);
+                actions.push(UiAction::CopyText {
+                    text: String::from("team@chilloutvr.net"),
+                });
+            }
+        })
+        .gap(7.0);
+
+        ui.row(|ui| {
+            if ui
+                .btn_with("mm_sup_cvr_patreon", |ui| {
+                    ui.row(|ui| {
+                        icons::icon(ui, icons::STAR, 13.5).fg(crate::theme::AMBER);
+                        ui.txt("ChilloutVR Patreon")
+                            .sz(crate::theme::fs(11.0))
+                            .semibold()
+                            .fg(TEXT_PRIMARY);
+                    })
+                    .center()
+                    .gap(6.0)
+                    .grow(1.0);
+                })
+                .grow(1.0)
+                .py(8.0)
+                .bg(tile_idle_bg())
+                .hover_bg(tile_idle_hover())
+                .bd(1.0, border_subtle())
+                .bevel_rounded(6.5, 1.3)
+                .clicked()
+            {
+                push_click(actions);
+                actions.push(UiAction::OpenHardcodedUrl {
+                    key: String::from("Patreon"),
+                });
+            }
+
+            if ui
+                .btn_with("mm_sup_cvr_twitter", |ui| {
+                    ui.row(|ui| {
+                        icons::icon(ui, icons::WORLD, 13.5).fg(TEXT_MUTED);
+                        ui.txt("@ChilloutVR")
+                            .sz(crate::theme::fs(11.0))
+                            .semibold()
+                            .fg(TEXT_PRIMARY);
+                    })
+                    .center()
+                    .gap(6.0)
+                    .grow(1.0);
+                })
+                .grow(1.0)
+                .py(8.0)
+                .bg(tile_idle_bg())
+                .hover_bg(tile_idle_hover())
+                .bd(1.0, border_subtle())
+                .bevel_rounded(6.5, 1.3)
+                .clicked()
+            {
+                push_click(actions);
+                actions.push(UiAction::OpenHardcodedUrl {
+                    key: String::from("Twitter"),
+                });
+            }
+        })
+        .gap(7.0);
+
+        ui.txt("ChilloutVR Bug Report or Feature Request (Vanilla Only)")
+            .sz(crate::theme::fs(11.0))
+            .semibold()
+            .fg(TEXT_MUTED)
+            .pt(4.0);
+
+        if ui
+            .btn_with("mm_sup_cvr_gh", |ui| {
+                ui.row(|ui| {
+                    icons::icon(ui, icons::WORLD, 13.5).fg(TEXT_PRIMARY);
+                    ui.txt("GitHub: ChilloutVR-Team/ChilloutVR")
+                        .sz(crate::theme::fs(11.0))
+                        .semibold()
+                        .fg(TEXT_PRIMARY);
+                })
+                .center()
+                .gap(6.0)
+                .grow(1.0);
+            })
+            .w_frac(1.0)
+            .py(8.0)
+            .bg(tile_idle_bg())
+            .hover_bg(tile_idle_hover())
+            .bd(1.0, border_subtle())
+            .bevel_rounded(6.5, 1.3)
+            .clicked()
+        {
+            push_click(actions);
+            actions.push(UiAction::OpenHardcodedUrl {
+                key: String::from("Github"),
+            });
+        }
+
+        // Utilities row: Open Logs Folder + Eat Bread
+        ui.row(|ui| {
+            if ui
+                .btn_with("mm_sup_logs", |ui| {
+                    ui.txt("Open Logs Folder")
+                        .sz(crate::theme::fs(11.0))
+                        .semibold()
+                        .align(TextAlign::Center)
+                        .fg(TEXT_PRIMARY)
+                        .grow(1.0);
+                })
+                .grow(1.0)
+                .py(7.5)
+                .bg(tile_idle_bg())
+                .hover_bg(tile_idle_hover())
+                .bd(1.0, border_subtle())
+                .bevel_rounded(6.5, 1.3)
+                .clicked()
+            {
+                push_click(actions);
+                actions.push(UiAction::OpenLogsFolder);
+            }
+
+            let bread_resp = ui
+                .btn_with("mm_sup_bread", |ui| {
+                    ui.txt("Eat Bread")
+                        .sz(crate::theme::fs(11.0))
+                        .semibold()
+                        .align(TextAlign::Center)
+                        .fg(TEXT_PRIMARY)
+                        .grow(1.0);
+                })
+                .grow(1.0)
+                .py(7.5)
+                .bg(tile_idle_bg())
+                .hover_bg(tile_idle_hover())
+                .bd(1.0, border_subtle())
+                .bevel_rounded(6.5, 1.3);
+            if bread_resp.hovered() {
+                state.main_menu.hovered_tooltip = String::from("nom");
+            }
+            if bread_resp.clicked() {
+                push_click(actions);
+                actions.push(UiAction::AttemptEatBread);
+            }
+        })
+        .gap(7.0)
+        .pt(2.0);
+    })
+    .p(11.0)
+    .gap(7.0)
+    .bg(card_inner_bg())
+    .bd(1.0, border_subtle())
+    .bevel_rounded(8.5, 1.5);
+}
+
+/// First-use modal shown once until accepted, warning users to fully uninstall LumenicMenu
+/// (not merely toggle it off) before reporting any UI-related bug to ChilloutVR.
+pub fn render_first_use_disclaimer_modal(
+    ui: &mut UiContext,
+    state: &mut AppState,
+    accent: Color,
+    actions: &mut Vec<UiAction>,
+    prefix: &str,
+) {
+    let card_w = if prefix == "qm" { 560.0 } else { 620.0 };
+    ui.zstack(|ui| {
+        let _ = crate::theme::modal_scrim(
+            ui,
+            &format!("{prefix}_disc_scrim_fx"),
+            &format!("{prefix}_disc_scrim_hit"),
+        );
+
+        ui.col(|ui| {
+            ui.col(|_| {}).grow(1.0);
+            ui.row(|ui| {
+                ui.col(|_| {}).grow(1.0);
+                let mut card = ui
+                    .col(|ui| {
+                        ui.row(|ui| {
+                            icons::icon(ui, icons::BOLT, 18.0).fg(accent);
+                            ui.txt("Welcome to LumenicMenu")
+                                .sz(crate::theme::fs(16.0))
+                                .bold()
+                                .fg(TEXT_PRIMARY)
+                                .grow(1.0);
+                        })
+                        .align_center()
+                        .gap(8.0);
+
+                        ui.col(|ui| {
+                            ui.row(|ui| {
+                                icons::icon(ui, icons::BELL, 15.0).fg(crate::theme::AMBER);
+                                ui.txt("IMPORTANT - Read Before Reporting Any Bugs to ChilloutVR")
+                                    .sz(crate::theme::fs(12.0))
+                                    .bold()
+                                    .fg(crate::theme::AMBER);
+                            })
+                            .align_center()
+                            .gap(6.0);
+
+                            ui.txt("If you notice ANY bug even remotely related to the UI, menus, input, or rendering, you MUST completely UNINSTALL LumenicMenu (delete LumenicMenu.dll from your Mods/ folder and restart ChilloutVR - do NOT just toggle it off) and verify the issue on a clean vanilla client before reporting anything to ChilloutVR or the CVR team.")
+                                .sz(crate::theme::fs(11.5))
+                                .fg(TEXT_PRIMARY)
+                                .wrap();
+                        })
+                        .p(11.0)
+                        .gap(6.0)
+                        .bg(tint_alpha(crate::theme::AMBER, 30))
+                        .bd(1.5, tint_alpha(crate::theme::AMBER, 190))
+                        .bevel_rounded(8.0, 1.5);
+
+                        ui.col(|ui| {
+                            ui.txt("Mod Support & Bug Reports")
+                                .sz(crate::theme::fs(12.0))
+                                .bold()
+                                .fg(TEXT_PRIMARY);
+                            ui.txt("LumenicMenu is an unofficial community mod and is not affiliated with ChilloutVR or the ChilloutVR team. Using it may affect performance or stability; use at your own risk.")
+                                .sz(crate::theme::fs(11.0))
+                                .fg(TEXT_MUTED)
+                                .wrap();
+                            ui.txt("If you run into a mod bug or want to request a feature, open an issue or pull request on GitHub (LensError/Lumenic-CVR-Menu), or DM @LensError on Discord. You can also access these links anytime in Settings -> Support.")
+                                .sz(crate::theme::fs(11.0))
+                                .fg(TEXT_MUTED)
+                                .wrap();
+                        })
+                        .p(10.0)
+                        .gap(5.0)
+                        .bg(card_inner_bg())
+                        .bd(1.0, border_subtle())
+                        .bevel_rounded(8.0, 1.4);
+
+                        ui.row(|ui| {
+                            if ui
+                                .btn_with(&format!("{prefix}_disc_gh"), |ui| {
+                                    ui.row(|ui| {
+                                        icons::icon(ui, icons::WORLD, 13.0).fg(accent);
+                                        ui.txt("Open GitHub")
+                                            .sz(crate::theme::fs(11.5))
+                                            .semibold()
+                                            .fg(TEXT_PRIMARY);
+                                    })
+                                    .center()
+                                    .gap(5.0)
+                                    .grow(1.0);
+                                })
+                                .px(14.0)
+                                .py(9.0)
+                                .bg(tile_idle_bg())
+                                .hover_bg(tile_idle_hover())
+                                .bd(1.0, border_subtle())
+                                .bevel_rounded(6.5, 1.3)
+                                .clicked()
+                            {
+                                push_click(actions);
+                                actions.push(UiAction::OpenExternalUrl {
+                                    url: String::from(
+                                        "https://github.com/LensError/Lumenic-CVR-Menu",
+                                    ),
+                                });
+                            }
+
+                            if ui
+                                .btn_with(&format!("{prefix}_disc_ok"), |ui| {
+                                    ui.txt("I Understand")
+                                        .sz(crate::theme::fs(12.0))
+                                        .bold()
+                                        .align(TextAlign::Center)
+                                        .fg(TEXT_PRIMARY)
+                                        .grow(1.0);
+                                })
+                                .grow(1.0)
+                                .py(9.0)
+                                .bg(tint_alpha(accent, 65))
+                                .hover_bg(tint_alpha(accent, 98))
+                                .bd(1.5, accent)
+                                .bevel_rounded(6.5, 1.3)
+                                .clicked()
+                            {
+                                push_click(actions);
+                                state.host.disclaimer_accepted = true;
+                                actions.push(UiAction::AcceptDisclaimer);
+                            }
+                        })
+                        .gap(8.0);
+                    })
+                    .w(card_w)
+                    .p(16.0)
+                    .gap(10.0)
+                    .bg(Color::rgba(24, 24, 24, 250))
+                    .bd(1.5, accent)
+                    .bevel_rounded(12.0, 2.0)
+                    .shadow(22.0, Color::rgba(0, 0, 0, 200));
+                let _ = card.hovered();
+                ui.col(|_| {}).grow(1.0);
+            })
+            .w_frac(1.0);
+            ui.col(|_| {}).grow(1.0);
+        })
+        .w_frac(1.0)
+        .h_frac(1.0);
+    })
+    .w_frac(1.0)
+    .h_frac(1.0);
+}
+
+pub fn render_whats_new_modal(
+    ui: &mut UiContext,
+    state: &mut AppState,
+    accent: Color,
+    actions: &mut Vec<UiAction>,
+    prefix: &str,
+) {
+    let card_w = if prefix == "qm" { 540.0 } else { 600.0 };
+    let cur_v = if state.host.update_status.current_version.is_empty() {
+        env!("CARGO_PKG_VERSION")
+    } else {
+        state.host.update_status.current_version.as_str()
+    };
+    let notes = if state.host.whats_new_notes.trim().is_empty() {
+        "LumenicMenu has been updated."
+    } else {
+        state.host.whats_new_notes.as_str()
+    };
+
+    ui.zstack(|ui| {
+        let _ = crate::theme::modal_scrim(
+            ui,
+            &format!("{prefix}_wn_scrim_fx"),
+            &format!("{prefix}_wn_scrim_hit"),
+        );
+
+        ui.col(|ui| {
+            ui.col(|_| {}).grow(1.0);
+            ui.row(|ui| {
+                ui.col(|_| {}).grow(1.0);
+                let mut card = ui
+                    .col(|ui| {
+                        ui.row(|ui| {
+                            icons::icon(ui, icons::BOLT, 18.0).fg(accent);
+                            ui.txt(&format!("What's New in LumenicMenu v{cur_v}"))
+                                .sz(crate::theme::fs(15.5))
+                                .bold()
+                                .fg(TEXT_PRIMARY)
+                                .grow(1.0);
+                        })
+                        .align_center()
+                        .gap(8.0);
+
+                        ui.scroll(&format!("{prefix}_wn_notes_scroll"), |ui| {
+                            ui.txt(notes)
+                                .sz(crate::theme::fs(11.0))
+                                .fg(TEXT_PRIMARY)
+                                .wrap();
+                        })
+                        .h(200.0)
+                        .p(10.0)
+                        .bg(card_inner_bg())
+                        .bd(1.0, border_subtle())
+                        .bevel_rounded(8.0, 1.3);
+
+                        ui.row(|ui| {
+                            if ui
+                                .btn_with(&format!("{prefix}_wn_gh"), |ui| {
+                                    ui.txt("GitHub Releases")
+                                        .sz(crate::theme::fs(11.5))
+                                        .semibold()
+                                        .align(TextAlign::Center)
+                                        .fg(TEXT_PRIMARY)
+                                        .grow(1.0);
+                                })
+                                .grow(1.0)
+                                .py(8.5)
+                                .bg(tile_idle_bg())
+                                .hover_bg(tile_idle_hover())
+                                .bd(1.0, border_subtle())
+                                .bevel_rounded(6.5, 1.3)
+                                .clicked()
+                            {
+                                push_click(actions);
+                                actions.push(UiAction::OpenExternalUrl {
+                                    url: String::from("https://github.com/LensError/Lumenic-CVR-Menu/releases"),
+                                });
+                            }
+
+                            if ui
+                                .btn_with(&format!("{prefix}_wn_ok"), |ui| {
+                                    ui.txt("Got It")
+                                        .sz(crate::theme::fs(11.5))
+                                        .bold()
+                                        .align(TextAlign::Center)
+                                        .fg(TEXT_PRIMARY)
+                                        .grow(1.0);
+                                })
+                                .grow(1.0)
+                                .py(8.5)
+                                .bg(tint_alpha(accent, 65))
+                                .hover_bg(tint_alpha(accent, 98))
+                                .bd(1.5, accent)
+                                .bevel_rounded(6.5, 1.3)
+                                .clicked()
+                            {
+                                push_click(actions);
+                                state.host.show_whats_new = false;
+                                actions.push(UiAction::DismissWhatsNew);
+                            }
+                        })
+                        .gap(8.0);
+                    })
+                    .w(card_w)
+                    .p(16.0)
+                    .gap(10.0)
+                    .bg(Color::rgba(24, 24, 24, 250))
+                    .bd(1.5, accent)
+                    .bevel_rounded(12.0, 2.0)
+                    .shadow(22.0, Color::rgba(0, 0, 0, 200));
+                let _ = card.hovered();
+                ui.col(|_| {}).grow(1.0);
+            })
+            .w_frac(1.0);
+            ui.col(|_| {}).grow(1.0);
+        })
+        .w_frac(1.0)
+        .h_frac(1.0);
+    })
+    .w_frac(1.0)
+    .h_frac(1.0);
+}
+
+pub fn render_mod_update_modal(
+    ui: &mut UiContext,
+    state: &mut AppState,
+    accent: Color,
+    actions: &mut Vec<UiAction>,
+    prefix: &str,
+) {
+    let upd = state.host.update_status.clone();
+    let card_w = if prefix == "qm" { 540.0 } else { 600.0 };
+    let cur_v = if upd.current_version.is_empty() {
+        env!("CARGO_PKG_VERSION")
+    } else {
+        upd.current_version.as_str()
+    };
+    let latest_v = if upd.latest_version.is_empty() {
+        "latest"
+    } else {
+        upd.latest_version.as_str()
+    };
+    let notes = if upd.release_notes.trim().is_empty() {
+        "A new release of LumenicMenu is available on GitHub."
+    } else {
+        upd.release_notes.as_str()
+    };
+
+    ui.zstack(|ui| {
+        let _ = crate::theme::modal_scrim(
+            ui,
+            &format!("{prefix}_upd_scrim_fx"),
+            &format!("{prefix}_upd_scrim_hit"),
+        );
+
+        ui.col(|ui| {
+            ui.col(|_| {}).grow(1.0);
+            ui.row(|ui| {
+                ui.col(|_| {}).grow(1.0);
+                let mut card = ui
+                    .col(|ui| {
+                        ui.row(|ui| {
+                            icons::icon(ui, icons::BOLT, 18.0).fg(crate::theme::EMERALD);
+                            ui.txt("LumenicMenu Update Available")
+                                .sz(crate::theme::fs(15.5))
+                                .bold()
+                                .fg(TEXT_PRIMARY)
+                                .grow(1.0);
+                            ui.txt(&format!("v{cur_v} -> v{latest_v}"))
+                                .sz(crate::theme::fs(11.5))
+                                .bold()
+                                .fg(crate::theme::EMERALD)
+                                .px(8.0)
+                                .py(3.5)
+                                .bg(tint_alpha(crate::theme::EMERALD, 32))
+                                .bd(1.0, tint_alpha(crate::theme::EMERALD, 140))
+                                .bevel_rounded(6.0, 1.0);
+                        })
+                        .align_center()
+                        .gap(8.0);
+
+                        if !upd.release_title.trim().is_empty() {
+                            ui.txt(&upd.release_title)
+                                .sz(crate::theme::fs(12.5))
+                                .semibold()
+                                .fg(TEXT_PRIMARY)
+                                .wrap();
+                        }
+
+                        ui.scroll(&format!("{prefix}_upd_notes_scroll"), |ui| {
+                            ui.txt(notes)
+                                .sz(crate::theme::fs(11.0))
+                                .fg(TEXT_MUTED)
+                                .wrap();
+                        })
+                        .h(180.0)
+                        .p(10.0)
+                        .bg(card_inner_bg())
+                        .bd(1.0, border_subtle())
+                        .bevel_rounded(8.0, 1.3);
+
+                        ui.row(|ui| {
+                            if ui
+                                .btn_with(&format!("{prefix}_upd_dl"), |ui| {
+                                    ui.txt("Download DLL")
+                                        .sz(crate::theme::fs(11.5))
+                                        .bold()
+                                        .align(TextAlign::Center)
+                                        .fg(TEXT_PRIMARY)
+                                        .grow(1.0);
+                                })
+                                .grow(1.0)
+                                .py(8.5)
+                                .bg(tint_alpha(crate::theme::EMERALD, 58))
+                                .hover_bg(tint_alpha(crate::theme::EMERALD, 92))
+                                .bd(1.5, crate::theme::EMERALD)
+                                .bevel_rounded(6.5, 1.3)
+                                .clicked()
+                            {
+                                push_click(actions);
+                                actions.push(UiAction::OpenExternalUrl {
+                                    url: upd.download_url.clone(),
+                                });
+                            }
+
+                            if ui
+                                .btn_with(&format!("{prefix}_upd_page"), |ui| {
+                                    ui.txt("Release Notes")
+                                        .sz(crate::theme::fs(11.5))
+                                        .semibold()
+                                        .align(TextAlign::Center)
+                                        .fg(TEXT_PRIMARY)
+                                        .grow(1.0);
+                                })
+                                .grow(1.0)
+                                .py(8.5)
+                                .bg(tint_alpha(accent, 42))
+                                .hover_bg(tint_alpha(accent, 75))
+                                .bd(1.0, tint_alpha(accent, 175))
+                                .bevel_rounded(6.5, 1.3)
+                                .clicked()
+                            {
+                                push_click(actions);
+                                actions.push(UiAction::OpenExternalUrl {
+                                    url: upd.release_url.clone(),
+                                });
+                            }
+                        })
+                        .gap(8.0);
+
+                        ui.row(|ui| {
+                            if ui
+                                .btn_with(&format!("{prefix}_upd_skip"), |ui| {
+                                    ui.txt("Skip This Version")
+                                        .sz(crate::theme::fs(11.0))
+                                        .semibold()
+                                        .align(TextAlign::Center)
+                                        .fg(TEXT_MUTED)
+                                        .grow(1.0);
+                                })
+                                .grow(1.0)
+                                .py(7.5)
+                                .bg(tile_idle_bg())
+                                .hover_bg(tile_idle_hover())
+                                .bd(1.0, border_subtle())
+                                .bevel_rounded(6.5, 1.3)
+                                .clicked()
+                            {
+                                push_click(actions);
+                                state.host.update_status.show_modal = false;
+                                actions.push(UiAction::SkipUpdateVersion {
+                                    version: upd.latest_version.clone(),
+                                });
+                            }
+
+                            if ui
+                                .btn_with(&format!("{prefix}_upd_later"), |ui| {
+                                    ui.txt("Remind Later")
+                                        .sz(crate::theme::fs(11.0))
+                                        .semibold()
+                                        .align(TextAlign::Center)
+                                        .fg(TEXT_PRIMARY)
+                                        .grow(1.0);
+                                })
+                                .grow(1.0)
+                                .py(7.5)
+                                .bg(tile_idle_bg())
+                                .hover_bg(tile_idle_hover())
+                                .bd(1.0, border_subtle())
+                                .bevel_rounded(6.5, 1.3)
+                                .clicked()
+                            {
+                                push_click(actions);
+                                state.host.update_status.show_modal = false;
+                                actions.push(UiAction::RemindUpdateLater);
+                            }
+                        })
+                        .gap(8.0);
+                    })
+                    .w(card_w)
+                    .p(16.0)
+                    .gap(10.0)
+                    .bg(Color::rgba(24, 24, 24, 250))
+                    .bd(1.5, crate::theme::EMERALD)
+                    .bevel_rounded(12.0, 2.0)
+                    .shadow(22.0, Color::rgba(0, 0, 0, 200));
+                let _ = card.hovered();
+                ui.col(|_| {}).grow(1.0);
+            })
+            .w_frac(1.0);
+            ui.col(|_| {}).grow(1.0);
+        })
+        .w_frac(1.0)
+        .h_frac(1.0);
+    })
+    .w_frac(1.0)
+    .h_frac(1.0);
+}
+
+pub fn render_system_alert_modal(
+    ui: &mut UiContext,
+    state: &mut AppState,
+    alert: &crate::state::SystemAlertDto,
+    accent: Color,
+    actions: &mut Vec<UiAction>,
+    prefix: &str,
+) {
+    let card_w = if prefix == "qm" { 500.0 } else { 560.0 };
+    let is_confirm = alert.kind == "confirm";
+    let border_col = if is_confirm { accent } else { crate::theme::AMBER };
+    let title = if alert.title.trim().is_empty() {
+        "System Message"
+    } else {
+        alert.title.as_str()
+    };
+
+    ui.zstack(|ui| {
+        let _ = crate::theme::modal_scrim(
+            ui,
+            &format!("{prefix}_sys_scrim_fx"),
+            &format!("{prefix}_sys_scrim_hit"),
+        );
+
+        ui.col(|ui| {
+            ui.col(|_| {}).grow(1.0);
+            ui.row(|ui| {
+                ui.col(|_| {}).grow(1.0);
+                let mut card = ui
+                    .col(|ui| {
+                        ui.row(|ui| {
+                            icons::icon(ui, icons::BELL, 17.0).fg(border_col);
+                            ui.txt(title)
+                                .sz(crate::theme::fs(15.0))
+                                .bold()
+                                .fg(TEXT_PRIMARY)
+                                .grow(1.0)
+                                .wrap();
+                        })
+                        .align_center()
+                        .gap(8.0);
+
+                        if !alert.message.trim().is_empty() {
+                            ui.scroll(&format!("{prefix}_sys_msg_scroll"), |ui| {
+                                ui.txt(&alert.message)
+                                    .sz(crate::theme::fs(11.5))
+                                    .fg(TEXT_PRIMARY)
+                                    .wrap();
+                            })
+                            .max_h(220.0)
+                            .p(10.0)
+                            .bg(card_inner_bg())
+                            .bd(1.0, border_subtle())
+                            .bevel_rounded(8.0, 1.3);
+                        }
+
+                        ui.row(|ui| {
+                            if is_confirm {
+                                if ui
+                                    .btn_with(&format!("{prefix}_sys_cancel"), |ui| {
+                                        ui.txt("Cancel")
+                                            .sz(crate::theme::fs(11.5))
+                                            .semibold()
+                                            .align(TextAlign::Center)
+                                            .fg(TEXT_PRIMARY)
+                                            .grow(1.0);
+                                    })
+                                    .grow(1.0)
+                                    .py(8.5)
+                                    .bg(tile_idle_bg())
+                                    .hover_bg(tile_idle_hover())
+                                    .bd(1.0, border_subtle())
+                                    .bevel_rounded(6.5, 1.3)
+                                    .clicked()
+                                {
+                                    push_click(actions);
+                                    state.host.system_alert = None;
+                                    actions.push(UiAction::RespondSystemConfirm {
+                                        id: alert.id,
+                                        confirmed: false,
+                                    });
+                                }
+
+                                if ui
+                                    .btn_with(&format!("{prefix}_sys_confirm"), |ui| {
+                                        ui.txt("Confirm")
+                                            .sz(crate::theme::fs(11.5))
+                                            .bold()
+                                            .align(TextAlign::Center)
+                                            .fg(TEXT_PRIMARY)
+                                            .grow(1.0);
+                                    })
+                                    .grow(1.0)
+                                    .py(8.5)
+                                    .bg(tint_alpha(accent, 65))
+                                    .hover_bg(tint_alpha(accent, 98))
+                                    .bd(1.5, accent)
+                                    .bevel_rounded(6.5, 1.3)
+                                    .clicked()
+                                {
+                                    push_click(actions);
+                                    state.host.system_alert = None;
+                                    actions.push(UiAction::RespondSystemConfirm {
+                                        id: alert.id,
+                                        confirmed: true,
+                                    });
+                                }
+                            } else if ui
+                                .btn_with(&format!("{prefix}_sys_ok"), |ui| {
+                                    ui.txt("OK")
+                                        .sz(crate::theme::fs(11.5))
+                                        .bold()
+                                        .align(TextAlign::Center)
+                                        .fg(TEXT_PRIMARY)
+                                        .grow(1.0);
+                                })
+                                .grow(1.0)
+                                .py(8.5)
+                                .bg(tint_alpha(border_col, 55))
+                                .hover_bg(tint_alpha(border_col, 88))
+                                .bd(1.5, border_col)
+                                .bevel_rounded(6.5, 1.3)
+                                .clicked()
+                            {
+                                push_click(actions);
+                                state.host.system_alert = None;
+                                actions.push(UiAction::DismissSystemAlert { id: alert.id });
+                            }
+                        })
+                        .gap(8.0);
+                    })
+                    .w(card_w)
+                    .p(16.0)
+                    .gap(10.0)
+                    .bg(Color::rgba(24, 24, 24, 250))
+                    .bd(1.5, border_col)
+                    .bevel_rounded(12.0, 2.0)
+                    .shadow(22.0, Color::rgba(0, 0, 0, 200));
+                let _ = card.hovered();
+                ui.col(|_| {}).grow(1.0);
+            })
+            .w_frac(1.0);
+            ui.col(|_| {}).grow(1.0);
+        })
+        .w_frac(1.0)
+        .h_frac(1.0);
+    })
+    .w_frac(1.0)
+    .h_frac(1.0);
+}
+
+pub fn render_dropdown_modal(
+    ui: &mut UiContext,
+    state: &mut AppState,
+    dropdown: &crate::state::ActiveDropdown,
+    accent: Color,
+    actions: &mut Vec<UiAction>,
+    prefix: &str,
+) {
+    let card_w = if prefix == "qm" { 400.0 } else { 440.0 };
+
+    ui.zstack(|ui| {
+        if crate::theme::modal_scrim(
+            ui,
+            &format!("{prefix}_dd_scrim_fx"),
+            &format!("{prefix}_dd_scrim_hit"),
+        ) {
+            push_click(actions);
+            state.main_menu.active_dropdown = None;
+        }
+
+        ui.col(|ui| {
+            ui.col(|_| {}).grow(1.0);
+            ui.row(|ui| {
+                ui.col(|_| {}).grow(1.0);
+                let mut card = ui
+                    .col(|ui| {
+                        ui.row(|ui| {
+                            icons::icon(ui, icons::CHEVRON_DOWN, 18.0).fg(accent);
+                            ui.txt(&dropdown.title)
+                                .sz(crate::theme::fs(14.0))
+                                .bold()
+                                .fg(TEXT_PRIMARY)
+                                .grow(1.0)
+                                .wrap();
+                            if ui
+                                .btn_with(&format!("{prefix}_dd_close"), |ui| {
+                                    icons::icon(ui, icons::CLOSE, 14.0).fg(TEXT_MUTED);
+                                })
+                                .p(5.0)
+                                .bg(tile_idle_bg())
+                                .hover_bg(tile_idle_hover())
+                                .bd(1.0, border_subtle())
+                                .bevel_rounded(5.0, 1.0)
+                                .clicked()
+                            {
+                                push_click(actions);
+                                state.main_menu.active_dropdown = None;
+                            }
+                        })
+                        .align_center()
+                        .gap(8.0);
+
+                        ui.scroll(&format!("{prefix}_dd_scroll"), |ui| {
+                            ui.col(|ui| {
+                                for (idx, opt) in dropdown.options.iter().enumerate() {
+                                    if ui
+                                        .btn_with(&format!("{prefix}_dd_opt_{idx}"), |ui| {
+                                            ui.row(|ui| {
+                                                ui.txt(&opt.label)
+                                                    .sz(crate::theme::fs(11.5))
+                                                    .semibold()
+                                                    .fg(if opt.selected {
+                                                        TEXT_PRIMARY
+                                                    } else {
+                                                        TEXT_MUTED
+                                                    })
+                                                    .grow(1.0)
+                                                    .wrap();
+                                                if opt.selected {
+                                                    icons::icon(ui, icons::CHECK, 14.0).fg(accent);
+                                                }
+                                            })
+                                            .align_center()
+                                            .gap(8.0)
+                                            .grow(1.0);
+                                        })
+                                        .w_frac(1.0)
+                                        .px(10.0)
+                                        .py(7.5)
+                                        .bg(if opt.selected {
+                                            tint_alpha(accent, 48)
+                                        } else {
+                                            tile_idle_bg()
+                                        })
+                                        .hover_bg(tile_idle_hover())
+                                        .bd(
+                                            1.0,
+                                            if opt.selected {
+                                                accent
+                                            } else {
+                                                border_subtle()
+                                            },
+                                        )
+                                        .bevel_rounded(6.5, 1.3)
+                                        .clicked()
+                                    {
+                                        push_click(actions);
+                                        actions.push(opt.action.clone());
+                                        state.main_menu.active_dropdown = None;
+                                    }
+                                }
+                            })
+                            .gap(5.0);
+                        })
+                        .max_h(320.0);
+                    })
+                    .w(card_w)
+                    .p(14.0)
+                    .gap(10.0)
+                    .bg(Color::rgba(24, 24, 24, 250))
+                    .bd(1.5, accent)
+                    .bevel_rounded(12.0, 2.0)
+                    .shadow(22.0, Color::rgba(0, 0, 0, 200));
+                let _ = card.hovered();
+                ui.col(|_| {}).grow(1.0);
+            })
+            .w_frac(1.0);
+            ui.col(|_| {}).grow(1.0);
+        })
+        .w_frac(1.0)
+        .h_frac(1.0);
+    })
+    .w_frac(1.0)
+    .h_frac(1.0);
 }

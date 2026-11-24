@@ -18,13 +18,14 @@ using LumenicMenu.Native;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(LumenicMenu.LumenicMenuMod), "LumenicMenu", "0.2.3", "LensError")]
+[assembly: MelonInfo(typeof(LumenicMenu.LumenicMenuMod), "LumenicMenu", LumenicMenu.LumenicMenuMod.ModVersion, "LensError")]
 [assembly: MelonGame(null, "ChilloutVR")]
 
 namespace LumenicMenu;
 
 public sealed class LumenicMenuMod : MelonMod
 {
+    public const string ModVersion = "0.3.0";
     private const string InputLockReason = "LumenicMenu";
 
     public static LumenicMenuMod Instance { get; private set; }
@@ -42,10 +43,16 @@ public sealed class LumenicMenuMod : MelonMod
     internal ContentBrowserService Content { get; private set; }
     internal SocialService Social { get; private set; }
     internal AvatarStageManager AvatarStage { get; private set; }
+    internal ModUpdateService Updates { get; private set; }
+    internal SystemAlertService SystemAlerts { get; private set; }
 
     private bool _keyboardLocked;
     private bool _prevMainEnabled;
     private bool _prevQuickEnabled;
+    private bool _prevMainShown;
+    private bool _prevQuickShown;
+    private bool _bridgeInitAttempted;
+    private bool _notifiedApiReady;
     private string _lastPushedStateJson = string.Empty;
     private float _lastTelemetryPollTime = -10f;
     private float _lastDynamicUiPollTime = -10f;
@@ -66,6 +73,8 @@ public sealed class LumenicMenuMod : MelonMod
     internal uint NavSeq { get; private set; }
     internal string NavTab { get; private set; } = string.Empty;
     internal bool SuppressVanillaNavHook { get; set; }
+    internal bool IsBridgeHealthy => _bridge != null && _bridge.IsHealthy;
+    internal bool IsBridgeHealthyOrPending => !_bridgeInitAttempted || (_bridge != null && _bridge.IsHealthy);
 
     public override void OnInitializeMelon()
     {
@@ -83,6 +92,8 @@ public sealed class LumenicMenuMod : MelonMod
         Content = new ContentBrowserService(MarkStateDirty, RecentHistory, PinnedContent);
         Social = new SocialService(MarkStateDirty, RecentHistory);
         AvatarStage = new AvatarStageManager();
+        Updates = new ModUpdateService(ModVersion, MarkStateDirty);
+        SystemAlerts = new SystemAlertService(MarkStateDirty);
         _mainSurface = new MenuSurfaceHost(NativeBridge.SurfaceMain, "MainMenu", referenceLogicalHeight: 720f);
         _quickSurface = new MenuSurfaceHost(NativeBridge.SurfaceQuick, "QuickMenu", referenceLogicalHeight: 800f);
 
@@ -101,6 +112,7 @@ public sealed class LumenicMenuMod : MelonMod
     {
         QuickMenuUI.Build();
         QuickMenuUI.SyncToggles();
+        Api.LumenicApi.NotifyReady();
     }
 
     public override void OnLateUpdate()
@@ -174,6 +186,23 @@ public sealed class LumenicMenuMod : MelonMod
             if (uploadedMain) _mainSurface?.RequestForceRedraw();
             if (uploadedQuick) _quickSurface?.RequestForceRedraw();
         }
+
+        bool mainShownNow = mainActive && vm.IsViewShown;
+        bool quickShownNow = quickActive && qm.IsViewShown;
+        if (mainShownNow != _prevMainShown)
+        {
+            _prevMainShown = mainShownNow;
+            if (mainShownNow) Api.LumenicApi.Host.MarkDirty();
+            Api.LumenicApi.NotifyMainMenuToggled(mainShownNow);
+        }
+        if (quickShownNow != _prevQuickShown)
+        {
+            _prevQuickShown = quickShownNow;
+            if (quickShownNow) Api.LumenicApi.Host.MarkDirty();
+            Api.LumenicApi.NotifyQuickMenuToggled(quickShownNow);
+        }
+
+        Api.LumenicApi.Host.Tick(_bridge, _images, mainShownNow, quickShownNow);
 
         // Push zero-JSON lightweight telemetry at 1 Hz (never dirties Main Menu except on minute tick or Info modal).
         if (anyVisible && (Time.unscaledTime - _lastTelemetryPollTime) >= 1.0f)
@@ -786,18 +815,25 @@ public sealed class LumenicMenuMod : MelonMod
 
     private void TryInitializeNativeHost()
     {
+        _bridgeInitAttempted = true;
         GetCurrentSurfaceDimensions(out uint mmW, out uint mmH, out uint qmW, out uint qmH);
         if (_bridge.Load(mmW, mmH, qmW, qmH, Settings.UiScale))
         {
             _lastPushedStateJson = string.Empty;
             _lastTelFps = int.MinValue;
             _stateDirty = true;
+            Api.LumenicApi.Host.InvalidateNativeCache();
             _images?.InvalidateUploaded();
             _mainSurface?.ClearLiveOverlay();
             _quickSurface?.ClearLiveOverlay();
             _mainSurface?.InvalidateNativeSurface();
             _quickSurface?.InvalidateNativeSurface();
             AvatarSettingsBridge.RefreshPreviewRendering();
+            if (!_notifiedApiReady)
+            {
+                _notifiedApiReady = true;
+                Api.LumenicApi.NotifyReady();
+            }
         }
     }
 

@@ -101,6 +101,10 @@ pub fn nav_reset_to_tab(state: &mut AppState, tab: &str, actions: &mut Vec<UiAct
     state.main_menu.group_edit_id.clear();
     state.main_menu.active_tab = String::from(tab);
     close_all_detail_overlays(actions);
+    actions.push(UiAction::ExtSelectTab {
+        surface: String::from("main"),
+        tab_id: String::new(),
+    });
 
     if tab == "worlds" || tab == "avatars" || tab == "props" {
         state.main_menu.browser_local_filter.set_text("");
@@ -261,7 +265,7 @@ fn util_tile(
             ui.col(|ui| {
                 icons::icon(ui, icon_path, 20.0).fg(icon_col);
                 ui.txt(label)
-                    .sz(11.0)
+                    .sz(crate::theme::fs(11.0))
                     .semibold()
                     .align(TextAlign::Center)
                     .fg(title_col)
@@ -273,7 +277,7 @@ fn util_tile(
         })
         .grow(1.0)
         .h_frac(1.0)
-        .min_h(64.0)
+        .min_h(crate::theme::text_box(64.0))
         .p(6.0)
         .bg(bg)
         .hover_bg(hover_bg)
@@ -307,7 +311,7 @@ pub fn render_floating_tooltip(ui: &mut UiContext, text: &str, accent: Color) {
 
     ui.overlay(|ui| {
         ui.col(|ui| {
-            ui.txt(text).sz(11.0).fg(TEXT_PRIMARY).wrap();
+            ui.txt(text).sz(crate::theme::fs(11.0)).fg(TEXT_PRIMARY).wrap();
         })
         .pos(tx, ty)
         .max_w(max_w)
@@ -378,8 +382,15 @@ pub fn render_main_menu(
                 // 1. MAIN CONTENT AREA (HOME DASHBOARD OR PAGE PLACEHOLDER)
                 // =============================================================
                 let active_tab = state.main_menu.active_tab.clone();
+                let active_mm_ext_page = state.extensions.mm_active_page.clone();
+                if let Some(ref ext_page) = active_mm_ext_page {
+                    crate::ext_view::render_ext_page(ui, state, "main", ext_page, accent, actions);
+                } else {
                 match active_tab.as_str() {
-                    "home" => render_home_dashboard(ui, state, accent, actions),
+                    "home" => {
+                        crate::ext_view::render_slot_only(ui, state, "main", "mm.home.banner", accent, actions);
+                        render_home_dashboard(ui, state, accent, actions);
+                    }
                     "modSettings" => crate::uix_view::render_uix_mod_settings(ui, state, accent, actions),
                     "worlds" | "avatars" | "props" => {
                         crate::content_browser::render_content_browser(ui, state, &active_tab, accent, actions);
@@ -409,6 +420,71 @@ pub fn render_main_menu(
                     }
                     _ => render_placeholder_page(ui, state, &active_tab, accent, actions),
                 }
+                }
+
+                // Optional Main Menu extension tab strip (shown only when mods register MM tabs)
+                let mm_ext_tabs = state.extensions.mm_tabs.clone();
+                if !mm_ext_tabs.is_empty() {
+                    ui.row(|ui| {
+                        icons::icon(ui, icons::PUZZLE, 13.0).fg(accent);
+                        ui.hscroll("mm_ext_tabs_hscroll", |ui| {
+                            for etab in &mm_ext_tabs {
+                                let is_active = active_mm_ext_page
+                                    .as_ref()
+                                    .is_some_and(|p| p.ext_id == etab.ext_id && p.tab_id == etab.id);
+                                if ui
+                                    .btn_with(&format!("mm_ext_tab_{}_{}", etab.ext_id, etab.id), |ui| {
+                                        ui.row(|ui| {
+                                            let ic = if etab.icon.is_empty() { icons::PUZZLE } else { &etab.icon };
+                                            icons::icon(ui, ic, 14.0)
+                                                .fg(if is_active { accent } else { TEXT_MUTED });
+                                            ui.txt(&etab.label)
+                                                .sz(crate::theme::fs(11.0))
+                                                .semibold()
+                                                .fg(if is_active { TEXT_PRIMARY } else { TEXT_MUTED });
+                                            if !etab.badge.is_empty() {
+                                                ui.txt(&etab.badge)
+                                                    .sz(crate::theme::fs(9.5))
+                                                    .bold()
+                                                    .fg(Color::rgb(12, 18, 28))
+                                                    .bg(accent)
+                                                    .px(4.5)
+                                                    .py(1.0)
+                                                    .bevel_rounded(3.5, 1.0);
+                                            }
+                                        })
+                                        .align_center()
+                                        .gap(5.0);
+                                    })
+                                    .px(10.0)
+                                    .py(4.5)
+                                    .bg(if is_active { tint_alpha(accent, 52) } else { tile_idle_bg() })
+                                    .hover_bg(tile_idle_hover())
+                                    .bd(1.0, if is_active { tint_alpha(accent, 195) } else { border_subtle() })
+                                    .bevel_rounded(6.0, 1.3)
+                                    .clicked()
+                                {
+                                    push_click(actions);
+                                    actions.push(UiAction::ExtSelectTab {
+                                        surface: String::from("main"),
+                                        tab_id: format!("{}:{}", etab.ext_id, etab.id),
+                                    });
+                                }
+                            }
+                        })
+                        .grow(1.0)
+                        .gap(6.0)
+                        .no_scrollbar();
+                    })
+                    .align_center()
+                    .w_frac(1.0)
+                    .px(10.0)
+                    .py(5.0)
+                    .gap(8.0)
+                    .bg(card_bg())
+                    .bd(1.0, border_subtle())
+                    .bevel_rounded(8.0, 1.5);
+                }
 
                 // =============================================================
                 // 2. PETITE BOTTOM NAVIGATION DOCK
@@ -422,6 +498,29 @@ pub fn render_main_menu(
 
             if let Some(prompt) = state.host.content.group_mod_prompt.clone() {
                 crate::quick_menu::render_group_mod_prompt_modal(ui, &prompt, accent, actions, "mm");
+            }
+            if !state.host.disclaimer_accepted {
+                crate::settings_view::render_first_use_disclaimer_modal(
+                    ui, state, accent, actions, "mm",
+                );
+            } else if state.host.show_whats_new {
+                crate::settings_view::render_whats_new_modal(
+                    ui, state, accent, actions, "mm",
+                );
+            } else if state.host.update_status.show_modal {
+                crate::settings_view::render_mod_update_modal(
+                    ui, state, accent, actions, "mm",
+                );
+            } else if let Some(alert) = state.host.system_alert.clone() {
+                crate::settings_view::render_system_alert_modal(
+                    ui, state, &alert, accent, actions, "mm",
+                );
+            } else if let Some(ref ext_modal) = state.extensions.mm_modal.clone() {
+                crate::ext_view::render_ext_modal(ui, state, "main", ext_modal, accent, actions);
+            } else if let Some(dd) = state.main_menu.active_dropdown.clone() {
+                crate::settings_view::render_dropdown_modal(
+                    ui, state, &dd, accent, actions, "mm",
+                );
             }
         })
         .w_frac(1.0)
@@ -513,7 +612,7 @@ fn render_home_dashboard(
                                     .to_string();
                                 ui.col(|ui| {
                                     ui.txt(&initial)
-                                        .sz(20.0)
+                                        .sz(crate::theme::fs(20.0))
                                         .bold()
                                         .align(TextAlign::Center)
                                         .fg(accent);
@@ -535,7 +634,7 @@ fn render_home_dashboard(
                                         &state.host.username
                                     };
                                     ui.txt(user)
-                                        .sz(15.5)
+                                        .sz(crate::theme::fs(15.5))
                                         .bold()
                                         .fg(TEXT_PRIMARY)
                                         .ellipsis()
@@ -544,7 +643,7 @@ fn render_home_dashboard(
                                     if crate::theme::is_special_rank(&state.host.user_rank) {
                                         ui.row(|ui| {
                                             ui.txt(&state.host.user_rank)
-                                                .sz(9.5)
+                                                .sz(crate::theme::fs(9.5))
                                                 .semibold()
                                                 .fg(TEXT_PRIMARY);
                                         })
@@ -582,7 +681,7 @@ fn render_home_dashboard(
                                         &state.host.featured_badge
                                     };
                                     ui.txt(badge_line)
-                                        .sz(10.5)
+                                        .sz(crate::theme::fs(10.5))
                                         .semibold()
                                         .fg(TEXT_MUTED)
                                         .ellipsis()
@@ -615,7 +714,7 @@ fn render_home_dashboard(
                                         &state.host.featured_group
                                     };
                                     ui.txt(grp_line)
-                                        .sz(10.0)
+                                        .sz(crate::theme::fs(10.0))
                                         .fg(TEXT_DIM)
                                         .ellipsis()
                                         .grow(1.0);
@@ -660,7 +759,7 @@ fn render_home_dashboard(
                             .btn_with(btn_id, |ui| {
                                 ui.row(|ui| {
                                     icons::icon(ui, ic, 12.5).fg(accent);
-                                    ui.txt(lbl).sz(10.5).semibold().fg(TEXT_PRIMARY);
+                                    ui.txt(lbl).sz(crate::theme::fs(10.5)).semibold().fg(TEXT_PRIMARY);
                                 })
                                 .center()
                                 .grow(1.0)
@@ -712,7 +811,7 @@ fn render_home_dashboard(
                                     icons::icon(ui, ic, 12.0)
                                         .fg(if active { accent } else { TEXT_DIM });
                                     ui.txt(lbl)
-                                        .sz(10.5)
+                                        .sz(crate::theme::fs(10.5))
                                         .semibold()
                                         .fg(if active { TEXT_PRIMARY } else { TEXT_MUTED });
                                 })
@@ -780,9 +879,9 @@ fn render_home_dashboard(
                     ui.row(|ui| {
                         // Tile 1: Frame Rate
                         ui.col(|ui| {
-                            ui.txt("FRAME RATE").sz(8.5).bold().fg(TEXT_DIM);
+                            ui.txt("FRAME RATE").sz(crate::theme::fs(8.5)).bold().fg(TEXT_DIM);
                             ui.txt(&format!("{fps_val} FPS"))
-                                .sz(12.5)
+                                .sz(crate::theme::fs(12.5))
                                 .bold()
                                 .fg(fps_col);
                         })
@@ -796,9 +895,9 @@ fn render_home_dashboard(
 
                         // Tile 2: Game Ping
                         ui.col(|ui| {
-                            ui.txt("GAME PING").sz(8.5).bold().fg(TEXT_DIM);
+                            ui.txt("GAME PING").sz(crate::theme::fs(8.5)).bold().fg(TEXT_DIM);
                             ui.txt(&format!("{g_ping} ms"))
-                                .sz(12.5)
+                                .sz(crate::theme::fs(12.5))
                                 .bold()
                                 .fg(TEXT_PRIMARY);
                         })
@@ -815,9 +914,9 @@ fn render_home_dashboard(
                     ui.row(|ui| {
                         // Tile 3: Voice Ping
                         ui.col(|ui| {
-                            ui.txt("VOICE PING").sz(8.5).bold().fg(TEXT_DIM);
+                            ui.txt("VOICE PING").sz(crate::theme::fs(8.5)).bold().fg(TEXT_DIM);
                             ui.txt(&format!("{v_ping} ms"))
-                                .sz(12.0)
+                                .sz(crate::theme::fs(12.0))
                                 .semibold()
                                 .fg(TEXT_PRIMARY);
                         })
@@ -831,9 +930,9 @@ fn render_home_dashboard(
 
                         // Tile 4: Rig / Build
                         ui.col(|ui| {
-                            ui.txt("RIG / BUILD").sz(8.5).bold().fg(TEXT_DIM);
+                            ui.txt("RIG / BUILD").sz(crate::theme::fs(8.5)).bold().fg(TEXT_DIM);
                             ui.txt(mode_txt)
-                                .sz(11.5)
+                                .sz(crate::theme::fs(11.5))
                                 .semibold()
                                 .fg(accent)
                                 .ellipsis();
@@ -872,13 +971,13 @@ fn render_home_dashboard(
                                 ui.row(|ui| {
                                     icons::icon(ui, icons::WORLD, 13.5).fg(accent);
                                     ui.txt(world)
-                                        .sz(11.5)
+                                        .sz(crate::theme::fs(11.5))
                                         .bold()
                                         .fg(TEXT_PRIMARY)
                                         .ellipsis()
                                         .grow(1.0);
                                     ui.txt(&format!("{pl_cnt} ppl"))
-                                        .sz(10.0)
+                                        .sz(crate::theme::fs(10.0))
                                         .bold()
                                         .fg(EMERALD)
                                         .bg(tint_alpha(EMERALD, 30))
@@ -891,12 +990,12 @@ fn render_home_dashboard(
 
                                 ui.row(|ui| {
                                     ui.txt(inst)
-                                        .sz(10.0)
+                                        .sz(crate::theme::fs(10.0))
                                         .fg(TEXT_MUTED)
                                         .ellipsis()
                                         .grow(1.0);
                                     ui.txt(priv_txt)
-                                        .sz(9.5)
+                                        .sz(crate::theme::fs(9.5))
                                         .fg(accent)
                                         .bg(tint_alpha(accent, 26))
                                         .px(5.0)
@@ -941,7 +1040,7 @@ fn render_home_dashboard(
                         if ui
                             .btn_with(&id, |ui| {
                                 ui.txt(&lbl)
-                                    .sz(11.0)
+                                    .sz(crate::theme::fs(11.0))
                                     .semibold()
                                     .align(TextAlign::Center)
                                     .fg(if active { TEXT_PRIMARY } else { TEXT_MUTED })
@@ -980,7 +1079,7 @@ fn render_home_dashboard(
                                 icons::icon(ui, icons::PLAYERS, 22.0)
                                     .fg(Color::rgba(148, 163, 184, 70));
                                 ui.txt("No friends online")
-                                    .sz(11.5)
+                                    .sz(crate::theme::fs(11.5))
                                     .semibold()
                                     .fg(TEXT_MUTED);
                             })
@@ -1001,7 +1100,7 @@ fn render_home_dashboard(
                                                 .circle();
                                             ui.col(|ui| {
                                                 ui.txt(&fr.name)
-                                                    .sz(11.5)
+                                                    .sz(crate::theme::fs(11.5))
                                                     .semibold()
                                                     .fg(TEXT_PRIMARY)
                                                     .ellipsis();
@@ -1014,7 +1113,7 @@ fn render_home_dashboard(
                                                 } else {
                                                     &fr.world_name
                                                 };
-                                                ui.txt(loc).sz(10.0).fg(TEXT_MUTED).ellipsis();
+                                                ui.txt(loc).sz(crate::theme::fs(10.0)).fg(TEXT_MUTED).ellipsis();
                                             })
                                             .gap(1.0)
                                             .grow(1.0);
@@ -1048,7 +1147,7 @@ fn render_home_dashboard(
                             icons::icon(ui, icons::WORLD, 22.0)
                                 .fg(Color::rgba(148, 163, 184, 70));
                             ui.txt("No active worlds loaded")
-                                .sz(11.5)
+                                .sz(crate::theme::fs(11.5))
                                 .semibold()
                                 .fg(TEXT_MUTED);
                         })
@@ -1064,7 +1163,7 @@ fn render_home_dashboard(
                                     ui.row(|ui| {
                                         ui.col(|ui| {
                                             ui.txt(&w.name)
-                                                .sz(11.5)
+                                                .sz(crate::theme::fs(11.5))
                                                 .semibold()
                                                 .fg(TEXT_PRIMARY)
                                                 .ellipsis();
@@ -1073,14 +1172,14 @@ fn render_home_dashboard(
                                             } else {
                                                 &w.region
                                             };
-                                            ui.txt(reg).sz(10.0).fg(TEXT_MUTED).ellipsis();
+                                            ui.txt(reg).sz(crate::theme::fs(10.0)).fg(TEXT_MUTED).ellipsis();
                                         })
                                         .gap(1.0)
                                         .grow(1.0);
 
                                         let cnt = format!("{}", w.player_count.max(0));
                                         ui.txt(&cnt)
-                                            .sz(10.5)
+                                            .sz(crate::theme::fs(10.5))
                                             .bold()
                                             .fg(accent)
                                             .bg(tint_alpha(accent, 30))
@@ -1160,7 +1259,7 @@ fn render_home_dashboard(
                 let go_clicked = ui
                     .btn_with("mm_btn_global_search", |ui| {
                         ui.txt("Search")
-                            .sz(11.0)
+                            .sz(crate::theme::fs(11.0))
                             .semibold()
                             .fg(TEXT_PRIMARY);
                     })
@@ -1199,7 +1298,7 @@ fn render_home_dashboard(
                 ui.row(|ui| {
                     icons::icon(ui, icons::BELL, 14.0).fg(accent);
                     ui.txt("Activity Feed")
-                        .sz(12.5)
+                        .sz(crate::theme::fs(12.5))
                         .semibold()
                         .fg(TEXT_PRIMARY)
                         .grow(1.0);
@@ -1212,11 +1311,11 @@ fn render_home_dashboard(
                         icons::icon(ui, icons::BELL, 28.0)
                             .fg(Color::rgba(148, 163, 184, 65));
                         ui.txt("No recent activity")
-                            .sz(12.5)
+                            .sz(crate::theme::fs(12.5))
                             .semibold()
                             .fg(TEXT_MUTED);
                         ui.txt("Friend updates, invites, and instance events appear here.")
-                            .sz(11.0)
+                            .sz(crate::theme::fs(11.0))
                             .fg(TEXT_DIM);
                     })
                     .center()
@@ -1228,11 +1327,11 @@ fn render_home_dashboard(
                             ui.row(|ui| {
                                 ui.col(|ui| {
                                     ui.txt(&notif.title)
-                                        .sz(12.0)
+                                        .sz(crate::theme::fs(12.0))
                                         .semibold()
                                         .fg(TEXT_PRIMARY);
                                     if !notif.body.is_empty() {
-                                        ui.txt(&notif.body).sz(11.0).fg(TEXT_MUTED).wrap();
+                                        ui.txt(&notif.body).sz(crate::theme::fs(11.0)).fg(TEXT_MUTED).wrap();
                                     }
                                 })
                                 .gap(2.0)
@@ -1245,7 +1344,7 @@ fn render_home_dashboard(
                                             if ui
                                                 .btn_with(&btn_id, |ui| {
                                                     ui.txt(&btn.text)
-                                                        .sz(10.5)
+                                                        .sz(crate::theme::fs(10.5))
                                                         .semibold()
                                                         .fg(TEXT_PRIMARY);
                                                 })
@@ -1285,16 +1384,16 @@ fn render_home_dashboard(
                         for item in &state.host.activity_feed {
                             ui.row(|ui| {
                                 ui.col(|ui| {
-                                    ui.txt(&item.title).sz(12.0).semibold().fg(TEXT_PRIMARY);
+                                    ui.txt(&item.title).sz(crate::theme::fs(12.0)).semibold().fg(TEXT_PRIMARY);
                                     if !item.detail.is_empty() {
-                                        ui.txt(&item.detail).sz(11.0).fg(TEXT_MUTED).wrap();
+                                        ui.txt(&item.detail).sz(crate::theme::fs(11.0)).fg(TEXT_MUTED).wrap();
                                     }
                                 })
                                 .gap(2.0)
                                 .grow(1.0);
 
                                 if !item.time_text.is_empty() {
-                                    ui.txt(&item.time_text).sz(10.0).fg(TEXT_DIM);
+                                    ui.txt(&item.time_text).sz(crate::theme::fs(10.0)).fg(TEXT_DIM);
                                 }
                             })
                             .align_center()
@@ -1326,7 +1425,7 @@ fn render_home_dashboard(
                         ui.col(|ui| {
                             icons::icon(ui, icons::COMPASS, 20.0).fg(accent);
                             ui.txt("Current Instance")
-                                .sz(11.0)
+                                .sz(crate::theme::fs(11.0))
                                 .semibold()
                                 .align(TextAlign::Center)
                                 .fg(TEXT_PRIMARY);
@@ -1358,7 +1457,7 @@ fn render_home_dashboard(
                                 icons::icon(ui, icons::AVATAR, 14.0)
                                     .fg(Color::rgb(203, 213, 225));
                                 ui.txt("Remove All Avatars")
-                                    .sz(10.5)
+                                    .sz(crate::theme::fs(10.5))
                                     .semibold()
                                     .fg(TEXT_PRIMARY);
                             })
@@ -1385,7 +1484,7 @@ fn render_home_dashboard(
                             ui.row(|ui| {
                                 icons::icon(ui, icons::TRASH, 14.0).fg(RED);
                                 ui.txt("Remove All Props")
-                                    .sz(10.5)
+                                    .sz(crate::theme::fs(10.5))
                                     .semibold()
                                     .fg(TEXT_PRIMARY);
                             })
@@ -1418,7 +1517,7 @@ fn render_home_dashboard(
                             ui.row(|ui| {
                                 icons::icon(ui, icons::CUBE, 14.0).fg(accent);
                                 ui.txt("Delete My Props")
-                                    .sz(10.5)
+                                    .sz(crate::theme::fs(10.5))
                                     .semibold()
                                     .fg(TEXT_PRIMARY);
                             })
@@ -1445,7 +1544,7 @@ fn render_home_dashboard(
                             ui.row(|ui| {
                                 icons::icon(ui, icons::TRASH, 14.0).fg(AMBER);
                                 ui.txt("Delete Mode")
-                                    .sz(10.5)
+                                    .sz(crate::theme::fs(10.5))
                                     .semibold()
                                     .fg(TEXT_PRIMARY);
                             })
@@ -1477,7 +1576,7 @@ fn render_home_dashboard(
                         ui.col(|ui| {
                             icons::icon(ui, icons::FBT, 20.0).fg(Color::rgb(203, 213, 225));
                             ui.txt("Recalibrate")
-                                .sz(11.0)
+                                .sz(crate::theme::fs(11.0))
                                 .semibold()
                                 .align(TextAlign::Center)
                                 .fg(TEXT_PRIMARY);
@@ -1519,7 +1618,7 @@ fn render_home_dashboard(
             ui.row(|ui| {
                 icons::icon(ui, icons::VOLUME, 14.0).fg(accent);
                 ui.txt("Media")
-                    .sz(11.5)
+                    .sz(crate::theme::fs(11.5))
                     .semibold()
                     .fg(TEXT_PRIMARY)
                     .grow(1.0);
@@ -1570,7 +1669,7 @@ fn render_home_dashboard(
                 ui.row(|ui| {
                     icons::icon(ui, icons::BOLT, 14.0).fg(accent);
                     ui.txt("Quick Tools")
-                        .sz(12.0)
+                        .sz(crate::theme::fs(12.0))
                         .semibold()
                         .fg(TEXT_PRIMARY)
                         .grow(1.0);
@@ -1578,7 +1677,7 @@ fn render_home_dashboard(
                     if reorder_mode {
                         if ui
                             .btn_with("mm_tools_reset_order", |ui| {
-                                ui.txt("Reset").sz(9.5).semibold().fg(TEXT_MUTED);
+                                ui.txt("Reset").sz(crate::theme::fs(9.5)).semibold().fg(TEXT_MUTED);
                             })
                             .px(7.0)
                             .py(3.0)
@@ -1601,7 +1700,7 @@ fn render_home_dashboard(
                     if ui
                         .btn_with("mm_tools_reorder_toggle", |ui| {
                             ui.txt(if reorder_mode { "Done" } else { "Reorder" })
-                                .sz(9.5)
+                                .sz(crate::theme::fs(9.5))
                                 .semibold()
                                 .fg(if reorder_mode { TEXT_PRIMARY } else { TEXT_MUTED });
                         })
@@ -1872,9 +1971,9 @@ fn render_placeholder_page(
 
     ui.col(|ui| {
         icons::icon(ui, icons::PUZZLE, 34.0).fg(accent);
-        ui.txt(title).sz(20.0).bold().fg(TEXT_PRIMARY);
+        ui.txt(title).sz(crate::theme::fs(20.0)).bold().fg(TEXT_PRIMARY);
         ui.txt("This page is not yet implemented in LumenicMenu.")
-            .sz(12.5)
+            .sz(crate::theme::fs(12.5))
             .fg(TEXT_MUTED);
 
         ui.row(|ui| {
@@ -1934,7 +2033,7 @@ fn dock_nav_btn(
         ui.col(|ui| {
             icons::icon(ui, icon, 16.0).fg(icon_col);
             ui.txt(label)
-                .sz(10.0)
+                .sz(crate::theme::fs(10.0))
                 .semibold()
                 .align(TextAlign::Center)
                 .fg(fg);
@@ -1945,7 +2044,7 @@ fn dock_nav_btn(
     })
     .grow(1.0)
     .min_w(0.0)
-    .h(46.0)
+    .h(crate::theme::text_box(46.0))
     .px(3.0)
     .py(4.0)
     .bg(bg)
@@ -1996,21 +2095,21 @@ fn render_bottom_dock(
                 &state.host.clock_text
             };
             ui.txt(clock)
-                .sz(19.5)
+                .sz(crate::theme::fs(19.5))
                 .bold()
                 .align(TextAlign::Center)
                 .fg(TEXT_PRIMARY);
 
             if !state.host.date_text.is_empty() {
                 ui.txt(&state.host.date_text)
-                    .sz(10.0)
+                    .sz(crate::theme::fs(10.0))
                     .align(TextAlign::Center)
                     .fg(TEXT_MUTED);
             }
         })
         .center()
-        .w(136.0)
-        .h(46.0)
+        .w(crate::theme::text_box(136.0))
+        .h(crate::theme::text_box(46.0))
         .px(6.0)
         .gap(1.0);
 
@@ -2087,9 +2186,9 @@ fn render_bottom_dock(
 
 fn modal_info_row(ui: &mut UiContext, label: &str, value: &str, value_col: Color) {
     ui.row(|ui| {
-        ui.txt(label).sz(11.5).fg(TEXT_MUTED).grow(1.0);
+        ui.txt(label).sz(crate::theme::fs(11.5)).fg(TEXT_MUTED).grow(1.0);
         ui.txt(value)
-            .sz(11.5)
+            .sz(crate::theme::fs(11.5))
             .semibold()
             .align(TextAlign::Right)
             .fg(value_col);
@@ -2120,7 +2219,7 @@ fn render_game_instance_info_modal(
                     .col(|ui| {
                         ui.row(|ui| {
                             ui.txt("Game & Instance Details")
-                                .sz(15.0)
+                                .sz(crate::theme::fs(15.0))
                                 .bold()
                                 .fg(TEXT_PRIMARY)
                                 .grow(1.0);
@@ -2229,7 +2328,7 @@ fn render_game_instance_info_modal(
                                 ui.row(|ui| {
                                     icons::icon(ui, icons::INSTANCE, 14.0).fg(accent);
                                     ui.txt("Open Instance Roster")
-                                        .sz(11.5)
+                                        .sz(crate::theme::fs(11.5))
                                         .bold()
                                         .fg(TEXT_PRIMARY);
                                 })

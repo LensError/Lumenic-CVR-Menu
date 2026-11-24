@@ -129,6 +129,21 @@ internal sealed class ImageLoaderService : IDisposable
         return key;
     }
 
+    public void RequestUrl(uint surfaceId, string key, string url)
+    {
+        if (_disposed || string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(url))
+            return;
+
+        string trimmed = url.Trim();
+        if (!trimmed.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+            && !trimmed.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        RequestRemoteUrl(surfaceId, key, trimmed, token: 0);
+    }
+
     /// <summary>
     /// Resolves a UILib icon reference (local mod PNG, built-in UILib PNG, coui://UIResources/ cache path,
     /// or remote HTTPS URL) into a deterministic texture key and schedules async loading if not yet uploaded.

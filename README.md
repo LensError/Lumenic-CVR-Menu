@@ -28,6 +28,7 @@ A MelonLoader mod for ChilloutVR that replaces the Cohtml-based Main Menu and Qu
 - **Mod Ecosystem Bridges**:
   - **UILib**: Mirrors Quick Menu mod tabs, categories, buttons, toggles, sliders, cycle buttons, text inputs, modals, toasts, colour picker, and player/prop lists.
   - **UIExpansionKit**: Reflection bridge (no hard dependency) rendering MelonPreferences, ranges, visibilities, and custom controls in Main Menu Mod Settings.
+  - **LumenicMenu Extension API (`LumenicMenu.Api`)**: Native C# MelonLoader API for supportive mods to build custom Quick Menu & Main Menu tabs, inject/restyle/replace built-in sections, override global font scale/theme/layout tokens, and upload live textures. See [docs/EXTENSIONS.md](docs/EXTENSIONS.md).
 - **Complete Menu Suite**: Home dashboard with optional local recent history, 3D avatar preview rig, Content Browser (Avatars, Worlds, Props, Global Search, Discover), Social (Friends, Current Instance, Messages, local Profile bio/pronouns editing), Player Colors picker with CVR theme & tame panel colorizing, Avatar Settings, and reorderable Quick Actions / Quick Tools.
 
 ## Usage & Controls
@@ -39,6 +40,7 @@ A MelonLoader mod for ChilloutVR that replaces the Cohtml-based Main Menu and Qu
   - `MaxRefreshHz` (`15` - `144`, default `60`)
   - `DesktopScrollMultiplier` / `VrScrollMultiplier`
   - `EnableRecentHistory` (`true` by default; toggle local `Recent` categories and clear local `UserData` directly from Settings)
+  - `FontScale` (`0.5` - `2.5`, default `1.0`, selectable via **Text Size** presets `75%` / `100%` / `125%` / `150%` in Settings or `LumenicApi.Theme`)
   - `UiScale` (`0.5` - `2.0`, default `1.0`)
 
 ## Building from Source
@@ -56,7 +58,7 @@ dotnet build LumenicMenu.csproj -c Release
 This automatically builds `native-ui` (`cargo build --release`), embeds `lumenic_cvr_ui.dll` into `LumenicMenu.dll`, and copies the output to `$(CVRPath)/Mods/`.
 
 > [!IMPORTANT]
-> **Disclaimer**: Modding ChilloutVR is [officially allowed](https://docs.chilloutvr.net/official/legal/tos/#6-modding-our-game) per the ChilloutVR Terms of Service. However, **this modification is unofficial and not supported by ChilloutVR or the ChilloutVR team. Using it might cause issues with performance, security, or stability of the game.** Use it at your own risk.
+> **Disclaimer**: Modding ChilloutVR is [officially allowed](https://docs.chilloutvr.net/official/legal/tos/#6-modding-our-game) per the ChilloutVR Terms of Service. However, **this modification is unofficial and not affiliated with ChilloutVR or the ChilloutVR team. Using it might cause issues with performance, security, or stability of the game.** Use it at your own risk.
 
 > [!NOTE]
 > If you encounter any issues or bugs, or want to make a feature request, please open an issue or pull request on GitHub, or DM me on Discord (`@LensError`).

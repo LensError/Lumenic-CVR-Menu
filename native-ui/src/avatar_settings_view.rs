@@ -21,7 +21,17 @@ pub fn render_avatar_turntable_stage(
     actions: &mut Vec<UiAction>,
 ) {
     let [vw, vh] = ui.viewport_size();
-    let has_status = !status_text.trim().is_empty();
+    let effective_status = if !state.host.disclaimer_accepted
+        || state.host.show_whats_new
+        || state.host.update_status.show_modal
+        || state.host.system_alert.is_some()
+        || state.main_menu.active_dropdown.is_some()
+    {
+        "Modal active"
+    } else {
+        status_text
+    };
+    let has_status = !effective_status.trim().is_empty();
 
     let stage_resp = ui
         .col(|ui| {
@@ -29,8 +39,8 @@ pub fn render_avatar_turntable_stage(
                 if has_status {
                     icons::icon(ui, icons::AVATAR, 30.0)
                         .fg(Color::rgba(148, 163, 184, 90));
-                    ui.txt(status_text)
-                        .sz(10.5)
+                    ui.txt(effective_status)
+                        .sz(crate::theme::fs(10.5))
                         .semibold()
                         .align(TextAlign::Center)
                         .fg(TEXT_MUTED)
@@ -46,7 +56,7 @@ pub fn render_avatar_turntable_stage(
 
             if !has_status {
                 ui.txt("Drag horizontally to spin")
-                    .sz(9.5)
+                    .sz(crate::theme::fs(9.5))
                     .align(TextAlign::Center)
                     .fg(TEXT_DIM)
                     .w_frac(1.0);
@@ -179,7 +189,7 @@ pub fn render_avatar_settings_page(
                     .btn_with("mm_aas_back", |ui| {
                         ui.row(|ui| {
                             icons::icon(ui, icons::BACK, 14.0).fg(TEXT_PRIMARY);
-                            ui.txt("Back").sz(11.0).semibold().fg(TEXT_PRIMARY);
+                            ui.txt("Back").sz(crate::theme::fs(11.0)).semibold().fg(TEXT_PRIMARY);
                         })
                         .center()
                         .gap(3.0);
@@ -197,7 +207,7 @@ pub fn render_avatar_settings_page(
                 }
 
                 ui.txt("Avatar Preview")
-                    .sz(12.0)
+                    .sz(crate::theme::fs(12.0))
                     .bold()
                     .fg(TEXT_PRIMARY)
                     .align(TextAlign::Right)
@@ -239,7 +249,7 @@ pub fn render_avatar_settings_page(
                             } else {
                                 "Up to Date"
                             })
-                            .sz(11.0)
+                            .sz(crate::theme::fs(11.0))
                             .semibold()
                             .fg(if has_staged { TEXT_PRIMARY } else { TEXT_MUTED });
                         })
@@ -289,12 +299,12 @@ pub fn render_avatar_settings_page(
                 .btn_with("mm_aas_auto_apply", |ui| {
                     ui.row(|ui| {
                         ui.txt("Auto Apply Changes")
-                            .sz(10.5)
+                            .sz(crate::theme::fs(10.5))
                             .semibold()
                             .fg(TEXT_PRIMARY)
                             .grow(1.0);
                         ui.txt(if auto_apply { "ON" } else { "OFF" })
-                            .sz(10.0)
+                            .sz(crate::theme::fs(10.0))
                             .bold()
                             .fg(if auto_apply { EMERALD } else { TEXT_MUTED })
                             .bg(if auto_apply {
@@ -348,7 +358,7 @@ pub fn render_avatar_settings_page(
             // Header: Profiles + Edit Mode Toggle
             ui.row(|ui| {
                 ui.txt("Profiles")
-                    .sz(13.0)
+                    .sz(crate::theme::fs(13.0))
                     .bold()
                     .fg(TEXT_PRIMARY)
                     .grow(1.0);
@@ -359,7 +369,7 @@ pub fn render_avatar_settings_page(
                             icons::icon(ui, icons::EDIT, 13.0)
                                 .fg(if edit_mode { accent } else { TEXT_MUTED });
                             ui.txt(if edit_mode { "Done" } else { "Edit" })
-                                .sz(10.0)
+                                .sz(crate::theme::fs(10.0))
                                 .semibold()
                                 .fg(if edit_mode { TEXT_PRIMARY } else { TEXT_MUTED });
                         })
@@ -400,7 +410,7 @@ pub fn render_avatar_settings_page(
                     .btn_with("mm_aas_prof_default", |ui| {
                         ui.row(|ui| {
                             ui.txt("Default")
-                                .sz(11.0)
+                                .sz(crate::theme::fs(11.0))
                                 .semibold()
                                 .fg(if default_selected {
                                     TEXT_PRIMARY
@@ -414,7 +424,7 @@ pub fn render_avatar_settings_page(
                                 } else {
                                     "ACTIVE"
                                 })
-                                .sz(8.5)
+                                .sz(crate::theme::fs(8.5))
                                 .bold()
                                 .fg(if !staged_profile.is_empty() {
                                     AMBER
@@ -463,7 +473,7 @@ pub fn render_avatar_settings_page(
                             .btn_with(&format!("mm_aas_prof_item_{idx}"), |ui| {
                                 ui.row(|ui| {
                                     ui.txt(prof)
-                                        .sz(11.0)
+                                        .sz(crate::theme::fs(11.0))
                                         .semibold()
                                         .fg(if is_selected {
                                             TEXT_PRIMARY
@@ -474,7 +484,7 @@ pub fn render_avatar_settings_page(
                                         .grow(1.0);
                                     if is_selected && !edit_mode {
                                         ui.txt(if is_staged_this { "STAGED" } else { "ACTIVE" })
-                                            .sz(8.5)
+                                            .sz(crate::theme::fs(8.5))
                                             .bold()
                                             .fg(if is_staged_this { AMBER } else { accent });
                                     }
@@ -639,7 +649,7 @@ pub fn render_avatar_settings_page(
                             icons::icon(ui, icons::ADD, 14.0)
                                 .fg(if can_save { accent } else { TEXT_DIM });
                             ui.txt("Save New Profile")
-                                .sz(10.5)
+                                .sz(crate::theme::fs(10.5))
                                 .semibold()
                                 .fg(if can_save { TEXT_PRIMARY } else { TEXT_MUTED });
                         })
@@ -694,14 +704,14 @@ pub fn render_avatar_settings_page(
             ui.row(|ui| {
                 icons::icon(ui, icons::SLIDERS, 16.0).fg(accent);
                 ui.txt(&format!("Avatar Settings ({})", entries.len()))
-                    .sz(14.0)
+                    .sz(crate::theme::fs(14.0))
                     .bold()
                     .fg(TEXT_PRIMARY)
                     .grow(1.0);
 
                 if !auto_apply && has_staged {
                     ui.txt("STAGED PREVIEW")
-                        .sz(9.0)
+                        .sz(crate::theme::fs(9.0))
                         .bold()
                         .fg(AMBER)
                         .bg(tint_alpha(AMBER, 34))
@@ -714,7 +724,7 @@ pub fn render_avatar_settings_page(
                 if ui
                     .btn_with("mm_aas_reset_def", |ui| {
                         ui.txt("Reset Defaults")
-                            .sz(10.5)
+                            .sz(crate::theme::fs(10.5))
                             .semibold()
                             .fg(TEXT_PRIMARY);
                     })
@@ -746,14 +756,14 @@ pub fn render_avatar_settings_page(
                     ui.row(|ui| {
                         icons::icon(ui, icons::AVATAR, 14.0).fg(if allowed { accent } else { AMBER });
                         ui.txt("Global Avatar Scale")
-                            .sz(11.5)
+                            .sz(crate::theme::fs(11.5))
                             .bold()
                             .fg(TEXT_PRIMARY)
                             .grow(1.0);
 
                         if !allowed {
                             ui.txt("LOCKED BY WORLD")
-                                .sz(8.5)
+                                .sz(crate::theme::fs(8.5))
                                 .bold()
                                 .fg(AMBER)
                                 .bg(tint_alpha(AMBER, 34))
@@ -763,7 +773,7 @@ pub fn render_avatar_settings_page(
                                 .bevel_rounded(4.0, 1.2);
                         } else {
                             ui.txt(&format!("{cur_h:.2}m ({mult:.2}x)"))
-                                .sz(10.5)
+                                .sz(crate::theme::fs(10.5))
                                 .semibold()
                                 .fg(accent)
                                 .bg(tint_alpha(accent, 30))
@@ -775,7 +785,7 @@ pub fn render_avatar_settings_page(
                             if ui
                                 .btn_with("mm_aas_reset_height", |ui| {
                                     ui.txt(&format!("Reset ({init_h:.2}m)"))
-                                        .sz(9.5)
+                                        .sz(crate::theme::fs(9.5))
                                         .semibold()
                                         .fg(TEXT_PRIMARY);
                                 })
@@ -847,7 +857,7 @@ pub fn render_avatar_settings_page(
                 ui.col(|ui| {
                     icons::icon(ui, icons::AVATAR, 34.0).fg(TEXT_DIM);
                     ui.txt("Current avatar has no Advanced Avatar Settings")
-                        .sz(13.0)
+                        .sz(crate::theme::fs(13.0))
                         .semibold()
                         .fg(TEXT_MUTED);
                 })
@@ -938,7 +948,7 @@ fn render_param_card(
             let on = entry.val_x >= 0.5;
             ui.row(|ui| {
                 ui.txt(&entry.name)
-                    .sz(11.5)
+                    .sz(crate::theme::fs(11.5))
                     .semibold()
                     .fg(TEXT_PRIMARY)
                     .ellipsis()
@@ -946,7 +956,7 @@ fn render_param_card(
                 if ui
                     .btn_with(&format!("mm_aas_tog_{}", entry.param), |ui| {
                         ui.txt(if on { "ON" } else { "OFF" })
-                            .sz(10.5)
+                            .sz(crate::theme::fs(10.5))
                             .bold()
                             .align(TextAlign::Center)
                             .fg(if on { TEXT_PRIMARY } else { TEXT_MUTED })
@@ -979,7 +989,7 @@ fn render_param_card(
         }
         "dropdown" => {
             ui.txt(&entry.name)
-                .sz(11.5)
+                .sz(crate::theme::fs(11.5))
                 .semibold()
                 .fg(TEXT_PRIMARY)
                 .ellipsis();
@@ -990,7 +1000,7 @@ fn render_param_card(
                     if ui
                         .btn_with(&format!("mm_aas_dd_{}_{i}", entry.param), |ui| {
                             ui.txt(opt)
-                                .sz(10.0)
+                                .sz(crate::theme::fs(10.0))
                                 .semibold()
                                 .align(TextAlign::Center)
                                 .fg(if active { TEXT_PRIMARY } else { TEXT_MUTED })
@@ -1031,7 +1041,7 @@ fn render_param_card(
             );
             ui.row(|ui| {
                 ui.txt(&entry.name)
-                    .sz(11.5)
+                    .sz(crate::theme::fs(11.5))
                     .semibold()
                     .fg(TEXT_PRIMARY)
                     .ellipsis()
@@ -1081,7 +1091,7 @@ fn render_param_card(
         }
         "joystick2d" | "inputvector2" => {
             ui.txt(&entry.name)
-                .sz(11.5)
+                .sz(crate::theme::fs(11.5))
                 .semibold()
                 .fg(TEXT_PRIMARY)
                 .ellipsis();
@@ -1110,7 +1120,7 @@ fn render_param_card(
         }
         "joystick3d" | "inputvector3" => {
             ui.txt(&entry.name)
-                .sz(11.5)
+                .sz(crate::theme::fs(11.5))
                 .semibold()
                 .fg(TEXT_PRIMARY)
                 .ellipsis();

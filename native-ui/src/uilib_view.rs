@@ -79,7 +79,7 @@ pub fn render_uilib_page(
                     .btn_with("uilib_back_btn", |ui| {
                         ui.row(|ui| {
                             icons::icon(ui, icons::BACK, 14.0).fg(TEXT_PRIMARY);
-                            ui.txt("Back").sz(11.5).semibold().fg(TEXT_PRIMARY);
+                            ui.txt("Back").sz(crate::theme::fs(11.5)).semibold().fg(TEXT_PRIMARY);
                         })
                         .align_center()
                         .gap(4.0);
@@ -107,13 +107,13 @@ pub fn render_uilib_page(
                 } else {
                     &page.title
                 };
-                ui.txt(title).sz(13.5).bold().fg(TEXT_PRIMARY);
+                ui.txt(title).sz(crate::theme::fs(13.5)).bold().fg(TEXT_PRIMARY);
 
                 if !page.subtitle.is_empty() {
-                    ui.txt(&page.subtitle).sz(10.5).fg(TEXT_MUTED);
+                    ui.txt(&page.subtitle).sz(crate::theme::fs(10.5)).fg(TEXT_MUTED);
                 } else if page.breadcrumbs.len() > 1 {
                     let crumb = page.breadcrumbs.join(" / ");
-                    ui.txt(&crumb).sz(10.0).fg(TEXT_DIM);
+                    ui.txt(&crumb).sz(crate::theme::fs(10.0)).fg(TEXT_DIM);
                 }
             })
             .grow(1.0)
@@ -132,7 +132,7 @@ pub fn render_uilib_page(
                             .btn_with("uilib_player_open_mm", |ui| {
                                 ui.row(|ui| {
                                     icons::icon(ui, icons::HOME, 13.5).fg(accent);
-                                    ui.txt("Main Menu").sz(11.0).semibold().fg(TEXT_PRIMARY);
+                                    ui.txt("Main Menu").sz(crate::theme::fs(11.0)).semibold().fg(TEXT_PRIMARY);
                                 })
                                 .align_center()
                                 .gap(5.0);
@@ -182,12 +182,12 @@ pub fn render_uilib_page(
                                 .eq_ignore_ascii_case(&state.host.user_id));
                     ui.col(|ui| {
                         ui.row(|ui| {
-                            ui.txt("Bio").sz(11.5).bold().fg(TEXT_MUTED).grow(1.0);
+                            ui.txt("Bio").sz(crate::theme::fs(11.5)).bold().fg(TEXT_MUTED).grow(1.0);
                             if is_local_player
                                 && ui
                                     .btn_with("uilib_player_edit_profile", |ui| {
                                         ui.txt("Edit")
-                                            .sz(10.5)
+                                            .sz(crate::theme::fs(10.5))
                                             .semibold()
                                             .fg(TEXT_PRIMARY);
                                     })
@@ -209,10 +209,10 @@ pub fn render_uilib_page(
                         .gap(6.0);
                         let bio_trimmed = page.player_bio.trim();
                         if bio_trimmed.is_empty() {
-                            ui.txt("No bio set.").sz(11.0).fg(TEXT_DIM);
+                            ui.txt("No bio set.").sz(crate::theme::fs(11.0)).fg(TEXT_DIM);
                         } else {
                             ui.txt(bio_trimmed)
-                                .sz(11.5)
+                                .sz(crate::theme::fs(11.5))
                                 .fg(TEXT_PRIMARY)
                                 .wrap();
                         }
@@ -227,6 +227,15 @@ pub fn render_uilib_page(
                         ui,
                         state,
                         &page.categories[1],
+                        accent,
+                        actions,
+                    );
+
+                    crate::ext_view::render_slot_only(
+                        ui,
+                        state,
+                        "quick",
+                        "qm.player_details.actions",
                         accent,
                         actions,
                     );
@@ -250,7 +259,7 @@ pub fn render_uilib_page(
                     ui.row(|ui| {
                         icons::icon(ui, icons::AVATAR, 14.0).fg(accent);
                         ui.txt("3D Avatar")
-                            .sz(12.0)
+                            .sz(crate::theme::fs(12.0))
                             .semibold()
                             .fg(TEXT_PRIMARY)
                             .grow(1.0);
@@ -294,10 +303,10 @@ pub fn render_uilib_page(
                             .bd(1.5, Color::rgba(255, 255, 255, 160))
                             .bevel_rounded(5.5, 1.3);
                         ui.col(|ui| {
-                            ui.txt("Colour Preview").sz(11.5).semibold().fg(TEXT_PRIMARY);
+                            ui.txt("Colour Preview").sz(crate::theme::fs(11.5)).semibold().fg(TEXT_PRIMARY);
                             let hex_label =
                                 format!("#{}", page.colour_preview_hex.trim_start_matches('#'));
-                            ui.txt(&hex_label).sz(11.0).fg(TEXT_MUTED);
+                            ui.txt(&hex_label).sz(crate::theme::fs(11.0)).fg(TEXT_MUTED);
                         })
                         .gap(1.0)
                         .grow(1.0);
@@ -328,9 +337,9 @@ pub fn render_uilib_page(
                     ui.col(|ui| {
                         icons::icon(ui, icons::PUZZLE, 24.0)
                             .fg(Color::rgba(148, 163, 184, 75));
-                        ui.txt("Empty Page").sz(12.5).semibold().fg(TEXT_MUTED);
+                        ui.txt("Empty Page").sz(crate::theme::fs(12.5)).semibold().fg(TEXT_MUTED);
                         ui.txt("This UILib page currently has no visible elements.")
-                            .sz(11.0)
+                            .sz(crate::theme::fs(11.0))
                             .fg(TEXT_DIM);
                     })
                     .center()
@@ -368,7 +377,7 @@ pub fn render_uilib_page(
                                                     .fg(if hb.disabled { TEXT_DIM } else { accent });
                                             }
                                             ui.txt(lbl)
-                                                .sz(11.5)
+                                                .sz(crate::theme::fs(11.5))
                                                 .semibold()
                                                 .fg(if hb.disabled { TEXT_DIM } else { TEXT_PRIMARY });
                                             if is_redo {
@@ -446,14 +455,14 @@ fn render_player_quick_actions_card(
                                     ImageFit::Cover,
                                 );
                                 ui.col(|ui| {
-                                    ui.txt("Avatar").sz(9.5).semibold().fg(TEXT_MUTED);
+                                    ui.txt("Avatar").sz(crate::theme::fs(9.5)).semibold().fg(TEXT_MUTED);
                                     let lbl = if el.label.is_empty() {
                                         "Details"
                                     } else {
                                         &el.label
                                     };
                                     ui.txt(lbl)
-                                        .sz(11.0)
+                                        .sz(crate::theme::fs(11.0))
                                         .semibold()
                                         .fg(TEXT_PRIMARY)
                                         .ellipsis();
@@ -513,7 +522,7 @@ fn render_compact_header_button(
         ui.btn_with(&id, |ui| {
             ui.row(|ui| {
                 icons::icon(ui, icons::HOME, 13.5).fg(accent);
-                ui.txt("Main Menu").sz(11.0).semibold().fg(TEXT_PRIMARY);
+                ui.txt("Main Menu").sz(crate::theme::fs(11.0)).semibold().fg(TEXT_PRIMARY);
             })
             .align_center()
             .gap(5.0);
@@ -540,7 +549,7 @@ fn render_compact_header_button(
                     );
                 }
                 if !el.label.is_empty() {
-                    ui.txt(&el.label).sz(11.5).semibold().fg(TEXT_PRIMARY);
+                    ui.txt(&el.label).sz(crate::theme::fs(11.5)).semibold().fg(TEXT_PRIMARY);
                 }
             })
             .align_center()
@@ -586,7 +595,7 @@ fn render_uilib_category(
                                     icons::CHEVRON_DOWN
                                 };
                                 icons::icon(ui, chev, 13.0).fg(accent);
-                                ui.txt(&cat.name).sz(12.0).bold().fg(TEXT_PRIMARY);
+                                ui.txt(&cat.name).sz(crate::theme::fs(12.0)).bold().fg(TEXT_PRIMARY);
                             })
                             .align_center()
                             .gap(5.0);
@@ -606,7 +615,7 @@ fn render_uilib_category(
                     }
                 } else {
                     ui.txt(&cat.name)
-                        .sz(12.0)
+                        .sz(crate::theme::fs(12.0))
                         .bold()
                         .fg(TEXT_PRIMARY)
                         .grow(1.0);
@@ -728,13 +737,13 @@ fn render_grid_tile(
                 .btn_with(&id, |ui| {
                     ui.col(|ui| {
                         ui.txt(&el.label)
-                            .sz(11.0)
+                            .sz(crate::theme::fs(11.0))
                             .semibold()
                             .align(TextAlign::Center)
                             .fg(TEXT_PRIMARY)
                             .wrap();
                         ui.txt(status_txt)
-                            .sz(9.5)
+                            .sz(crate::theme::fs(9.5))
                             .bold()
                             .align(TextAlign::Center)
                             .fg(if active { badge_col } else { TEXT_MUTED });
@@ -780,13 +789,13 @@ fn render_grid_tile(
                             );
                         }
                         ui.txt(&el.label)
-                            .sz(11.0)
+                            .sz(crate::theme::fs(11.0))
                             .semibold()
                             .align(TextAlign::Center)
                             .fg(TEXT_PRIMARY)
                             .wrap();
                         ui.txt("Cycle")
-                            .sz(9.5)
+                            .sz(crate::theme::fs(9.5))
                             .fg(accent);
                     })
                     .center()
@@ -839,14 +848,14 @@ fn render_grid_tile(
                         }
                         if !el.label.is_empty() {
                             ui.txt(&el.label)
-                                .sz(11.0)
+                                .sz(crate::theme::fs(11.0))
                                 .semibold()
                                 .align(TextAlign::Center)
                                 .fg(TEXT_PRIMARY)
                                 .wrap();
                         }
                         if el.has_hold {
-                            ui.txt("Right-click: Hold").sz(9.0).fg(TEXT_DIM);
+                            ui.txt("Right-click: Hold").sz(crate::theme::fs(9.0)).fg(TEXT_DIM);
                         }
                     })
                     .center()
@@ -954,7 +963,7 @@ fn render_slider_element(
             let reset_id = format!("uilib_reset_{}", el.id);
             let r_btn = ui
                 .btn_with(&reset_id, |ui| {
-                    ui.txt("Reset").sz(10.5).semibold().fg(TEXT_MUTED);
+                    ui.txt("Reset").sz(crate::theme::fs(10.5)).semibold().fg(TEXT_MUTED);
                 })
                 .px(8.0)
                 .py(7.0)
@@ -992,7 +1001,7 @@ fn render_full_width_element(
         "text_block" => {
             if !el.label.is_empty() {
                 ui.txt(&el.label)
-                    .sz(11.0)
+                    .sz(crate::theme::fs(11.0))
                     .fg(TEXT_MUTED)
                     .wrap()
                     .px(4.0)
@@ -1015,10 +1024,10 @@ fn render_full_width_element(
                 .btn_with(&id, |ui| {
                     ui.row(|ui| {
                         ui.txt(display)
-                            .sz(11.5)
+                            .sz(crate::theme::fs(11.5))
                             .fg(if is_placeholder { TEXT_DIM } else { TEXT_PRIMARY })
                             .grow(1.0);
-                        ui.txt("Edit").sz(10.5).semibold().fg(accent);
+                        ui.txt("Edit").sz(crate::theme::fs(10.5)).semibold().fg(accent);
                     })
                     .align_center()
                     .gap(6.0)
@@ -1053,10 +1062,10 @@ fn render_full_width_element(
                             ImageFit::Cover,
                         );
                         ui.col(|ui| {
-                            ui.txt(&el.label).sz(12.0).bold().fg(TEXT_PRIMARY);
+                            ui.txt(&el.label).sz(crate::theme::fs(12.0)).bold().fg(TEXT_PRIMARY);
                             for line in &el.lines {
                                 if !line.is_empty() {
-                                    ui.txt(line).sz(10.5).fg(TEXT_MUTED).wrap();
+                                    ui.txt(line).sz(crate::theme::fs(10.5)).fg(TEXT_MUTED).wrap();
                                 }
                             }
                         })
@@ -1117,12 +1126,12 @@ fn render_full_width_element(
                         for blk in &el.detail_blocks {
                             ui.row(|ui| {
                                 if !blk.header.is_empty() {
-                                    ui.txt(&blk.header).sz(11.0).semibold().fg(TEXT_MUTED);
+                                    ui.txt(&blk.header).sz(crate::theme::fs(11.0)).semibold().fg(TEXT_MUTED);
                                 }
                                 if !blk.text.is_empty() {
                                     if blk.badge {
                                         ui.txt(&blk.text)
-                                            .sz(10.0)
+                                            .sz(crate::theme::fs(10.0))
                                             .bold()
                                             .fg(accent)
                                             .bg(tint_alpha(accent, 34))
@@ -1130,7 +1139,7 @@ fn render_full_width_element(
                                             .py(1.5)
                                             .bevel_rounded(3.9, 1.3);
                                     } else {
-                                        ui.txt(&blk.text).sz(11.5).fg(TEXT_PRIMARY).wrap();
+                                        ui.txt(&blk.text).sz(crate::theme::fs(11.5)).fg(TEXT_PRIMARY).wrap();
                                     }
                                 }
                             })
@@ -1150,7 +1159,7 @@ fn render_full_width_element(
                             let ebid = format!("uilib_cdet_btn_{}", eb.id);
                             let eb_resp = ui
                                 .btn_with(&ebid, |ui| {
-                                    ui.txt(&eb.label).sz(11.0).semibold().fg(TEXT_PRIMARY);
+                                    ui.txt(&eb.label).sz(crate::theme::fs(11.0)).semibold().fg(TEXT_PRIMARY);
                                 })
                                 .px(8.0)
                                 .py(5.0)
@@ -1183,7 +1192,7 @@ fn render_full_width_element(
             ui.push_id(&el.id);
             ui.row(|ui| {
                 ui.txt("Custom HTML element (not supported natively)")
-                    .sz(11.0)
+                    .sz(crate::theme::fs(11.0))
                     .fg(TEXT_DIM)
                     .grow(1.0);
             })
@@ -1206,7 +1215,7 @@ pub fn render_uilib_toast(ui: &mut UiContext, toast: &str, accent: Color) {
     ui.overlay(|ui| {
         ui.col(|ui| {
             ui.txt(toast)
-                .sz(12.5)
+                .sz(crate::theme::fs(12.5))
                 .semibold()
                 .align(TextAlign::Center)
                 .fg(TEXT_PRIMARY)
@@ -1251,7 +1260,7 @@ pub fn render_uilib_modal(
                     // Modal Header
                     ui.row(|ui| {
                         ui.txt(&modal.title)
-                            .sz(16.0)
+                            .sz(crate::theme::fs(16.0))
                             .bold()
                             .fg(TEXT_PRIMARY)
                             .grow(1.0);
@@ -1275,7 +1284,7 @@ pub fn render_uilib_modal(
                     match modal.kind.as_str() {
                         "confirm" => {
                             if !modal.body.is_empty() {
-                                ui.txt(&modal.body).sz(13.0).fg(TEXT_MUTED).wrap();
+                                ui.txt(&modal.body).sz(crate::theme::fs(13.0)).fg(TEXT_MUTED).wrap();
                             }
                             ui.row(|ui| {
                                 let no_lbl = if modal.no_text.is_empty() {
@@ -1286,7 +1295,7 @@ pub fn render_uilib_modal(
                                 if ui
                                     .btn_with("uilib_modal_no", |ui| {
                                         ui.txt(no_lbl)
-                                            .sz(13.0)
+                                            .sz(crate::theme::fs(13.0))
                                             .semibold()
                                             .align(TextAlign::Center)
                                             .fg(TEXT_PRIMARY);
@@ -1311,7 +1320,7 @@ pub fn render_uilib_modal(
                                 if ui
                                     .btn_with("uilib_modal_yes", |ui| {
                                         ui.txt(yes_lbl)
-                                            .sz(13.0)
+                                            .sz(crate::theme::fs(13.0))
                                             .bold()
                                             .align(TextAlign::Center)
                                             .fg(Color::rgb(12, 18, 28));
@@ -1331,7 +1340,7 @@ pub fn render_uilib_modal(
                         }
                         "notice" => {
                             if !modal.body.is_empty() {
-                                ui.txt(&modal.body).sz(13.0).fg(TEXT_MUTED).wrap();
+                                ui.txt(&modal.body).sz(crate::theme::fs(13.0)).fg(TEXT_MUTED).wrap();
                             }
                             let ok_lbl = if modal.ok_text.is_empty() {
                                 "OK"
@@ -1341,7 +1350,7 @@ pub fn render_uilib_modal(
                             if ui
                                 .btn_with("uilib_modal_ok", |ui| {
                                     ui.txt(ok_lbl)
-                                        .sz(13.0)
+                                        .sz(crate::theme::fs(13.0))
                                         .bold()
                                         .align(TextAlign::Center)
                                         .fg(Color::rgb(12, 18, 28));
@@ -1364,7 +1373,7 @@ pub fn render_uilib_modal(
                                         .btn_with(&opt_id, |ui| {
                                             ui.row(|ui| {
                                                 ui.txt(opt)
-                                                    .sz(13.0)
+                                                    .sz(crate::theme::fs(13.0))
                                                     .semibold()
                                                     .fg(if is_sel { accent } else { TEXT_PRIMARY })
                                                     .grow(1.0);
@@ -1420,7 +1429,7 @@ pub fn render_uilib_modal(
                                         if ui
                                             .btn_with(&btn_id, |ui| {
                                                 ui.txt(key)
-                                                    .sz(13.0)
+                                                    .sz(crate::theme::fs(13.0))
                                                     .bold()
                                                     .align(TextAlign::Center)
                                                     .fg(if is_ok {
@@ -1486,7 +1495,7 @@ pub fn render_uilib_modal(
                             }
 
                             if !state.quick.modal_number_error.is_empty() {
-                                ui.txt(&state.quick.modal_number_error).sz(11.5).fg(RED);
+                                ui.txt(&state.quick.modal_number_error).sz(crate::theme::fs(11.5)).fg(RED);
                             }
 
                             if try_submit {

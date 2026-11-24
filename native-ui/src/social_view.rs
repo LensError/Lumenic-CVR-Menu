@@ -50,7 +50,7 @@ pub fn render_friends_page(
                 format!("Friends ({online_count} / {total_count})")
             };
             ui.txt(&header_title)
-                .sz(15.0)
+                .sz(crate::theme::fs(15.0))
                 .bold()
                 .fg(TEXT_PRIMARY);
 
@@ -104,7 +104,7 @@ pub fn render_friends_page(
                 if ui
                     .btn_with(&format!("mm_fr_f_{idx}"), |ui| {
                         ui.txt(lbl)
-                            .sz(10.5)
+                            .sz(crate::theme::fs(10.5))
                             .semibold()
                             .align(TextAlign::Center)
                             .fg(if active { TEXT_PRIMARY } else { TEXT_MUTED })
@@ -192,7 +192,7 @@ pub fn render_friends_page(
                         } else {
                             "No recently seen users match your search"
                         })
-                        .sz(13.0)
+                        .sz(crate::theme::fs(13.0))
                         .semibold()
                         .fg(TEXT_MUTED);
                     })
@@ -245,7 +245,7 @@ pub fn render_friends_page(
                         } else {
                             "No friends match your filter"
                         })
-                        .sz(13.0)
+                        .sz(crate::theme::fs(13.0))
                         .semibold()
                         .fg(TEXT_MUTED);
                     })
@@ -335,7 +335,7 @@ fn render_recent_user_card(
                         .to_string();
                     ui.col(|ui| {
                         ui.txt(&initial)
-                            .sz(16.0)
+                            .sz(crate::theme::fs(16.0))
                             .bold()
                             .align(TextAlign::Center)
                             .fg(accent);
@@ -353,7 +353,7 @@ fn render_recent_user_card(
                 ui.col(|ui| {
                     ui.row(|ui| {
                         ui.txt(&u.name)
-                            .sz(13.0)
+                            .sz(crate::theme::fs(13.0))
                             .bold()
                             .fg(TEXT_PRIMARY)
                             .ellipsis()
@@ -362,7 +362,7 @@ fn render_recent_user_card(
                         if crate::theme::is_special_rank(&u.rank) {
                             ui.row(|ui| {
                                 ui.txt(&u.rank)
-                                    .sz(9.5)
+                                    .sz(crate::theme::fs(9.5))
                                     .semibold()
                                     .fg(TEXT_PRIMARY);
                             })
@@ -375,7 +375,7 @@ fn render_recent_user_card(
 
                         if !u.last_seen_text.is_empty() {
                             ui.txt(&u.last_seen_text)
-                                .sz(10.0)
+                                .sz(crate::theme::fs(10.0))
                                 .fg(TEXT_DIM);
                         }
                     })
@@ -385,7 +385,7 @@ fn render_recent_user_card(
                     ui.row(|ui| {
                         icons::icon(ui, icons::WORLD, 11.5).fg(TEXT_DIM);
                         ui.txt(loc_label)
-                            .sz(10.5)
+                            .sz(crate::theme::fs(10.5))
                             .fg(TEXT_MUTED)
                             .ellipsis()
                             .grow(1.0);
@@ -393,7 +393,7 @@ fn render_recent_user_card(
                         if !u.instance_privacy.is_empty() {
                             ui.row(|ui| {
                                 ui.txt(&u.instance_privacy)
-                                    .sz(9.5)
+                                    .sz(crate::theme::fs(9.5))
                                     .semibold()
                                     .fg(priv_col);
                             })
@@ -460,7 +460,7 @@ fn render_friend_card(
                             .to_string();
                         ui.col(|ui| {
                             ui.txt(&initial)
-                                .sz(15.0)
+                                .sz(crate::theme::fs(15.0))
                                 .bold()
                                 .align(TextAlign::Center)
                                 .fg(status_col);
@@ -475,7 +475,7 @@ fn render_friend_card(
 
                     ui.col(|ui| {
                         ui.txt(&fr.name)
-                            .sz(12.5)
+                            .sz(crate::theme::fs(12.5))
                             .semibold()
                             .fg(TEXT_PRIMARY)
                             .ellipsis();
@@ -488,7 +488,7 @@ fn render_friend_card(
                         } else {
                             "Online"
                         };
-                        ui.txt(loc).sz(10.5).fg(if fr.is_online {
+                        ui.txt(loc).sz(crate::theme::fs(10.5)).fg(if fr.is_online {
                             TEXT_MUTED
                         } else {
                             TEXT_DIM
@@ -523,7 +523,7 @@ fn render_friend_card(
                     && ui
                         .btn_with(&format!("mm_fr_join_{}", fr.id), |ui| {
                             ui.txt("Join")
-                                .sz(10.0)
+                                .sz(crate::theme::fs(10.0))
                                 .bold()
                                 .align(TextAlign::Center)
                                 .fg(TEXT_PRIMARY)
@@ -546,7 +546,7 @@ fn render_friend_card(
                 if ui
                     .btn_with(&format!("mm_fr_inv_{}", fr.id), |ui| {
                         ui.txt("Invite")
-                            .sz(10.0)
+                            .sz(crate::theme::fs(10.0))
                             .semibold()
                             .align(TextAlign::Center)
                             .fg(TEXT_PRIMARY)
@@ -569,7 +569,7 @@ fn render_friend_card(
                 if ui
                     .btn_with(&format!("mm_fr_req_{}", fr.id), |ui| {
                         ui.txt("Req Inv")
-                            .sz(10.0)
+                            .sz(crate::theme::fs(10.0))
                             .semibold()
                             .align(TextAlign::Center)
                             .fg(TEXT_MUTED)
@@ -640,7 +640,7 @@ pub fn render_current_instance_page(
                     ui.row(|ui| {
                         icons::icon(ui, icons::BACK, 14.0).fg(TEXT_PRIMARY);
                         ui.txt(crate::main_menu::back_button_label(state, "Home"))
-                            .sz(11.5)
+                            .sz(crate::theme::fs(11.5))
                             .semibold()
                             .fg(TEXT_PRIMARY);
                     })
@@ -661,9 +661,9 @@ pub fn render_current_instance_page(
 
             icons::icon(ui, icons::INSTANCE, 17.0).fg(accent);
             ui.col(|ui| {
-                ui.txt(&inst).sz(14.5).bold().fg(TEXT_PRIMARY).ellipsis();
+                ui.txt(&inst).sz(crate::theme::fs(14.5)).bold().fg(TEXT_PRIMARY).ellipsis();
                 ui.txt(&format!("{world}  |  {privacy}"))
-                    .sz(11.0)
+                    .sz(crate::theme::fs(11.0))
                     .fg(TEXT_MUTED)
                     .ellipsis();
             })
@@ -672,7 +672,7 @@ pub fn render_current_instance_page(
 
             let cnt = format!("{} Players", state.host.social.instance_players.len().max(1));
             ui.txt(&cnt)
-                .sz(11.0)
+                .sz(crate::theme::fs(11.0))
                 .bold()
                 .fg(EMERALD)
                 .bg(tint_alpha(EMERALD, 30))
@@ -683,7 +683,7 @@ pub fn render_current_instance_page(
             if ui
                 .btn_with("mm_ci_drop_portal", |ui| {
                     ui.txt("Drop Portal")
-                        .sz(11.0)
+                        .sz(crate::theme::fs(11.0))
                         .semibold()
                         .fg(TEXT_PRIMARY);
                 })
@@ -713,7 +713,7 @@ pub fn render_current_instance_page(
             let players = state.host.social.instance_players.clone();
             if players.is_empty() {
                 ui.col(|ui| {
-                    ui.txt("No players in instance").sz(13.0).fg(TEXT_MUTED);
+                    ui.txt("No players in instance").sz(crate::theme::fs(13.0)).fg(TEXT_MUTED);
                 })
                 .center()
                 .grow(1.0);
@@ -749,7 +749,7 @@ pub fn render_current_instance_page(
                                                     .to_string();
                                                 ui.col(|ui| {
                                                     ui.txt(&init)
-                                                        .sz(16.0)
+                                                        .sz(crate::theme::fs(16.0))
                                                         .bold()
                                                         .align(TextAlign::Center)
                                                         .fg(accent);
@@ -764,7 +764,7 @@ pub fn render_current_instance_page(
 
                                             ui.col(|ui| {
                                                 ui.txt(&p.name)
-                                                    .sz(12.5)
+                                                    .sz(crate::theme::fs(12.5))
                                                     .semibold()
                                                     .fg(TEXT_PRIMARY)
                                                     .ellipsis();
@@ -780,7 +780,7 @@ pub fn render_current_instance_page(
                                                 } else {
                                                     p.rank.clone()
                                                 };
-                                                ui.txt(&sub).sz(10.5).fg(TEXT_MUTED).ellipsis();
+                                                ui.txt(&sub).sz(crate::theme::fs(10.5)).fg(TEXT_MUTED).ellipsis();
                                             })
                                             .gap(2.0)
                                             .grow(1.0);
@@ -841,7 +841,7 @@ pub fn render_messages_page(
         ui.row(|ui| {
             icons::icon(ui, icons::MAIL, 17.0).fg(accent);
             ui.txt(&format!("Messages & Invites ({})", state.host.notifications.len()))
-                .sz(15.0)
+                .sz(crate::theme::fs(15.0))
                 .bold()
                 .fg(TEXT_PRIMARY)
                 .grow(1.0);
@@ -858,7 +858,7 @@ pub fn render_messages_page(
                 if ui
                     .btn_with(&format!("mm_msg_f_{key}"), |ui| {
                         ui.txt(lbl)
-                            .sz(10.5)
+                            .sz(crate::theme::fs(10.5))
                             .semibold()
                             .align(TextAlign::Center)
                             .fg(if active { TEXT_PRIMARY } else { TEXT_MUTED })
@@ -912,7 +912,7 @@ pub fn render_messages_page(
                 ui.col(|ui| {
                     icons::icon(ui, icons::MAIL, 32.0).fg(TEXT_DIM);
                     ui.txt("No pending messages or invites")
-                        .sz(13.0)
+                        .sz(crate::theme::fs(13.0))
                         .semibold()
                         .fg(TEXT_MUTED);
                 })
@@ -926,12 +926,12 @@ pub fn render_messages_page(
                             ui.col(|ui| {
                                 ui.row(|ui| {
                                     ui.txt(&notif.title)
-                                        .sz(12.5)
+                                        .sz(crate::theme::fs(12.5))
                                         .bold()
                                         .fg(TEXT_PRIMARY);
                                     if !notif.category.is_empty() {
                                         ui.txt(&notif.category)
-                                            .sz(9.5)
+                                            .sz(crate::theme::fs(9.5))
                                             .fg(accent)
                                             .bg(tint_alpha(accent, 28))
                                             .px(6.0)
@@ -943,7 +943,7 @@ pub fn render_messages_page(
                                 .gap(7.0);
 
                                 if !notif.body.is_empty() {
-                                    ui.txt(&notif.body).sz(11.5).fg(TEXT_MUTED).wrap();
+                                    ui.txt(&notif.body).sz(crate::theme::fs(11.5)).fg(TEXT_MUTED).wrap();
                                 }
                             })
                             .gap(3.0)
@@ -954,7 +954,7 @@ pub fn render_messages_page(
                                     if ui
                                         .btn_with(&format!("mm_msg_b_{}", btn.id), |ui| {
                                             ui.txt(&btn.text)
-                                                .sz(11.0)
+                                                .sz(crate::theme::fs(11.0))
                                                 .semibold()
                                                 .fg(TEXT_PRIMARY);
                                         })
@@ -1042,7 +1042,7 @@ pub fn render_user_detail_view(
                 .btn_with("mm_ud_back", |ui| {
                     ui.row(|ui| {
                         icons::icon(ui, icons::BACK, 14.0).fg(TEXT_PRIMARY);
-                        ui.txt("Back").sz(11.5).semibold().fg(TEXT_PRIMARY);
+                        ui.txt("Back").sz(crate::theme::fs(11.5)).semibold().fg(TEXT_PRIMARY);
                     })
                     .center()
                     .gap(4.0);
@@ -1066,7 +1066,7 @@ pub fn render_user_detail_view(
             } else {
                 &detail.name
             })
-            .sz(15.0)
+            .sz(crate::theme::fs(15.0))
             .bold()
             .fg(TEXT_PRIMARY)
             .ellipsis()
@@ -1085,7 +1085,7 @@ pub fn render_user_detail_view(
             ui.col(|ui| {
                 icons::icon(ui, icons::AVATAR, 30.0).fg(accent);
                 ui.txt("Loading user profile...")
-                    .sz(13.0)
+                    .sz(crate::theme::fs(13.0))
                     .semibold()
                     .fg(TEXT_MUTED);
             })
@@ -1098,7 +1098,7 @@ pub fn render_user_detail_view(
             .shadow(14.0, SHADOW_CARD);
         } else if !detail.error.is_empty() {
             ui.col(|ui| {
-                ui.txt(&detail.error).sz(12.5).fg(AMBER).wrap();
+                ui.txt(&detail.error).sz(crate::theme::fs(12.5)).fg(AMBER).wrap();
             })
             .center()
             .grow(1.0)
@@ -1124,7 +1124,7 @@ pub fn render_user_detail_view(
                                 icons::icon(ui, ic, 12.5)
                                     .fg(if active { accent } else { TEXT_DIM });
                                 ui.txt(lbl)
-                                    .sz(11.0)
+                                    .sz(crate::theme::fs(11.0))
                                     .semibold()
                                     .fg(if active { TEXT_PRIMARY } else { TEXT_MUTED });
                             })
@@ -1174,7 +1174,7 @@ pub fn render_user_detail_view(
                     ui.col(|ui| {
                         icons::icon(ui, icons::STAR, 30.0).fg(TEXT_DIM);
                         ui.txt("No badges found for this user.")
-                            .sz(13.0)
+                            .sz(crate::theme::fs(13.0))
                             .semibold()
                             .fg(TEXT_MUTED);
                     })
@@ -1213,14 +1213,14 @@ pub fn render_user_detail_view(
                                         ui.col(|ui| {
                                             ui.row(|ui| {
                                                 ui.txt(&b.name)
-                                                    .sz(12.5)
+                                                    .sz(crate::theme::fs(12.5))
                                                     .bold()
                                                     .fg(TEXT_PRIMARY)
                                                     .ellipsis()
                                                     .grow(1.0);
                                                 if b.featured {
                                                     ui.txt("FEATURED")
-                                                        .sz(9.0)
+                                                        .sz(crate::theme::fs(9.0))
                                                         .bold()
                                                         .fg(EMERALD)
                                                         .bg(tint_alpha(EMERALD, 32))
@@ -1234,7 +1234,7 @@ pub fn render_user_detail_view(
 
                                             if !b.description.is_empty() {
                                                 ui.txt(&b.description)
-                                                    .sz(10.5)
+                                                    .sz(crate::theme::fs(10.5))
                                                     .fg(TEXT_MUTED)
                                                     .wrap();
                                             }
@@ -1251,7 +1251,7 @@ pub fn render_user_detail_view(
                                             if ui
                                                 .btn_with(&format!("mm_ud_feat_b_{}", b.id), |ui| {
                                                     ui.txt(btn_lbl)
-                                                        .sz(10.5)
+                                                        .sz(crate::theme::fs(10.5))
                                                         .semibold()
                                                         .fg(if b.featured {
                                                             TEXT_MUTED
@@ -1322,7 +1322,7 @@ pub fn render_user_detail_view(
                     ui.col(|ui| {
                         icons::icon(ui, icons::PLAYERS, 30.0).fg(TEXT_DIM);
                         ui.txt("No groups found for this user.")
-                            .sz(13.0)
+                            .sz(crate::theme::fs(13.0))
                             .semibold()
                             .fg(TEXT_MUTED);
                     })
@@ -1361,14 +1361,14 @@ pub fn render_user_detail_view(
                                         ui.col(|ui| {
                                             ui.row(|ui| {
                                                 ui.txt(&g.name)
-                                                    .sz(12.5)
+                                                    .sz(crate::theme::fs(12.5))
                                                     .bold()
                                                     .fg(TEXT_PRIMARY)
                                                     .ellipsis()
                                                     .grow(1.0);
                                                 if !g.tag.is_empty() {
                                                     ui.txt(&format!("[{}]", g.tag))
-                                                        .sz(9.5)
+                                                        .sz(crate::theme::fs(9.5))
                                                         .fg(accent)
                                                         .bg(tint_alpha(accent, 28))
                                                         .px(5.0)
@@ -1377,7 +1377,7 @@ pub fn render_user_detail_view(
                                                 }
                                                 if g.is_featured {
                                                     ui.txt("FEATURED")
-                                                        .sz(9.0)
+                                                        .sz(crate::theme::fs(9.0))
                                                         .bold()
                                                         .fg(EMERALD)
                                                         .bg(tint_alpha(EMERALD, 32))
@@ -1394,7 +1394,7 @@ pub fn render_user_detail_view(
                                                 "{role}  |  {} members",
                                                 g.member_count.max(1)
                                             ))
-                                            .sz(10.5)
+                                            .sz(crate::theme::fs(10.5))
                                             .fg(TEXT_MUTED);
                                         })
                                         .gap(2.5)
@@ -1406,7 +1406,7 @@ pub fn render_user_detail_view(
                                                     if ui
                                                         .btn_with(&format!("mm_ud_feat_g_{}", g.id), |ui| {
                                                             ui.txt("Feature")
-                                                                .sz(10.5)
+                                                                .sz(crate::theme::fs(10.5))
                                                                 .semibold()
                                                                 .fg(TEXT_PRIMARY);
                                                         })
@@ -1433,7 +1433,7 @@ pub fn render_user_detail_view(
                                                 if ui
                                                     .btn_with(&format!("mm_ud_open_g_{}", g.id), |ui| {
                                                         ui.txt(open_lbl)
-                                                            .sz(10.5)
+                                                            .sz(crate::theme::fs(10.5))
                                                             .semibold()
                                                             .fg(TEXT_PRIMARY);
                                                     })
@@ -1504,7 +1504,7 @@ pub fn render_user_detail_view(
                         ui.row(|ui| {
                             icons::icon(ui, icons::AVATAR, 14.0).fg(accent);
                             ui.txt("3D Avatar")
-                                .sz(12.0)
+                                .sz(crate::theme::fs(12.0))
                                 .semibold()
                                 .fg(TEXT_PRIMARY)
                                 .grow(1.0);
@@ -1565,7 +1565,7 @@ pub fn render_user_detail_view(
                                 .to_string();
                             ui.col(|ui| {
                                 ui.txt(&init)
-                                    .sz(26.0)
+                                    .sz(crate::theme::fs(26.0))
                                     .bold()
                                     .align(TextAlign::Center)
                                     .fg(ring);
@@ -1582,7 +1582,7 @@ pub fn render_user_detail_view(
                         ui.col(|ui| {
                             ui.row(|ui| {
                                 ui.txt(&detail.name)
-                                    .sz(18.0)
+                                    .sz(crate::theme::fs(18.0))
                                     .bold()
                                     .fg(TEXT_PRIMARY)
                                     .ellipsis()
@@ -1594,7 +1594,7 @@ pub fn render_user_detail_view(
                                             ui.row(|ui| {
                                                 icons::icon(ui, icons::STAR, 12.0).fg(accent);
                                                 ui.txt("Colors")
-                                                    .sz(10.5)
+                                                    .sz(crate::theme::fs(10.5))
                                                     .semibold()
                                                     .fg(TEXT_PRIMARY);
                                             })
@@ -1624,7 +1624,7 @@ pub fn render_user_detail_view(
                                     if ui
                                         .btn_with("mm_ud_edit_profile", |ui| {
                                             ui.txt(edit_lbl)
-                                                .sz(10.5)
+                                                .sz(crate::theme::fs(10.5))
                                                 .semibold()
                                                 .fg(TEXT_PRIMARY);
                                         })
@@ -1670,12 +1670,12 @@ pub fn render_user_detail_view(
                             if !detail.pronouns.is_empty() || crate::theme::is_special_rank(&detail.rank) {
                                 ui.row(|ui| {
                                     if !detail.pronouns.is_empty() {
-                                        ui.txt(&detail.pronouns).sz(11.0).fg(TEXT_MUTED);
+                                        ui.txt(&detail.pronouns).sz(crate::theme::fs(11.0)).fg(TEXT_MUTED);
                                     }
                                     if crate::theme::is_special_rank(&detail.rank) {
                                         ui.row(|ui| {
                                             ui.txt(&detail.rank)
-                                                .sz(10.0)
+                                                .sz(crate::theme::fs(10.0))
                                                 .semibold()
                                                 .fg(TEXT_PRIMARY);
                                         })
@@ -1703,7 +1703,7 @@ pub fn render_user_detail_view(
                                         icons::icon(ui, icons::STAR, 14.0).fg(accent);
                                     }
                                     ui.txt(&detail.featured_badge)
-                                        .sz(11.0)
+                                        .sz(crate::theme::fs(11.0))
                                         .fg(accent)
                                         .ellipsis();
                                 })
@@ -1724,7 +1724,7 @@ pub fn render_user_detail_view(
                                         icons::icon(ui, icons::PLAYERS, 14.0).fg(TEXT_MUTED);
                                     }
                                     ui.txt(&detail.featured_group)
-                                        .sz(11.0)
+                                        .sz(crate::theme::fs(11.0))
                                         .fg(TEXT_MUTED)
                                         .ellipsis();
                                 })
@@ -1750,13 +1750,13 @@ pub fn render_user_detail_view(
 
                         ui.row(|ui| {
                             ui.txt("Pronouns (max 32)")
-                                .sz(11.0)
+                                .sz(crate::theme::fs(11.0))
                                 .semibold()
                                 .fg(TEXT_MUTED)
                                 .grow(1.0);
                             if !detail.profile_status.is_empty() {
                                 ui.txt(&detail.profile_status)
-                                    .sz(10.0)
+                                    .sz(crate::theme::fs(10.0))
                                     .semibold()
                                     .fg(if detail.profile_status == "Saved" {
                                         EMERALD
@@ -1786,7 +1786,7 @@ pub fn render_user_detail_view(
                         }
 
                         ui.txt("Bio (max 512)")
-                            .sz(11.0)
+                            .sz(crate::theme::fs(11.0))
                             .semibold()
                             .fg(TEXT_MUTED);
 
@@ -1817,7 +1817,7 @@ pub fn render_user_detail_view(
                             if ui
                                 .btn_with("mm_prof_save", |ui| {
                                     ui.txt(save_lbl)
-                                        .sz(11.0)
+                                        .sz(crate::theme::fs(11.0))
                                         .bold()
                                         .align(TextAlign::Center)
                                         .fg(TEXT_PRIMARY)
@@ -1844,7 +1844,7 @@ pub fn render_user_detail_view(
                             if ui
                                 .btn_with("mm_prof_cancel", |ui| {
                                     ui.txt("Cancel")
-                                        .sz(11.0)
+                                        .sz(crate::theme::fs(11.0))
                                         .semibold()
                                         .align(TextAlign::Center)
                                         .fg(TEXT_MUTED)
@@ -1864,14 +1864,14 @@ pub fn render_user_detail_view(
                         })
                         .gap(6.0);
                     } else {
-                        ui.txt("Bio").sz(11.0).semibold().fg(TEXT_MUTED);
+                        ui.txt("Bio").sz(crate::theme::fs(11.0)).semibold().fg(TEXT_MUTED);
                         ui.scroll("mm_ud_bio_scroll", |ui| {
                             let bio = if detail.bio.trim().is_empty() {
                                 "No bio set."
                             } else {
                                 &detail.bio
                             };
-                            ui.txt(bio).sz(12.0).fg(TEXT_PRIMARY).wrap();
+                            ui.txt(bio).sz(crate::theme::fs(12.0)).fg(TEXT_PRIMARY).wrap();
                         })
                         .grow(1.0)
                         .p(9.0)
@@ -1889,10 +1889,10 @@ pub fn render_user_detail_view(
                         }
 
                         ui.row(|ui| {
-                            ui.txt("Notes").sz(11.0).semibold().fg(TEXT_MUTED).grow(1.0);
+                            ui.txt("Notes").sz(crate::theme::fs(11.0)).semibold().fg(TEXT_MUTED).grow(1.0);
                             if !detail.note_status.is_empty() {
                                 ui.txt(&detail.note_status)
-                                    .sz(10.0)
+                                    .sz(crate::theme::fs(10.0))
                                     .semibold()
                                     .fg(if detail.note_status == "Saved" {
                                         EMERALD
@@ -1927,7 +1927,7 @@ pub fn render_user_detail_view(
                                 if ui
                                     .btn_with("mm_ud_note_save", |ui| {
                                         ui.txt(if detail.note_saving { "Saving..." } else { "Save" })
-                                            .sz(11.0)
+                                            .sz(crate::theme::fs(11.0))
                                             .semibold()
                                             .fg(TEXT_PRIMARY);
                                     })
@@ -1957,7 +1957,7 @@ pub fn render_user_detail_view(
                                     &detail.note
                                 };
                                 ui.txt(note_txt)
-                                    .sz(11.0)
+                                    .sz(crate::theme::fs(11.0))
                                     .fg(TEXT_DIM)
                                     .wrap()
                                     .grow(1.0);
@@ -1993,7 +1993,7 @@ pub fn render_user_detail_view(
                         } else {
                             String::from("Offline")
                         };
-                        ui.txt(&status_lbl).sz(12.5).bold().fg(
+                        ui.txt(&status_lbl).sz(crate::theme::fs(12.5)).bold().fg(
                             if detail.online_state || detail.is_local {
                                 EMERALD
                             } else {
@@ -2003,7 +2003,7 @@ pub fn render_user_detail_view(
 
                         if !detail.world_name.is_empty() {
                             ui.txt(&format!("World: {}", detail.world_name))
-                                .sz(11.5)
+                                .sz(crate::theme::fs(11.5))
                                 .fg(TEXT_MUTED);
                         }
                         if !detail.avatar_name.is_empty() {
@@ -2033,11 +2033,11 @@ pub fn render_user_detail_view(
 
                                             ui.col(|ui| {
                                                 ui.txt("WORN AVATAR")
-                                                    .sz(8.5)
+                                                    .sz(crate::theme::fs(8.5))
                                                     .bold()
                                                     .fg(TEXT_DIM);
                                                 ui.txt(&detail.avatar_name)
-                                                    .sz(11.5)
+                                                    .sz(crate::theme::fs(11.5))
                                                     .semibold()
                                                     .fg(TEXT_PRIMARY)
                                                     .ellipsis();
@@ -2072,7 +2072,7 @@ pub fn render_user_detail_view(
                                 }
                             } else {
                                 ui.txt(&format!("Avatar: {}", detail.avatar_name))
-                                    .sz(11.5)
+                                    .sz(crate::theme::fs(11.5))
                                     .fg(TEXT_MUTED);
                             }
                         }
@@ -2082,7 +2082,7 @@ pub fn render_user_detail_view(
                             && ui
                                 .btn_with("mm_ud_join_inst", |ui| {
                                     ui.txt("Join Instance")
-                                        .sz(12.0)
+                                        .sz(crate::theme::fs(12.0))
                                         .bold()
                                         .align(TextAlign::Center)
                                         .fg(TEXT_PRIMARY)
@@ -2112,11 +2112,11 @@ pub fn render_user_detail_view(
                     if detail.is_local {
                         ui.col(|ui| {
                             ui.txt("Your Profile")
-                                .sz(12.5)
+                                .sz(crate::theme::fs(12.5))
                                 .bold()
                                 .fg(TEXT_PRIMARY);
                             ui.txt("Use the Badges and Groups tabs above to inspect or feature your ChilloutVR badges and groups.")
-                                .sz(11.0)
+                                .sz(crate::theme::fs(11.0))
                                 .fg(TEXT_MUTED)
                                 .wrap();
 
@@ -2129,7 +2129,7 @@ pub fn render_user_detail_view(
                                                 "Manage Badges ({})",
                                                 detail.badges.len()
                                             ))
-                                            .sz(11.0)
+                                            .sz(crate::theme::fs(11.0))
                                             .semibold()
                                             .fg(TEXT_PRIMARY);
                                         })
@@ -2157,7 +2157,7 @@ pub fn render_user_detail_view(
                                                 "Manage Groups ({})",
                                                 detail.groups.len()
                                             ))
-                                            .sz(11.0)
+                                            .sz(crate::theme::fs(11.0))
                                             .semibold()
                                             .fg(TEXT_PRIMARY);
                                         })
@@ -2189,13 +2189,13 @@ pub fn render_user_detail_view(
                     } else {
                         // Top Card: Actions (Invite, Request Invite, Voice Volume, Reload Avatar)
                         ui.col(|ui| {
-                            ui.txt("Actions").sz(12.5).bold().fg(TEXT_PRIMARY);
+                            ui.txt("Actions").sz(crate::theme::fs(12.5)).bold().fg(TEXT_PRIMARY);
 
                             ui.row(|ui| {
                                 if ui
                                     .btn_with("mm_ud_invite", |ui| {
                                         ui.txt("Invite")
-                                            .sz(11.5)
+                                            .sz(crate::theme::fs(11.5))
                                             .semibold()
                                             .align(TextAlign::Center)
                                             .fg(TEXT_PRIMARY)
@@ -2218,7 +2218,7 @@ pub fn render_user_detail_view(
                                 if ui
                                     .btn_with("mm_ud_req_inv", |ui| {
                                         ui.txt("Request Invite")
-                                            .sz(11.5)
+                                            .sz(crate::theme::fs(11.5))
                                             .semibold()
                                             .align(TextAlign::Center)
                                             .fg(TEXT_PRIMARY)
@@ -2242,7 +2242,7 @@ pub fn render_user_detail_view(
                                     && ui
                                         .btn_with("mm_ud_addfriend", |ui| {
                                             ui.txt("Add Friend")
-                                                .sz(11.0)
+                                                .sz(crate::theme::fs(11.0))
                                                 .semibold()
                                                 .align(TextAlign::Center)
                                                 .fg(TEXT_PRIMARY)
@@ -2281,7 +2281,7 @@ pub fn render_user_detail_view(
                                             )
                                             .fg(if detail.is_muted { RED } else { EMERALD });
                                             ui.txt(if detail.is_muted { "Muted" } else { "Mute" })
-                                                .sz(10.5)
+                                                .sz(crate::theme::fs(10.5))
                                                 .semibold()
                                                 .fg(TEXT_PRIMARY);
                                         })
@@ -2359,7 +2359,7 @@ pub fn render_user_detail_view(
                             if ui
                                 .btn_with("mm_ud_reload_av", |ui| {
                                     ui.txt("Reload Avatar")
-                                        .sz(10.5)
+                                        .sz(crate::theme::fs(10.5))
                                         .semibold()
                                         .align(TextAlign::Center)
                                         .fg(TEXT_PRIMARY)
@@ -2389,20 +2389,20 @@ pub fn render_user_detail_view(
                         // Bottom Card: Moderation & Safety (Avatar/Prop Visibility, Unfriend, Block, Kick)
                         ui.col(|ui| {
                             ui.txt("Moderation & Safety")
-                                .sz(12.5)
+                                .sz(crate::theme::fs(12.5))
                                 .bold()
                                 .fg(TEXT_PRIMARY);
 
                             // Avatar Visibility (Hide / Filter / Show)
                             ui.row(|ui| {
-                                ui.txt("Avatar").sz(10.0).fg(TEXT_MUTED).w(44.0);
+                                ui.txt("Avatar").sz(crate::theme::fs(10.0)).fg(TEXT_MUTED).w(44.0);
                                 for (mode, lbl) in [(0i32, "Hide"), (1i32, "Filter"), (2i32, "Show")]
                                 {
                                     let active = detail.avatar_visibility == mode;
                                     if ui
                                         .btn_with(&format!("mm_ud_avv_{mode}"), |ui| {
                                             ui.txt(lbl)
-                                                .sz(10.0)
+                                                .sz(crate::theme::fs(10.0))
                                                 .semibold()
                                                 .align(TextAlign::Center)
                                                 .fg(if active { TEXT_PRIMARY } else { TEXT_MUTED })
@@ -2440,14 +2440,14 @@ pub fn render_user_detail_view(
 
                             // Prop Visibility (Hide / Filter / Show)
                             ui.row(|ui| {
-                                ui.txt("Props").sz(10.0).fg(TEXT_MUTED).w(44.0);
+                                ui.txt("Props").sz(crate::theme::fs(10.0)).fg(TEXT_MUTED).w(44.0);
                                 for (mode, lbl) in [(0i32, "Hide"), (1i32, "Filter"), (2i32, "Show")]
                                 {
                                     let active = detail.prop_visibility == mode;
                                     if ui
                                         .btn_with(&format!("mm_ud_prv_{mode}"), |ui| {
                                             ui.txt(lbl)
-                                                .sz(10.0)
+                                                .sz(crate::theme::fs(10.0))
                                                 .semibold()
                                                 .align(TextAlign::Center)
                                                 .fg(if active { TEXT_PRIMARY } else { TEXT_MUTED })
@@ -2495,7 +2495,7 @@ pub fn render_user_detail_view(
                                             } else {
                                                 "Unfriend"
                                             })
-                                            .sz(10.5)
+                                            .sz(crate::theme::fs(10.5))
                                             .semibold()
                                             .align(TextAlign::Center)
                                             .fg(if unfriend_armed { TEXT_PRIMARY } else { AMBER })
@@ -2538,7 +2538,7 @@ pub fn render_user_detail_view(
                                 if ui
                                     .btn_with("mm_ud_block", |ui| {
                                         ui.txt(blk_lbl)
-                                            .sz(10.5)
+                                            .sz(crate::theme::fs(10.5))
                                             .semibold()
                                             .align(TextAlign::Center)
                                             .fg(if detail.is_blocked || block_armed {
@@ -2581,7 +2581,7 @@ pub fn render_user_detail_view(
                                         } else {
                                             "Kick"
                                         })
-                                        .sz(10.5)
+                                        .sz(crate::theme::fs(10.5))
                                         .semibold()
                                         .align(TextAlign::Center)
                                         .fg(if kick_armed { TEXT_PRIMARY } else { RED })
@@ -2656,7 +2656,7 @@ pub fn render_group_detail_view(
                 .btn_with("mm_gd_back", |ui| {
                     ui.row(|ui| {
                         icons::icon(ui, icons::BACK, 14.0).fg(TEXT_PRIMARY);
-                        ui.txt("Back").sz(11.5).semibold().fg(TEXT_PRIMARY);
+                        ui.txt("Back").sz(crate::theme::fs(11.5)).semibold().fg(TEXT_PRIMARY);
                     })
                     .center()
                     .gap(4.0);
@@ -2691,7 +2691,7 @@ pub fn render_group_detail_view(
                 } else {
                     &gd.name
                 };
-                ui.txt(title).sz(14.5).bold().fg(TEXT_PRIMARY).ellipsis();
+                ui.txt(title).sz(crate::theme::fs(14.5)).bold().fg(TEXT_PRIMARY).ellipsis();
 
                 let sub = format!(
                     "{} members{}",
@@ -2702,7 +2702,7 @@ pub fn render_group_detail_view(
                         format!("  |  Owner: {}", gd.owner_name)
                     }
                 );
-                ui.txt(&sub).sz(10.5).fg(TEXT_MUTED).ellipsis();
+                ui.txt(&sub).sz(crate::theme::fs(10.5)).fg(TEXT_MUTED).ellipsis();
             })
             .gap(1.0)
             .grow(1.0);
@@ -2720,7 +2720,7 @@ pub fn render_group_detail_view(
             ui.col(|ui| {
                 icons::icon(ui, icons::PLAYERS, 30.0).fg(accent);
                 ui.txt("Loading group details...")
-                    .sz(13.0)
+                    .sz(crate::theme::fs(13.0))
                     .semibold()
                     .fg(TEXT_MUTED);
             })
@@ -2740,7 +2740,7 @@ pub fn render_group_detail_view(
                             if !gd.tag.is_empty() {
                                 ui.row(|ui| {
                                     ui.txt(&format!("[{}]", gd.tag))
-                                        .sz(10.0)
+                                        .sz(crate::theme::fs(10.0))
                                         .semibold()
                                         .fg(TEXT_PRIMARY);
                                 })
@@ -2753,7 +2753,7 @@ pub fn render_group_detail_view(
                             if gd.is_owner {
                                 ui.row(|ui| {
                                     ui.txt("Owner")
-                                        .sz(10.0)
+                                        .sz(crate::theme::fs(10.0))
                                         .semibold()
                                         .fg(EMERALD);
                                 })
@@ -2768,7 +2768,7 @@ pub fn render_group_detail_view(
                             if gd.is_member && !gd.is_featured && !gd.id.is_empty() {
                                 if ui
                                     .btn_with("mm_gd_feature", |ui| {
-                                        ui.txt("Feature").sz(10.5).semibold().fg(TEXT_PRIMARY);
+                                        ui.txt("Feature").sz(crate::theme::fs(10.5)).semibold().fg(TEXT_PRIMARY);
                                     })
                                     .px(10.0)
                                     .py(5.0)
@@ -2795,7 +2795,7 @@ pub fn render_group_detail_view(
                                         } else {
                                             "Leave Group"
                                         })
-                                        .sz(10.5)
+                                        .sz(crate::theme::fs(10.5))
                                         .semibold()
                                         .fg(if leave_armed { TEXT_PRIMARY } else { AMBER });
                                     })
@@ -2835,7 +2835,7 @@ pub fn render_group_detail_view(
                                         } else {
                                             "Delete Group"
                                         })
-                                        .sz(10.5)
+                                        .sz(crate::theme::fs(10.5))
                                         .semibold()
                                         .fg(if del_armed { TEXT_PRIMARY } else { RED });
                                     })
@@ -2870,7 +2870,7 @@ pub fn render_group_detail_view(
                     }
                     if !gd.status_msg.is_empty() {
                         ui.txt(&gd.status_msg)
-                            .sz(11.0)
+                            .sz(crate::theme::fs(11.0))
                             .semibold()
                             .fg(EMERALD)
                             .bg(tint_alpha(EMERALD, 28))
@@ -2880,7 +2880,7 @@ pub fn render_group_detail_view(
                     }
                     if !gd.error.is_empty() {
                         ui.txt(&gd.error)
-                            .sz(11.0)
+                            .sz(crate::theme::fs(11.0))
                             .semibold()
                             .fg(AMBER)
                             .bg(tint_alpha(AMBER, 28))
@@ -2892,11 +2892,11 @@ pub fn render_group_detail_view(
 
                     if gd.is_owner {
                         ui.txt("Manage Group")
-                            .sz(13.0)
+                            .sz(crate::theme::fs(13.0))
                             .bold()
                             .fg(TEXT_PRIMARY);
 
-                        ui.txt("Group Name").sz(10.5).semibold().fg(TEXT_MUTED);
+                        ui.txt("Group Name").sz(crate::theme::fs(10.5)).semibold().fg(TEXT_MUTED);
                         ui.row(|ui| {
                             let mut name_inp = ui
                                 .input("mm_grp_name_input", &mut state.main_menu.group_name_input)
@@ -2918,7 +2918,7 @@ pub fn render_group_detail_view(
                             if ui
                                 .btn_with("mm_gd_save_name", |ui| {
                                     ui.txt(if gd.saving { "Saving..." } else { "Save Name" })
-                                        .sz(10.5)
+                                        .sz(crate::theme::fs(10.5))
                                         .bold()
                                         .fg(TEXT_PRIMARY);
                                 })
@@ -2945,7 +2945,7 @@ pub fn render_group_detail_view(
                         .gap(6.0);
 
                         ui.txt("Description")
-                            .sz(10.5)
+                            .sz(crate::theme::fs(10.5))
                             .semibold()
                             .fg(TEXT_MUTED)
                             .pt(4.0);
@@ -2975,7 +2975,7 @@ pub fn render_group_detail_view(
                                     } else {
                                         "Save Description"
                                     })
-                                    .sz(11.0)
+                                    .sz(crate::theme::fs(11.0))
                                     .bold()
                                     .align(TextAlign::Center)
                                     .fg(TEXT_PRIMARY)
@@ -3000,7 +3000,7 @@ pub fn render_group_detail_view(
                         .gap(6.0);
                     } else {
                         ui.txt("About Group")
-                            .sz(13.0)
+                            .sz(crate::theme::fs(13.0))
                             .bold()
                             .fg(TEXT_PRIMARY);
                         ui.scroll("mm_gd_desc_ro", |ui| {
@@ -3009,7 +3009,7 @@ pub fn render_group_detail_view(
                             } else {
                                 &gd.description
                             };
-                            ui.txt(desc).sz(12.0).fg(TEXT_PRIMARY).wrap();
+                            ui.txt(desc).sz(crate::theme::fs(12.0)).fg(TEXT_PRIMARY).wrap();
                         })
                         .grow(1.0)
                         .p(9.0)
@@ -3031,14 +3031,14 @@ pub fn render_group_detail_view(
                 // Right: Members List
                 ui.col(|ui| {
                     ui.txt(&format!("Members ({})", gd.members.len()))
-                        .sz(13.0)
+                        .sz(crate::theme::fs(13.0))
                         .bold()
                         .fg(TEXT_PRIMARY);
 
                     if gd.members.is_empty() {
                         ui.col(|ui| {
                             icons::icon(ui, icons::PLAYERS, 26.0).fg(TEXT_DIM);
-                            ui.txt("No members loaded.").sz(12.0).fg(TEXT_MUTED);
+                            ui.txt("No members loaded.").sz(crate::theme::fs(12.0)).fg(TEXT_MUTED);
                         })
                         .center()
                         .grow(1.0)
@@ -3068,7 +3068,7 @@ pub fn render_group_detail_view(
                                                         .to_string();
                                                     ui.col(|ui| {
                                                         ui.txt(&init)
-                                                            .sz(13.0)
+                                                            .sz(crate::theme::fs(13.0))
                                                             .bold()
                                                             .align(TextAlign::Center)
                                                             .fg(accent);
@@ -3084,12 +3084,12 @@ pub fn render_group_detail_view(
 
                                                 ui.col(|ui| {
                                                     ui.txt(&m.name)
-                                                        .sz(12.0)
+                                                        .sz(crate::theme::fs(12.0))
                                                         .semibold()
                                                         .fg(TEXT_PRIMARY)
                                                         .ellipsis();
                                                     if !m.role.is_empty() {
-                                                        ui.txt(&m.role).sz(10.0).fg(TEXT_MUTED);
+                                                        ui.txt(&m.role).sz(crate::theme::fs(10.0)).fg(TEXT_MUTED);
                                                     }
                                                 })
                                                 .gap(1.0)
@@ -3123,7 +3123,7 @@ pub fn render_group_detail_view(
                                         if ui
                                             .btn_with(&format!("mm_gd_kick_{}", m.id), |ui| {
                                                 ui.txt(if armed { "Confirm?" } else { "Kick" })
-                                                    .sz(10.0)
+                                                    .sz(crate::theme::fs(10.0))
                                                     .semibold()
                                                     .fg(if armed { TEXT_PRIMARY } else { RED });
                                             })
