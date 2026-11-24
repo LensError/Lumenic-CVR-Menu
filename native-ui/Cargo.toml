@@ -1,12 +1,20 @@
 [package]
 name = "lumenic_cvr_ui"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2021"
 description = "Lumenic native offscreen UI library for ChilloutVR (LumenicMenu)"
 
 [lib]
 name = "lumenic_cvr_ui"
 crate-type = ["cdylib", "rlib"]
+
+[features]
+demo = []
+
+[[bin]]
+name = "demo"
+path = "src/bin/demo.rs"
+required-features = ["demo"]
 
 [dependencies]
 lumenic = { git = "https://github.com/LensError/Lumenic", default-features = false, features = ["clipboard"] }

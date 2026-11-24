@@ -402,6 +402,7 @@ internal sealed class UiLibBridge
         if (GetBoolField(ElementDisabledField, el))
             return;
 
+        LumenicMenuMod.Instance?.ClearSurfaceFocus(NativeBridge.SurfaceQuick);
         QuickMenuAPI.OpenKeyboard(ti.Text ?? string.Empty, s =>
         {
             InvokeModCallback($"TextInput({elementId})", () => TextInputTextProp?.SetValue(ti, s ?? string.Empty));
@@ -931,6 +932,38 @@ internal sealed class UiLibBridge
         }
     }
 
+    private static FieldInfo _btkButtonOnHeldField;
+    private static bool _btkButtonOnHeldResolved;
+
+    // BTKUILib's Button shim unconditionally attaches a forwarding lambda to QMInteractable.OnHeld,
+    // so check the wrapper's own OnHeld delegate to avoid flagging every BTKUILib button as holdable.
+    private static bool HasRealHoldHandler(QMInteractable inter)
+    {
+        Action onHeld = inter?.OnHeld;
+        if (onHeld == null)
+            return false;
+
+        foreach (Delegate d in onHeld.GetInvocationList())
+        {
+            object target = d.Target;
+            if (target != null && target.GetType().FullName == "BTKUILib.UIObjects.Components.Button")
+            {
+                if (!_btkButtonOnHeldResolved)
+                {
+                    _btkButtonOnHeldField = AccessTools.Field(target.GetType(), "OnHeld");
+                    _btkButtonOnHeldResolved = true;
+                }
+                if (_btkButtonOnHeldField?.GetValue(target) is Delegate btkHeld && btkHeld != null)
+                    return true;
+                continue;
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
     private object BuildElementDto(QMUIElement el, string modName, ImageLoaderService images)
     {
         string id = GetElementKey(el);
@@ -938,7 +971,7 @@ internal sealed class UiLibBridge
 
         bool disabled = GetBoolField(ElementDisabledField, el);
         int colSpan = GetIntField(ElementColumnCountField, el, -1);
-        bool hasHold = el is QMInteractable inter && inter.OnHeld != null;
+        bool hasHold = el is QMInteractable inter && HasRealHoldHandler(inter);
 
         switch (el)
         {

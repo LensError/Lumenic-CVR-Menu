@@ -49,7 +49,10 @@ pub fn render_uix_mod_settings(
                 .btn_with("mm_uix_back", |ui| {
                     ui.row(|ui| {
                         icons::icon(ui, icons::BACK, 14.0).fg(TEXT_PRIMARY);
-                        ui.txt("Home").sz(11.5).semibold().fg(TEXT_PRIMARY);
+                        ui.txt(crate::main_menu::back_button_label(state, "Home"))
+                            .sz(11.5)
+                            .semibold()
+                            .fg(TEXT_PRIMARY);
                     })
                     .center()
                     .gap(5.0);
@@ -63,7 +66,7 @@ pub fn render_uix_mod_settings(
                 .clicked()
             {
                 push_click(actions);
-                state.main_menu.active_tab = String::from("home");
+                crate::main_menu::nav_go_back(state, "home", actions);
             }
 
             icons::icon(ui, icons::PUZZLE, 16.0).fg(accent);

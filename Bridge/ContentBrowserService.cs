@@ -266,11 +266,11 @@ internal sealed class ContentBrowserService
                 return;
             if (string.IsNullOrEmpty(st.CategoryKey))
             {
-                List<CategoryDto> cats = GetCategoriesFor(kind);
-                if (cats.Count > 0)
+                CategoryDto defCat = PickDefaultCategory(kind, GetCategoriesFor(kind));
+                if (defCat != null)
                 {
-                    st.CategoryKey = cats[0].Key;
-                    st.IsSystem = cats[0].IsSystem;
+                    st.CategoryKey = defCat.Key;
+                    st.IsSystem = defCat.IsSystem;
                 }
             }
             catKey = st.CategoryKey;
@@ -1489,11 +1489,11 @@ internal sealed class ContentBrowserService
                         if (st.Loading) return;
                         if (string.IsNullOrEmpty(st.CategoryKey))
                         {
-                            List<CategoryDto> catList = GetCategoriesFor(initialKind);
-                            if (catList.Count > 0)
+                            CategoryDto defCat = PickDefaultCategory(initialKind, GetCategoriesFor(initialKind));
+                            if (defCat != null)
                             {
-                                st.CategoryKey = catList[0].Key;
-                                st.IsSystem = catList[0].IsSystem;
+                                st.CategoryKey = defCat.Key;
+                                st.IsSystem = defCat.IsSystem;
                             }
                         }
                         catKey = st.CategoryKey;
@@ -1895,6 +1895,47 @@ internal sealed class ContentBrowserService
             "props" => _props,
             _ => null
         };
+    }
+
+    private static CategoryDto PickDefaultCategory(string kind, List<CategoryDto> cats)
+    {
+        if (cats == null || cats.Count == 0)
+            return null;
+
+        string[] preferredKeys = kind switch
+        {
+            "worlds" => new[] { "wrldactive", "wrldpopular", "wrldtrending", "wrldnew" },
+            "avatars" => new[] { "avtrmine", "avtrpublic" },
+            "props" => new[] { "propmine", "prop_mine", "proppublic", "prop_public" },
+            _ => Array.Empty<string>()
+        };
+
+        foreach (string key in preferredKeys)
+        {
+            CategoryDto match = cats.FirstOrDefault(c =>
+                string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase));
+            if (match != null)
+                return match;
+        }
+
+        string[] preferredNames = kind switch
+        {
+            "worlds" => new[] { "active", "popular", "trending", "new" },
+            "avatars" => new[] { "my avatars", "public" },
+            "props" => new[] { "my props", "public" },
+            _ => Array.Empty<string>()
+        };
+
+        foreach (string name in preferredNames)
+        {
+            CategoryDto match = cats.FirstOrDefault(c =>
+                c.IsSystem && !string.IsNullOrEmpty(c.Name)
+                && c.Name.IndexOf(name, StringComparison.OrdinalIgnoreCase) >= 0);
+            if (match != null)
+                return match;
+        }
+
+        return cats.FirstOrDefault(c => c.IsSystem) ?? cats[0];
     }
 
     private List<CategoryDto> GetCategoriesFor(string kind)

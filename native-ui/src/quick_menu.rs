@@ -1182,8 +1182,8 @@ fn render_home_center(
                             .clicked()
                         {
                             state.quick.go_home_confirm = false;
-                            state.main_menu.active_tab = String::from(page);
                             push_click(actions);
+                            crate::main_menu::nav_reset_to_tab(state, page, actions);
                             actions.push(UiAction::OpenMainMenuPage {
                                 page: String::from(page),
                             });
@@ -1222,8 +1222,8 @@ fn render_home_center(
                             .clicked()
                         {
                             state.quick.go_home_confirm = false;
-                            state.main_menu.active_tab = String::from(page);
                             push_click(actions);
+                            crate::main_menu::nav_reset_to_tab(state, page, actions);
                             actions.push(UiAction::OpenMainMenuPage {
                                 page: String::from(page),
                             });
@@ -1982,6 +1982,7 @@ fn render_qm_world_instance_modal(
                             {
                                 push_click(actions);
                                 state.quick.qm_world_modal = None;
+                                state.main_menu.nav_history.clear();
                                 state.main_menu.active_tab = String::from("worlds");
                                 actions.push(UiAction::QmOpenWorldDetails {
                                     world_id: String::from(world_id),

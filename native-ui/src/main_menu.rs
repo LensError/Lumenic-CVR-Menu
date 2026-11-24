@@ -1,12 +1,222 @@
 use lumenic::{App, Color, ImageFit, TextAlign, UiContext};
 
 use crate::icons;
-use crate::state::{AppState, UiAction};
+use crate::state::{AppState, MainNavEntry, UiAction};
 use crate::theme::{
     push_click, resolve_player_accent, tint_alpha, AMBER, BG_GLOW_FRAG as MM_BG_GLOW_FRAG,
     BORDER_SUBTLE, CARD_BG, CARD_INNER_BG, EMERALD, RED, SHADOW_CARD, TEXT_DIM, TEXT_MUTED,
     TEXT_PRIMARY, TILE_DISABLED_BG, TILE_IDLE_BG, TILE_IDLE_HOVER,
 };
+
+const MAX_NAV_HISTORY: usize = 24;
+
+pub fn current_nav_entry(state: &AppState) -> MainNavEntry {
+    let tab = state.main_menu.active_tab.clone();
+    match tab.as_str() {
+        "friends" | "currentInstance" | "messages" => {
+            if let Some(gd) = &state.host.social.group_detail {
+                if !gd.id.is_empty() {
+                    return MainNavEntry::GroupDetail {
+                        tab,
+                        group_id: gd.id.clone(),
+                    };
+                }
+            }
+            if let Some(ud) = &state.host.social.user_detail {
+                if !ud.id.is_empty() {
+                    return MainNavEntry::UserDetail {
+                        tab,
+                        user_id: ud.id.clone(),
+                        detail_tab: state.main_menu.user_detail_tab,
+                    };
+                }
+            }
+            MainNavEntry::Tab(tab)
+        }
+        "worlds" | "avatars" | "props" | "discover" | "search" => {
+            if let Some(inst) = &state.host.content.instance_detail {
+                if !inst.id.is_empty() {
+                    return MainNavEntry::InstanceDetail {
+                        tab,
+                        instance_id: inst.id.clone(),
+                    };
+                }
+            }
+            if let Some(det) = &state.host.content.detail {
+                if !det.id.is_empty() {
+                    return MainNavEntry::ContentDetail {
+                        tab,
+                        kind: det.kind.clone(),
+                        id: det.id.clone(),
+                    };
+                }
+            }
+            if let Some(gd) = &state.host.social.group_detail {
+                if !gd.id.is_empty() {
+                    return MainNavEntry::GroupDetail {
+                        tab,
+                        group_id: gd.id.clone(),
+                    };
+                }
+            }
+            if let Some(ud) = &state.host.social.user_detail {
+                if !ud.id.is_empty() {
+                    return MainNavEntry::UserDetail {
+                        tab,
+                        user_id: ud.id.clone(),
+                        detail_tab: state.main_menu.user_detail_tab,
+                    };
+                }
+            }
+            MainNavEntry::Tab(tab)
+        }
+        _ => MainNavEntry::Tab(tab),
+    }
+}
+
+pub fn push_nav_history(state: &mut AppState) {
+    let entry = current_nav_entry(state);
+    if state.main_menu.nav_history.last() != Some(&entry) {
+        state.main_menu.nav_history.push(entry);
+        if state.main_menu.nav_history.len() > MAX_NAV_HISTORY {
+            state.main_menu.nav_history.remove(0);
+        }
+    }
+}
+
+pub fn close_all_detail_overlays(actions: &mut Vec<UiAction>) {
+    actions.push(UiAction::ContentCloseDetail);
+    actions.push(UiAction::ContentCloseInstanceDetail);
+    actions.push(UiAction::SocialCloseUserDetail);
+    actions.push(UiAction::SocialCloseGroupDetail);
+}
+
+pub fn nav_reset_to_tab(state: &mut AppState, tab: &str, actions: &mut Vec<UiAction>) {
+    state.main_menu.nav_history.clear();
+    state.main_menu.quit_confirm = false;
+    state.main_menu.go_home_confirm = false;
+    state.main_menu.aas_profile_edit_mode = false;
+    state.main_menu.safety_confirm_action.clear();
+    state.main_menu.group_edit_id.clear();
+    state.main_menu.active_tab = String::from(tab);
+    close_all_detail_overlays(actions);
+
+    if tab == "worlds" || tab == "avatars" || tab == "props" {
+        state.main_menu.browser_local_filter.set_text("");
+        let list = match tab {
+            "worlds" => &state.host.content.worlds,
+            "avatars" => &state.host.content.avatars,
+            _ => &state.host.content.props,
+        };
+        if !list.loaded_once && !list.loading {
+            state.main_menu.cb_auto_loaded.insert(String::from(tab));
+            actions.push(UiAction::ContentLoadList {
+                kind: String::from(tab),
+                category_key: list.category_key.clone(),
+                is_system: list.is_system,
+                page: 0,
+                sort_order: list.sort_order,
+                ascending: list.ascending,
+            });
+        }
+    } else if tab == "discover"
+        && !state.host.content.discover_loaded
+        && !state.host.content.discover_loading
+        && state.host.content.discover_error.is_empty()
+    {
+        actions.push(UiAction::ContentLoadDiscover);
+    }
+}
+
+pub fn nav_go_back(state: &mut AppState, fallback_tab: &str, actions: &mut Vec<UiAction>) {
+    state.main_menu.aas_profile_edit_mode = false;
+    state.main_menu.safety_confirm_action.clear();
+    state.main_menu.group_edit_id.clear();
+
+    match state.main_menu.nav_history.pop() {
+        Some(MainNavEntry::Tab(tab)) => {
+            state.main_menu.active_tab = tab;
+            close_all_detail_overlays(actions);
+        }
+        Some(MainNavEntry::ContentDetail { tab, kind, id }) => {
+            state.main_menu.active_tab = tab;
+            actions.push(UiAction::ContentCloseInstanceDetail);
+            actions.push(UiAction::SocialCloseUserDetail);
+            actions.push(UiAction::SocialCloseGroupDetail);
+            let already_loaded = state
+                .host
+                .content
+                .detail
+                .as_ref()
+                .is_some_and(|d| d.kind == kind && d.id == id);
+            if !already_loaded {
+                actions.push(UiAction::ContentLoadDetail { kind, id });
+            }
+        }
+        Some(MainNavEntry::InstanceDetail { tab, instance_id }) => {
+            state.main_menu.active_tab = tab;
+            actions.push(UiAction::ContentCloseDetail);
+            actions.push(UiAction::SocialCloseUserDetail);
+            actions.push(UiAction::SocialCloseGroupDetail);
+            let already_loaded = state
+                .host
+                .content
+                .instance_detail
+                .as_ref()
+                .is_some_and(|i| i.id == instance_id);
+            if !already_loaded {
+                actions.push(UiAction::ContentLoadInstanceDetail { instance_id });
+            }
+        }
+        Some(MainNavEntry::UserDetail {
+            tab,
+            user_id,
+            detail_tab,
+        }) => {
+            state.main_menu.active_tab = tab;
+            state.main_menu.user_detail_tab = detail_tab;
+            actions.push(UiAction::ContentCloseDetail);
+            actions.push(UiAction::ContentCloseInstanceDetail);
+            actions.push(UiAction::SocialCloseGroupDetail);
+            let already_loaded = state
+                .host
+                .social
+                .user_detail
+                .as_ref()
+                .is_some_and(|u| u.id == user_id);
+            if !already_loaded {
+                actions.push(UiAction::SocialLoadUserDetail { user_id });
+            }
+        }
+        Some(MainNavEntry::GroupDetail { tab, group_id }) => {
+            state.main_menu.active_tab = tab;
+            actions.push(UiAction::ContentCloseDetail);
+            actions.push(UiAction::ContentCloseInstanceDetail);
+            actions.push(UiAction::SocialCloseUserDetail);
+            let already_loaded = state
+                .host
+                .social
+                .group_detail
+                .as_ref()
+                .is_some_and(|g| g.id == group_id);
+            if !already_loaded {
+                actions.push(UiAction::SocialLoadGroupDetail { group_id });
+            }
+        }
+        None => {
+            state.main_menu.active_tab = String::from(fallback_tab);
+            close_all_detail_overlays(actions);
+        }
+    }
+}
+
+pub fn back_button_label(state: &AppState, fallback: &'static str) -> &'static str {
+    if state.main_menu.nav_history.is_empty() {
+        fallback
+    } else {
+        "Back"
+    }
+}
 
 #[allow(clippy::too_many_arguments)]
 fn util_tile(
@@ -121,6 +331,7 @@ pub fn render_main_menu(
     if state.host.nav_seq != state.main_menu.last_nav_seq {
         state.main_menu.last_nav_seq = state.host.nav_seq;
         if !state.host.nav_tab.is_empty() {
+            state.main_menu.nav_history.clear();
             state.main_menu.active_tab = state.host.nav_tab.clone();
         }
     }
@@ -427,8 +638,10 @@ fn render_home_dashboard(
                 {
                     push_click(actions);
                     if !state.host.user_id.is_empty() {
+                        push_nav_history(state);
                         state.main_menu.user_detail_tab = 0;
                         state.main_menu.active_tab = String::from("friends");
+                        close_all_detail_overlays(actions);
                         actions.push(UiAction::SocialLoadUserDetail {
                             user_id: state.host.user_id.clone(),
                         });
@@ -462,8 +675,10 @@ fn render_home_dashboard(
                         {
                             push_click(actions);
                             if !state.host.user_id.is_empty() {
+                                push_nav_history(state);
                                 state.main_menu.user_detail_tab = tab_idx;
                                 state.main_menu.active_tab = String::from("friends");
+                                close_all_detail_overlays(actions);
                                 actions.push(UiAction::SocialLoadUserDetail {
                                     user_id: state.host.user_id.clone(),
                                 });
@@ -706,7 +921,9 @@ fn render_home_dashboard(
                         .clicked()
                     {
                         push_click(actions);
+                        push_nav_history(state);
                         state.main_menu.active_tab = String::from("currentInstance");
+                        close_all_detail_overlays(actions);
                     }
                 }
             })
@@ -775,6 +992,7 @@ fn render_home_dashboard(
                             .py(28.0)
                             .gap(5.0);
                         } else {
+                            let mut open_friend_id: Option<String> = None;
                             for fr in &state.host.online_friends {
                                 let btn_id = format!("mm_fr_{}", fr.id);
                                 if ui
@@ -817,13 +1035,16 @@ fn render_home_dashboard(
                                     .bevel_rounded(6.0, 1.3)
                                     .clicked()
                                 {
-                                    push_click(actions);
-                                    state.main_menu.user_detail_tab = 0;
-                                    state.main_menu.active_tab = String::from("friends");
-                                    actions.push(UiAction::SocialLoadUserDetail {
-                                        user_id: fr.id.clone(),
-                                    });
+                                    open_friend_id = Some(fr.id.clone());
                                 }
+                            }
+                            if let Some(uid) = open_friend_id {
+                                push_click(actions);
+                                push_nav_history(state);
+                                state.main_menu.user_detail_tab = 0;
+                                state.main_menu.active_tab = String::from("friends");
+                                close_all_detail_overlays(actions);
+                                actions.push(UiAction::SocialLoadUserDetail { user_id: uid });
                             }
                         }
                     } else if state.host.active_worlds.is_empty() {
@@ -839,6 +1060,7 @@ fn render_home_dashboard(
                         .py(28.0)
                         .gap(5.0);
                     } else {
+                        let mut open_world_id: Option<String> = None;
                         for w in &state.host.active_worlds {
                             let btn_id = format!("mm_aw_{}", w.id);
                             if ui
@@ -883,13 +1105,18 @@ fn render_home_dashboard(
                                 .bevel_rounded(6.0, 1.3)
                                 .clicked()
                             {
-                                push_click(actions);
-                                state.main_menu.active_tab = String::from("worlds");
-                                actions.push(UiAction::ContentLoadDetail {
-                                    kind: String::from("world"),
-                                    id: w.id.clone(),
-                                });
+                                open_world_id = Some(w.id.clone());
                             }
+                        }
+                        if let Some(wid) = open_world_id {
+                            push_click(actions);
+                            push_nav_history(state);
+                            state.main_menu.active_tab = String::from("worlds");
+                            close_all_detail_overlays(actions);
+                            actions.push(UiAction::ContentLoadDetail {
+                                kind: String::from("world"),
+                                id: wid,
+                            });
                         }
                     }
                 })
@@ -953,11 +1180,12 @@ fn render_home_dashboard(
                 if submitted || go_clicked {
                     let q = state.main_menu.search_input.text();
                     if !q.trim().is_empty() {
+                        push_nav_history(state);
                         state.main_menu.last_search = q.clone();
                         state.main_menu.active_tab = String::from("search");
                         state.main_menu.search_filter_kind = String::from("all");
                         push_click(actions);
-                        actions.push(UiAction::ContentCloseDetail);
+                        close_all_detail_overlays(actions);
                         actions.push(UiAction::ContentGlobalSearch { query: q });
                     }
                 }
@@ -1122,7 +1350,9 @@ fn render_home_dashboard(
                     .clicked()
                 {
                     push_click(actions);
+                    push_nav_history(state);
                     state.main_menu.active_tab = String::from("currentInstance");
+                    close_all_detail_overlays(actions);
                 }
 
                 // 2. Split Clear Button: Top = Remove All Avatars | Bottom = Remove All Props
@@ -1567,8 +1797,10 @@ fn render_home_dashboard(
                                         "respawn" => actions.push(UiAction::Respawn),
                                         "camera" => actions.push(UiAction::ToggleCamera),
                                         "advav" => {
+                                            push_nav_history(state);
                                             state.main_menu.active_tab =
                                                 String::from("avatarSettings");
+                                            close_all_detail_overlays(actions);
                                         }
                                         "chat" => actions.push(UiAction::OpenTextChat),
                                         "cursor" => actions.push(UiAction::ToggleCursorLock),
@@ -1583,8 +1815,10 @@ fn render_home_dashboard(
                                         }
                                         "fbt" => actions.push(UiAction::ToggleFullBody),
                                         _ => {
+                                            push_nav_history(state);
                                             state.main_menu.active_tab =
                                                 String::from("modSettings");
+                                            close_all_detail_overlays(actions);
                                             actions.push(UiAction::RefreshUixSettings);
                                         }
                                     }
@@ -1751,32 +1985,8 @@ fn render_bottom_dock(
                     state.main_menu.active_tab == tab_id,
                     accent,
                 ) {
-                    state.main_menu.quit_confirm = false;
-                    state.main_menu.go_home_confirm = false;
                     push_click(actions);
-                    state.main_menu.active_tab = String::from(tab_id);
-                    actions.push(UiAction::SocialCloseUserDetail);
-                    actions.push(UiAction::SocialCloseGroupDetail);
-                    actions.push(UiAction::ContentCloseInstanceDetail);
-                    if tab_id == "worlds" || tab_id == "avatars" || tab_id == "props" {
-                        state.main_menu.browser_local_filter.set_text("");
-                        actions.push(UiAction::ContentCloseDetail);
-                        let list = match tab_id {
-                            "worlds" => &state.host.content.worlds,
-                            "avatars" => &state.host.content.avatars,
-                            _ => &state.host.content.props,
-                        };
-                        if !list.loaded_once && !list.loading {
-                            actions.push(UiAction::ContentLoadList {
-                                kind: String::from(tab_id),
-                                category_key: list.category_key.clone(),
-                                is_system: list.is_system,
-                                page: 0,
-                                sort_order: list.sort_order,
-                                ascending: list.ascending,
-                            });
-                        }
-                    }
+                    nav_reset_to_tab(state, tab_id, actions);
                 }
             }
         })
@@ -1836,22 +2046,8 @@ fn render_bottom_dock(
                     state.main_menu.active_tab == tab_id,
                     accent,
                 ) {
-                    state.main_menu.quit_confirm = false;
-                    state.main_menu.go_home_confirm = false;
                     push_click(actions);
-                    state.main_menu.active_tab = String::from(tab_id);
-                    actions.push(UiAction::SocialCloseUserDetail);
-                    actions.push(UiAction::SocialCloseGroupDetail);
-                    actions.push(UiAction::ContentCloseInstanceDetail);
-                    if tab_id == "discover" {
-                        actions.push(UiAction::ContentCloseDetail);
-                        if !state.host.content.discover_loaded
-                            && !state.host.content.discover_loading
-                            && state.host.content.discover_error.is_empty()
-                        {
-                            actions.push(UiAction::ContentLoadDiscover);
-                        }
-                    }
+                    nav_reset_to_tab(state, tab_id, actions);
                 }
             }
 
@@ -2058,7 +2254,9 @@ fn render_game_instance_info_modal(
                         {
                             push_click(actions);
                             state.main_menu.info_modal_open = false;
+                            push_nav_history(state);
                             state.main_menu.active_tab = String::from("currentInstance");
+                            close_all_detail_overlays(actions);
                         }
                     })
                     .w(420.0)

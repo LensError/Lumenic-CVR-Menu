@@ -9,6 +9,7 @@ using ABI_RC.Core.Player;
 using ABI_RC.Core.Savior;
 using ABI_RC.Core.UI;
 using ABI_RC.Core.UI.UIRework;
+using ABI_RC.Core.UI.UIRework.Managers;
 using ABI_RC.Systems.ContentClones;
 using ABI_RC.Systems.GameEventSystem;
 using ABI_RC.Systems.InputManagement;
@@ -458,6 +459,11 @@ internal static class GameEvents
             if (!mod.IsLumenicActiveFor(__instance.cohtmlView, out uint surfaceId))
                 return true;
 
+            // Never forward keyboard events to Lumenic while CVR's in-game virtual keyboard is open;
+            // otherwise Space/Enter re-activates the focused button behind it and resets the keyboard text.
+            if (KeyboardManager.Instance != null && KeyboardManager.Instance.IsViewShown)
+                return false;
+
             if (eventData != null && eventData.Type == KeyEventData.EventType.KeyDown)
             {
                 uint mods = VkKeyMapper.PackModifiers(eventData.Modifiers);
@@ -485,6 +491,9 @@ internal static class GameEvents
 
             if (!mod.IsLumenicActiveFor(__instance.cohtmlView, out uint surfaceId))
                 return true;
+
+            if (KeyboardManager.Instance != null && KeyboardManager.Instance.IsViewShown)
+                return false;
 
             // Route printable characters only via OnCharEvent -> Lumenic on_ime_commit.
             if (character >= 0x20 && character != 0x7F)
@@ -744,8 +753,14 @@ internal static class GameEvents
             string tab = MapVanillaPageToLumenicTab(category);
             if (!string.IsNullOrEmpty(tab))
             {
-                if (tab == "friends") mod.Social?.CloseUserDetail();
-                else if (tab == "worlds" || tab == "avatars" || tab == "props") mod.Content?.CloseDetail();
+                mod.Social?.CloseUserDetail();
+                mod.Social?.CloseGroupDetail();
+                mod.Content?.CloseDetail();
+                mod.Content?.CloseInstanceDetail();
+                if (tab == "worlds" || tab == "avatars" || tab == "props")
+                {
+                    mod.Content?.EnsureCategoriesAndLoad(tab);
+                }
                 mod.NavigateMainMenuTab(tab);
             }
         }

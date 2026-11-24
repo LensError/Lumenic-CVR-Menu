@@ -1,4 +1,4 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 use lumenic::{App, TextEditState, TextureId};
 use serde::{Deserialize, Serialize};
@@ -846,9 +846,33 @@ impl Default for HostStateSnapshot {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum MainNavEntry {
+    Tab(String),
+    ContentDetail {
+        tab: String,
+        kind: String,
+        id: String,
+    },
+    InstanceDetail {
+        tab: String,
+        instance_id: String,
+    },
+    UserDetail {
+        tab: String,
+        user_id: String,
+        detail_tab: usize,
+    },
+    GroupDetail {
+        tab: String,
+        group_id: String,
+    },
+}
+
 /// Local UI state for the Phase 3A Main Menu Shell & Home Dashboard.
 pub struct MainMenuState {
     pub active_tab: String,
+    pub nav_history: Vec<MainNavEntry>,
     pub info_tab: usize,    // 0 = Game Info, 1 = Instance Info
     pub info_modal_open: bool,
     pub leaflet_tab: usize, // 0 = Online Friends, 1 = Active Worlds
@@ -868,6 +892,7 @@ pub struct MainMenuState {
     pub browser_local_filter: TextEditState,
     pub cb_last_revisions: HashMap<String, i32>,
     pub cb_load_more_requested_page: HashMap<String, (i32, i32)>,
+    pub cb_auto_loaded: HashSet<String>,
     pub search_filter_kind: String,
     pub create_inst_privacy: String,
     pub create_inst_region: String,
@@ -901,6 +926,7 @@ impl Default for MainMenuState {
     fn default() -> Self {
         Self {
             active_tab: String::from("home"),
+            nav_history: Vec::new(),
             info_tab: 0,
             info_modal_open: false,
             leaflet_tab: 0,
@@ -920,6 +946,7 @@ impl Default for MainMenuState {
             browser_local_filter: TextEditState::new(),
             cb_last_revisions: HashMap::new(),
             cb_load_more_requested_page: HashMap::new(),
+            cb_auto_loaded: HashSet::new(),
             search_filter_kind: String::from("all"),
             create_inst_privacy: String::from("Friends"),
             create_inst_region: String::from("Eu"),

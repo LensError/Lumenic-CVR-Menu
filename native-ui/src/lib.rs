@@ -888,9 +888,12 @@ pub unsafe extern "C" fn lumenic_cvr_commit_virtual_keyboard(
                 hnd.state.main_menu.last_search = String::from(text);
                 let trimmed = text.trim();
                 if !trimmed.is_empty() {
+                    if hnd.state.main_menu.active_tab != "search" {
+                        crate::main_menu::push_nav_history(&mut hnd.state);
+                    }
                     hnd.state.main_menu.active_tab = String::from("search");
                     hnd.state.main_menu.search_filter_kind = String::from("all");
-                    hnd.actions.push(UiAction::ContentCloseDetail);
+                    crate::main_menu::close_all_detail_overlays(&mut hnd.actions);
                     hnd.actions.push(UiAction::ContentGlobalSearch {
                         query: String::from(trimmed),
                     });

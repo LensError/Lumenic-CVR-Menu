@@ -193,8 +193,7 @@ pub fn render_avatar_settings_page(
                     .clicked()
                 {
                     push_click(actions);
-                    state.main_menu.aas_profile_edit_mode = false;
-                    state.main_menu.active_tab = String::from("home");
+                    crate::main_menu::nav_go_back(state, "home", actions);
                 }
 
                 ui.txt("Avatar Preview")

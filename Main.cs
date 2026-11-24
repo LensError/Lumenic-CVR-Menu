@@ -18,7 +18,7 @@ using LumenicMenu.Native;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(LumenicMenu.LumenicMenuMod), "LumenicMenu", "0.2.1", "LensError")]
+[assembly: MelonInfo(typeof(LumenicMenu.LumenicMenuMod), "LumenicMenu", "0.2.2", "LensError")]
 [assembly: MelonGame(null, "ChilloutVR")]
 
 namespace LumenicMenu;
@@ -398,8 +398,19 @@ public sealed class LumenicMenuMod : MelonMod
         _bridge.PointerUp(surfaceId, 0);
     }
 
+    internal void ClearSurfaceFocus(uint surfaceId)
+    {
+        if (_bridge != null && _bridge.IsHealthy)
+        {
+            _bridge.ClearFocus(surfaceId);
+        }
+    }
+
     internal void HandleKeyDown(uint surfaceId, int vkCode, uint modFlags)
     {
+        if (KeyboardManager.Instance != null && KeyboardManager.Instance.IsViewShown)
+            return;
+
         MenuSurfaceHost surf = GetSurface(surfaceId);
         if (surf == null || _bridge == null || !_bridge.IsHealthy)
             return;
@@ -413,6 +424,9 @@ public sealed class LumenicMenuMod : MelonMod
 
     internal void HandleCharInput(uint surfaceId, char character)
     {
+        if (KeyboardManager.Instance != null && KeyboardManager.Instance.IsViewShown)
+            return;
+
         MenuSurfaceHost surf = GetSurface(surfaceId);
         if (surf == null || _bridge == null || !_bridge.IsHealthy)
             return;

@@ -1,7 +1,7 @@
 {
   "_id": -1,
   "name": "LumenicMenu",
-  "modversion": "0.2.1",
+  "modversion": "0.2.2",
   "gameversion": "2026r183",
   "loaderversion": "0.7.2",
   "modtype": "Mod",
@@ -19,6 +19,6 @@
   "requirements": [],
   "downloadlink": "https://github.com/LensError/Lumenic-CVR-Menu/releases/latest/download/LumenicMenu.dll",
   "sourcelink": "https://github.com/LensError/Lumenic-CVR-Menu",
-  "changelog": "Initial release.",
+  "changelog": "Fix UILib Right-click Hold false positives on BTKUILib buttons, add Main Menu navigation history stack and root-tab resets, auto-select default content categories, and block Lumenic keyboard forwarding while the in-game virtual keyboard is open.",
   "embedcolor": "#321D71"
 }

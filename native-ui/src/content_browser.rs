@@ -38,6 +38,10 @@ pub fn render_content_browser(
         render_detail_view(ui, state, &detail, accent, actions);
         return;
     }
+    if let Some(gd) = state.host.social.group_detail.clone() {
+        crate::social_view::render_group_detail_view(ui, state, &gd, accent, actions);
+        return;
+    }
     if let Some(user_detail) = state.host.social.user_detail.clone() {
         crate::social_view::render_user_detail_view(ui, state, &user_detail, accent, actions);
         return;
@@ -57,6 +61,23 @@ pub fn render_content_browser(
             state.host.content.props.clone(),
         ),
     };
+
+    // Auto-select & load default category on first visit regardless of entry path (QM, Home, Back, etc.).
+    if !list.loaded_once && !list.loading && list.error.is_empty() {
+        if !state.main_menu.cb_auto_loaded.contains(tab_id) {
+            state.main_menu.cb_auto_loaded.insert(String::from(tab_id));
+            actions.push(UiAction::ContentLoadList {
+                kind: String::from(tab_id),
+                category_key: list.category_key.clone(),
+                is_system: list.is_system,
+                page: 0,
+                sort_order: list.sort_order,
+                ascending: list.ascending,
+            });
+        }
+    } else if list.loaded_once {
+        state.main_menu.cb_auto_loaded.remove(tab_id);
+    }
 
     ui.col(|ui| {
         // =====================================================================
@@ -513,6 +534,14 @@ pub fn render_discover_page(
         render_detail_view(ui, state, &detail, accent, actions);
         return;
     }
+    if let Some(gd) = state.host.social.group_detail.clone() {
+        crate::social_view::render_group_detail_view(ui, state, &gd, accent, actions);
+        return;
+    }
+    if let Some(user_detail) = state.host.social.user_detail.clone() {
+        crate::social_view::render_user_detail_view(ui, state, &user_detail, accent, actions);
+        return;
+    }
 
     if !state.host.content.discover_loaded
         && !state.host.content.discover_loading
@@ -731,19 +760,26 @@ pub fn render_global_search_view(
         render_detail_view(ui, state, &detail, accent, actions);
         return;
     }
+    if let Some(gd) = state.host.social.group_detail.clone() {
+        crate::social_view::render_group_detail_view(ui, state, &gd, accent, actions);
+        return;
+    }
     if let Some(user_detail) = state.host.social.user_detail.clone() {
         crate::social_view::render_user_detail_view(ui, state, &user_detail, accent, actions);
         return;
     }
 
     ui.col(|ui| {
-        // Top search bar + Back to Home
+        // Top search bar + Back
         ui.row(|ui| {
             if ui
                 .btn_with("mm_srch_back", |ui| {
                     ui.row(|ui| {
                         icons::icon(ui, icons::BACK, 14.0).fg(TEXT_PRIMARY);
-                        ui.txt("Home").sz(11.5).semibold().fg(TEXT_PRIMARY);
+                        ui.txt(crate::main_menu::back_button_label(state, "Home"))
+                            .sz(11.5)
+                            .semibold()
+                            .fg(TEXT_PRIMARY);
                     })
                     .center()
                     .gap(4.0);
@@ -757,7 +793,7 @@ pub fn render_global_search_view(
                 .clicked()
             {
                 push_click(actions);
-                state.main_menu.active_tab = String::from("home");
+                crate::main_menu::nav_go_back(state, "home", actions);
             }
 
             icons::icon(ui, icons::SEARCH, 15.0).fg(accent);
@@ -989,7 +1025,7 @@ fn render_category_btn(
 #[allow(clippy::too_many_arguments)]
 fn render_content_card(
     ui: &mut UiContext,
-    state: &AppState,
+    state: &mut AppState,
     item: &ContentCardItem,
     detail_kind: &str,
     fallback_icon: &str,
@@ -1057,7 +1093,9 @@ fn render_content_card(
         .clicked()
     {
         push_click(actions);
+        crate::main_menu::push_nav_history(state);
         if detail_kind == "user" {
+            state.main_menu.user_detail_tab = 0;
             actions.push(UiAction::SocialLoadUserDetail {
                 user_id: item.id.clone(),
             });
@@ -1104,7 +1142,8 @@ fn render_detail_view(
                 .clicked()
             {
                 push_click(actions);
-                actions.push(UiAction::ContentCloseDetail);
+                let fallback = state.main_menu.active_tab.clone();
+                crate::main_menu::nav_go_back(state, &fallback, actions);
             }
 
             icons::icon(ui, icon_p, 16.0).fg(accent);
@@ -1196,6 +1235,7 @@ fn render_detail_view(
                         .clicked()
                     {
                         push_click(actions);
+                        crate::main_menu::push_nav_history(state);
                         actions.push(UiAction::ContentCloseDetail);
                         actions.push(UiAction::SocialLoadUserDetail {
                             user_id: detail.author_id.clone(),
@@ -1381,6 +1421,7 @@ fn render_detail_view(
                                     .clicked()
                             {
                                 push_click(actions);
+                                crate::main_menu::push_nav_history(state);
                                 actions.push(UiAction::ContentCloseDetail);
                                 state.main_menu.active_tab = String::from("avatarSettings");
                             }
@@ -1507,6 +1548,7 @@ fn render_detail_view(
                             && !detail.author_id.is_empty()
                         {
                             push_click(actions);
+                            crate::main_menu::push_nav_history(state);
                             state.main_menu.user_detail_tab = 0;
                             actions.push(UiAction::ContentCloseDetail);
                             actions.push(UiAction::SocialLoadUserDetail {
@@ -1964,6 +2006,7 @@ fn render_detail_view(
                             && !detail.author_id.is_empty()
                         {
                             push_click(actions);
+                            crate::main_menu::push_nav_history(state);
                             state.main_menu.user_detail_tab = 0;
                             actions.push(UiAction::ContentCloseDetail);
                             actions.push(UiAction::SocialLoadUserDetail {
@@ -2474,6 +2517,7 @@ fn render_detail_view(
                                                 .clicked()
                                             {
                                                 push_click(actions);
+                                                crate::main_menu::push_nav_history(state);
                                                 actions.push(UiAction::ContentLoadInstanceDetail {
                                                     instance_id: inst.id.clone(),
                                                 });
@@ -2604,7 +2648,8 @@ fn render_instance_detail_view(
                 .clicked()
             {
                 push_click(actions);
-                actions.push(UiAction::ContentCloseInstanceDetail);
+                let fallback = state.main_menu.active_tab.clone();
+                crate::main_menu::nav_go_back(state, &fallback, actions);
             }
 
             icons::icon(ui, icons::INSTANCE, 17.0).fg(accent);
@@ -2757,6 +2802,7 @@ fn render_instance_detail_view(
                                     && !inst.world_author_id.is_empty()
                                 {
                                     push_click(actions);
+                                    crate::main_menu::push_nav_history(state);
                                     state.main_menu.user_detail_tab = 0;
                                     actions.push(UiAction::ContentCloseInstanceDetail);
                                     actions.push(UiAction::ContentCloseDetail);
@@ -2791,6 +2837,7 @@ fn render_instance_detail_view(
                                 .clicked()
                         {
                             push_click(actions);
+                            crate::main_menu::push_nav_history(state);
                             actions.push(UiAction::ContentCloseInstanceDetail);
                             actions.push(UiAction::ContentLoadDetail {
                                 kind: String::from("world"),
@@ -2892,6 +2939,7 @@ fn render_instance_detail_view(
                             && !inst.owner_id.is_empty()
                         {
                             push_click(actions);
+                            crate::main_menu::push_nav_history(state);
                             state.main_menu.user_detail_tab = 0;
                             actions.push(UiAction::ContentCloseInstanceDetail);
                             actions.push(UiAction::ContentCloseDetail);
@@ -2946,6 +2994,7 @@ fn render_instance_detail_view(
                             .clicked()
                         {
                             push_click(actions);
+                            crate::main_menu::push_nav_history(state);
                             actions.push(UiAction::ContentCloseInstanceDetail);
                             actions.push(UiAction::ContentCloseDetail);
                             actions.push(UiAction::SocialLoadGroupDetail {
@@ -3138,6 +3187,7 @@ fn render_instance_detail_view(
                                         .clicked()
                                     {
                                         push_click(actions);
+                                        crate::main_menu::push_nav_history(state);
                                         state.main_menu.user_detail_tab = 0;
                                         actions.push(UiAction::ContentCloseInstanceDetail);
                                         actions.push(UiAction::ContentCloseDetail);

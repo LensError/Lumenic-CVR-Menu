@@ -418,6 +418,7 @@ fn render_recent_user_card(
         .clicked()
     {
         push_click(actions);
+        crate::main_menu::push_nav_history(state);
         state.main_menu.user_detail_tab = 0;
         actions.push(UiAction::SocialLoadUserDetail {
             user_id: u.id.clone(),
@@ -504,6 +505,7 @@ fn render_friend_card(
             .clicked()
         {
             push_click(actions);
+            crate::main_menu::push_nav_history(state);
             state.main_menu.user_detail_tab = 0;
             actions.push(UiAction::SocialLoadUserDetail {
                 user_id: fr.id.clone(),
@@ -610,19 +612,19 @@ pub fn render_current_instance_page(
     }
 
     let world = if state.host.world_name.is_empty() {
-        "Local World"
+        String::from("Local World")
     } else {
-        &state.host.world_name
+        state.host.world_name.clone()
     };
     let inst = if state.host.instance_name.is_empty() {
-        "Local Instance"
+        String::from("Local Instance")
     } else {
-        &state.host.instance_name
+        state.host.instance_name.clone()
     };
     let privacy = if state.host.instance_privacy.is_empty() {
-        "Unknown"
+        String::from("Unknown")
     } else {
-        &state.host.instance_privacy
+        state.host.instance_privacy.clone()
     };
 
     ui.col(|ui| {
@@ -632,7 +634,10 @@ pub fn render_current_instance_page(
                 .btn_with("mm_ci_back_home", |ui| {
                     ui.row(|ui| {
                         icons::icon(ui, icons::BACK, 14.0).fg(TEXT_PRIMARY);
-                        ui.txt("Home").sz(11.5).semibold().fg(TEXT_PRIMARY);
+                        ui.txt(crate::main_menu::back_button_label(state, "Home"))
+                            .sz(11.5)
+                            .semibold()
+                            .fg(TEXT_PRIMARY);
                     })
                     .center()
                     .gap(4.0);
@@ -646,12 +651,12 @@ pub fn render_current_instance_page(
                 .clicked()
             {
                 push_click(actions);
-                state.main_menu.active_tab = String::from("home");
+                crate::main_menu::nav_go_back(state, "home", actions);
             }
 
             icons::icon(ui, icons::INSTANCE, 17.0).fg(accent);
             ui.col(|ui| {
-                ui.txt(inst).sz(14.5).bold().fg(TEXT_PRIMARY).ellipsis();
+                ui.txt(&inst).sz(14.5).bold().fg(TEXT_PRIMARY).ellipsis();
                 ui.txt(&format!("{world}  |  {privacy}"))
                     .sz(11.0)
                     .fg(TEXT_MUTED)
@@ -788,6 +793,7 @@ pub fn render_current_instance_page(
                                     .clicked()
                                 {
                                     push_click(actions);
+                                    crate::main_menu::push_nav_history(state);
                                     state.main_menu.user_detail_tab = 0;
                                     actions.push(UiAction::SocialLoadUserDetail {
                                         user_id: p.id.clone(),
@@ -1046,7 +1052,8 @@ pub fn render_user_detail_view(
                 .clicked()
             {
                 push_click(actions);
-                actions.push(UiAction::SocialCloseUserDetail);
+                let fallback = state.main_menu.active_tab.clone();
+                crate::main_menu::nav_go_back(state, &fallback, actions);
             }
 
             icons::icon(ui, icons::AVATAR, 16.0).fg(accent);
@@ -1447,6 +1454,7 @@ pub fn render_user_detail_view(
                                                     .clicked()
                                                 {
                                                     push_click(actions);
+                                                    crate::main_menu::push_nav_history(state);
                                                     state.main_menu.safety_confirm_action.clear();
                                                     actions.push(UiAction::SocialLoadGroupDetail {
                                                         group_id: g.id.clone(),
@@ -1818,7 +1826,10 @@ pub fn render_user_detail_view(
                                     .clicked()
                                 {
                                     push_click(actions);
+                                    crate::main_menu::push_nav_history(state);
                                     state.main_menu.active_tab = String::from("avatars");
+                                    actions.push(UiAction::SocialCloseUserDetail);
+                                    actions.push(UiAction::SocialCloseGroupDetail);
                                     actions.push(UiAction::ContentLoadDetail {
                                         kind: String::from("avatar"),
                                         id: detail.avatar_id.clone(),
@@ -2352,9 +2363,8 @@ pub fn render_group_detail_view(
                 .clicked()
             {
                 push_click(actions);
-                state.main_menu.safety_confirm_action.clear();
-                state.main_menu.group_edit_id.clear();
-                actions.push(UiAction::SocialCloseGroupDetail);
+                let fallback = state.main_menu.active_tab.clone();
+                crate::main_menu::nav_go_back(state, &fallback, actions);
             }
 
             if let Some(tex) = state.main_textures.get(&gd.image_key) {
@@ -2763,6 +2773,7 @@ pub fn render_group_detail_view(
                                         .clicked()
                                     {
                                         push_click(actions);
+                                        crate::main_menu::push_nav_history(state);
                                         state.main_menu.user_detail_tab = 0;
                                         state.main_menu.group_edit_id.clear();
                                         actions.push(UiAction::SocialCloseGroupDetail);

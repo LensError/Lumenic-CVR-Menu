@@ -465,7 +465,9 @@ pub fn render_settings_page(
                     .clicked()
             {
                 push_click(actions);
+                crate::main_menu::push_nav_history(state);
                 state.main_menu.active_tab = String::from("modSettings");
+                crate::main_menu::close_all_detail_overlays(actions);
                 actions.push(UiAction::RefreshUixSettings);
             }
         })

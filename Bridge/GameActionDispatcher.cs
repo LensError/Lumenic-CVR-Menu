@@ -167,6 +167,14 @@ internal static class GameActionDispatcher
             {
                 string page = obj.Value<string>("page") ?? "home";
                 CVR_MenuManager.Instance?.ToggleQuickMenu(show: false);
+                mod.Content?.CloseDetail();
+                mod.Content?.CloseInstanceDetail();
+                mod.Social?.CloseUserDetail();
+                mod.Social?.CloseGroupDetail();
+                if (page == "worlds" || page == "avatars" || page == "props")
+                {
+                    mod.Content?.EnsureCategoriesAndLoad(page);
+                }
                 mod.NavigateMainMenuTab(page);
                 if (ViewManager.Instance != null)
                 {
@@ -331,6 +339,7 @@ internal static class GameActionDispatcher
                         ? KeyboardManager.OpenSource.QuickMenu
                         : KeyboardManager.OpenSource.MainMenu;
 
+                    mod.ClearSurfaceFocus(surfaceId);
                     KeyboardManager.Instance.ShowKeyboard(
                         initialText,
                         submitted => mod.CommitVirtualKeyboard(surfaceId, fieldId, submitted ?? string.Empty),
