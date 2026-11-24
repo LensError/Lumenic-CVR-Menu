@@ -1153,7 +1153,7 @@ pub fn render_ext_node(
                 set_hovered_tooltip(state, surface_name, &node.tooltip);
             }
             if state.host.is_vr && clicked && !node.disabled {
-                let field_id = format!("ext:{surface_name}:{ext_id}:{target_id}:{local_id}");
+                let field_id = format!("ext|{surface_name}|{ext_id}|{target_id}|{local_id}");
                 actions.push(UiAction::OpenVirtualKeyboard {
                     surface_id: if surface_name == "main" { 0 } else { 1 },
                     field_id,

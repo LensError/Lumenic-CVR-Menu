@@ -942,9 +942,10 @@ pub unsafe extern "C" fn lumenic_cvr_commit_virtual_keyboard(
                 }
                 hnd.state.main_menu.aas_new_profile_input = lumenic::TextEditState::new();
             }
-            other if other.starts_with("ext:") => {
-                // Format: ext:<surface>:<ext_id>:<target_id>:<node_id>
-                let parts: Vec<&str> = other.splitn(5, ':').collect();
+            other if other.starts_with("ext|") => {
+                // Format: ext|<surface>|<ext_id>|<target_id>|<node_id>
+                // Uses '|' instead of ':' because hub ext_ids contain ':' (e.g. "hub:lumenic.mods").
+                let parts: Vec<&str> = other.splitn(5, '|').collect();
                 if parts.len() == 5 {
                     let widget_id = format!(
                         "ext_{}_{}_{}_{}",
