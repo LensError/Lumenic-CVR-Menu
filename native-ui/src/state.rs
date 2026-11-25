@@ -804,6 +804,8 @@ pub struct HostStateSnapshot {
     pub mm_height: u32,
     pub qm_width: u32,
     pub qm_height: u32,
+    #[serde(default)]
+    pub mm_open_seq: u32,
     pub mm_step_ms: f32,
     pub mm_readback_ms: f32,
     pub mm_upload_ms: f32,
@@ -887,6 +889,7 @@ impl Default for HostStateSnapshot {
             audio_voice: 100,
             audio_video_player: 100,
             nav_seq: 0,
+            mm_open_seq: 0,
             nav_tab: String::new(),
             accent_r: 34,
             accent_g: 34,
@@ -993,6 +996,7 @@ pub struct ActiveDropdown {
 /// Local UI state for the Phase 3A Main Menu Shell & Home Dashboard.
 pub struct MainMenuState {
     pub active_tab: String,
+    pub last_open_seq: u32,
     pub nav_history: Vec<MainNavEntry>,
     pub info_tab: usize,    // 0 = Game Info, 1 = Instance Info
     pub info_modal_open: bool,
@@ -1057,6 +1061,7 @@ impl Default for MainMenuState {
     fn default() -> Self {
         Self {
             active_tab: String::from("home"),
+            last_open_seq: 0,
             nav_history: Vec::new(),
             info_tab: 0,
             info_modal_open: false,
@@ -1516,6 +1521,10 @@ pub enum UiAction {
 
     // Phase 3D Settings & Discover actions
     ContentLoadDiscover,
+    ContentRefreshIfStale {
+        kind: String,
+    },
+    SocialEnsureHomeFeeds,
     CvrSetBool {
         key: String,
         value: bool,

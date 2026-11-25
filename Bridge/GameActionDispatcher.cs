@@ -1016,6 +1016,14 @@ internal static class GameActionDispatcher
                 mod.Content?.LoadDiscover();
                 break;
 
+            case "ContentRefreshIfStale":
+                mod.Content?.RefreshIfStale(obj.Value<string>("kind") ?? "worlds");
+                break;
+
+            case "SocialEnsureHomeFeeds":
+                mod.Social?.EnsureHomeFeedsLoaded();
+                break;
+
             case "CvrSetBool":
                 SettingsBridge.SetBool(
                     obj.Value<string>("key"),

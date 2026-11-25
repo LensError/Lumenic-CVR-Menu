@@ -25,7 +25,7 @@ namespace LumenicMenu;
 
 public sealed class LumenicMenuMod : MelonMod
 {
-    public const string ModVersion = "0.3.1";
+    public const string ModVersion = "0.3.2";
     private const string InputLockReason = "LumenicMenu";
 
     public static LumenicMenuMod Instance { get; private set; }
@@ -56,6 +56,7 @@ public sealed class LumenicMenuMod : MelonMod
     private string _lastPushedStateJson = string.Empty;
     private float _lastTelemetryPollTime = -10f;
     private float _lastDynamicUiPollTime = -10f;
+    private float _lastSocialLivePollTime = -10f;
     private int _lastTelFps = int.MinValue;
     private int _lastTelGamePing = int.MinValue;
     private int _lastTelVoicePing = int.MinValue;
@@ -71,6 +72,7 @@ public sealed class LumenicMenuMod : MelonMod
     private int _pendingVanillaPageFrames;
 
     internal uint NavSeq { get; private set; }
+    internal uint MmOpenSeq { get; private set; }
     internal string NavTab { get; private set; } = string.Empty;
     internal bool SuppressVanillaNavHook { get; set; }
     internal bool IsBridgeHealthy => _bridge != null && _bridge.IsHealthy;
@@ -217,6 +219,15 @@ public sealed class LumenicMenuMod : MelonMod
         {
             _lastDynamicUiPollTime = Time.unscaledTime;
             _stateDirty = true;
+        }
+
+        if (mainShownNow && (Time.unscaledTime - _lastSocialLivePollTime) >= 2.0f)
+        {
+            _lastSocialLivePollTime = Time.unscaledTime;
+            if (Social != null && Social.HasLiveFriendsChanged())
+            {
+                _stateDirty = true;
+            }
         }
 
         bool anyActions = false;
@@ -468,6 +479,7 @@ public sealed class LumenicMenuMod : MelonMod
     {
         if (surfaceId == NativeBridge.SurfaceMain)
         {
+            MmOpenSeq++;
             SettingsBridge.InvalidateCache();
         }
         GetSurface(surfaceId)?.RequestForceRedraw();
@@ -483,25 +495,43 @@ public sealed class LumenicMenuMod : MelonMod
         SetKeyboardInputLock(false);
     }
 
+    private bool TryGetActiveOverlayTarget(uint surfaceId, out string target)
+    {
+        if (surfaceId == NativeBridge.SurfaceMain)
+        {
+            ViewManager vm = ViewManager.Instance;
+            if (vm != null
+                && vm.IsViewShown
+                && IsLumenicActiveFor(vm.cohtmlView, vm, NativeBridge.SurfaceMain)
+                && _mainSurface != null
+                && _mainSurface.IsLiveOverlayActive)
+            {
+                target = _mainPreviewTarget;
+                return true;
+            }
+        }
+        else
+        {
+            CVR_MenuManager qm = CVR_MenuManager.Instance;
+            if (qm != null
+                && qm.IsViewShown
+                && IsLumenicActiveFor(qm.cohtmlView, qm, NativeBridge.SurfaceQuick)
+                && _quickSurface != null
+                && _quickSurface.IsLiveOverlayActive)
+            {
+                target = _quickPreviewTarget;
+                return true;
+            }
+        }
+
+        target = null;
+        return false;
+    }
+
     internal bool ShouldRenderAvatarPreview()
     {
-        ViewManager vm = ViewManager.Instance;
-        bool mainWants = vm != null
-            && vm.IsViewShown
-            && IsLumenicActiveFor(vm.cohtmlView, vm, NativeBridge.SurfaceMain)
-            && _mainSurface != null
-            && _mainSurface.IsLiveOverlayActive
-            && PlayerPreviewRig.IsLocalTarget(_mainPreviewTarget);
-
-        CVR_MenuManager qm = CVR_MenuManager.Instance;
-        bool quickWants = qm != null
-            && qm.IsViewShown
-            && IsLumenicActiveFor(qm.cohtmlView, qm, NativeBridge.SurfaceQuick)
-            && _quickSurface != null
-            && _quickSurface.IsLiveOverlayActive
-            && PlayerPreviewRig.IsLocalTarget(_quickPreviewTarget);
-
-        return mainWants || quickWants;
+        return (TryGetActiveOverlayTarget(NativeBridge.SurfaceMain, out string mmTarget) && PlayerPreviewRig.IsLocalTarget(mmTarget))
+            || (TryGetActiveOverlayTarget(NativeBridge.SurfaceQuick, out string qmTarget) && PlayerPreviewRig.IsLocalTarget(qmTarget));
     }
 
     private static bool IsWorldPanoTarget(string target)
@@ -511,28 +541,18 @@ public sealed class LumenicMenuMod : MelonMod
 
     private string GetActiveRemotePreviewTarget()
     {
-        ViewManager vm = ViewManager.Instance;
-        if (vm != null
-            && vm.IsViewShown
-            && IsLumenicActiveFor(vm.cohtmlView, vm, NativeBridge.SurfaceMain)
-            && _mainSurface != null
-            && _mainSurface.IsLiveOverlayActive
-            && !PlayerPreviewRig.IsLocalTarget(_mainPreviewTarget)
-            && !IsWorldPanoTarget(_mainPreviewTarget))
+        if (TryGetActiveOverlayTarget(NativeBridge.SurfaceMain, out string mmTarget)
+            && !PlayerPreviewRig.IsLocalTarget(mmTarget)
+            && !IsWorldPanoTarget(mmTarget))
         {
-            return _mainPreviewTarget;
+            return mmTarget;
         }
 
-        CVR_MenuManager qm = CVR_MenuManager.Instance;
-        if (qm != null
-            && qm.IsViewShown
-            && IsLumenicActiveFor(qm.cohtmlView, qm, NativeBridge.SurfaceQuick)
-            && _quickSurface != null
-            && _quickSurface.IsLiveOverlayActive
-            && !PlayerPreviewRig.IsLocalTarget(_quickPreviewTarget)
-            && !IsWorldPanoTarget(_quickPreviewTarget))
+        if (TryGetActiveOverlayTarget(NativeBridge.SurfaceQuick, out string qmTarget)
+            && !PlayerPreviewRig.IsLocalTarget(qmTarget)
+            && !IsWorldPanoTarget(qmTarget))
         {
-            return _quickPreviewTarget;
+            return qmTarget;
         }
 
         return null;
@@ -540,15 +560,9 @@ public sealed class LumenicMenuMod : MelonMod
 
     private string GetActiveWorldPanoUrl()
     {
-        ViewManager vm = ViewManager.Instance;
-        if (vm != null
-            && vm.IsViewShown
-            && IsLumenicActiveFor(vm.cohtmlView, vm, NativeBridge.SurfaceMain)
-            && _mainSurface != null
-            && _mainSurface.IsLiveOverlayActive
-            && IsWorldPanoTarget(_mainPreviewTarget))
+        if (TryGetActiveOverlayTarget(NativeBridge.SurfaceMain, out string mmTarget) && IsWorldPanoTarget(mmTarget))
         {
-            return _mainPreviewTarget.Substring("worldpano:".Length);
+            return mmTarget.Substring("worldpano:".Length);
         }
         return null;
     }

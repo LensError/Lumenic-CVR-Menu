@@ -659,36 +659,40 @@ pub unsafe extern "C" fn lumenic_cvr_pointer_scroll(
     }
 }
 
+fn reset_pointer_drag_and_preview(hnd: &mut HostHandle, surface_id: u32) {
+    if let Some(d) = hnd.drag_state_mut(surface_id) {
+        *d = PointerDragState::default();
+    }
+    if surface_id == SURFACE_MAIN && hnd.state.main_menu.aas_preview_dragging {
+        hnd.state.main_menu.aas_preview_dragging = false;
+        if hnd.state.main_menu.aas_preview_target.starts_with("worldpano:") {
+            hnd.actions.push(UiAction::WorldPanoLook {
+                delta_x: 0.0,
+                delta_y: 0.0,
+                is_dragging: false,
+            });
+        } else {
+            hnd.actions.push(UiAction::AvatarPreviewRotate {
+                delta: 0.0,
+                is_dragging: false,
+            });
+        }
+    } else if surface_id == SURFACE_QUICK && hnd.state.quick.avatar_preview_dragging {
+        hnd.state.quick.avatar_preview_dragging = false;
+        hnd.actions.push(UiAction::AvatarPreviewRotate {
+            delta: 0.0,
+            is_dragging: false,
+        });
+    }
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn lumenic_cvr_pointer_leave(handle: *mut HostHandle, surface_id: u32) {
     let Some(hnd) = (unsafe { handle.as_mut() }) else {
         return;
     };
     if let Err(payload) = catch_unwind(AssertUnwindSafe(|| {
-        if let Some(d) = hnd.drag_state_mut(surface_id) {
-            *d = PointerDragState::default();
-        }
-        if surface_id == SURFACE_MAIN && hnd.state.main_menu.aas_preview_dragging {
-            hnd.state.main_menu.aas_preview_dragging = false;
-            if hnd.state.main_menu.aas_preview_target.starts_with("worldpano:") {
-                hnd.actions.push(UiAction::WorldPanoLook {
-                    delta_x: 0.0,
-                    delta_y: 0.0,
-                    is_dragging: false,
-                });
-            } else {
-                hnd.actions.push(UiAction::AvatarPreviewRotate {
-                    delta: 0.0,
-                    is_dragging: false,
-                });
-            }
-        } else if surface_id == SURFACE_QUICK && hnd.state.quick.avatar_preview_dragging {
-            hnd.state.quick.avatar_preview_dragging = false;
-            hnd.actions.push(UiAction::AvatarPreviewRotate {
-                delta: 0.0,
-                is_dragging: false,
-            });
-        }
+        reset_pointer_drag_and_preview(hnd, surface_id);
         if let Some(lh) = hnd.last_hovered_mut(surface_id) {
             *lh = None;
         }
@@ -708,30 +712,7 @@ pub unsafe extern "C" fn lumenic_cvr_pointer_cancel(handle: *mut HostHandle, sur
         return;
     };
     if let Err(payload) = catch_unwind(AssertUnwindSafe(|| {
-        if let Some(d) = hnd.drag_state_mut(surface_id) {
-            *d = PointerDragState::default();
-        }
-        if surface_id == SURFACE_MAIN && hnd.state.main_menu.aas_preview_dragging {
-            hnd.state.main_menu.aas_preview_dragging = false;
-            if hnd.state.main_menu.aas_preview_target.starts_with("worldpano:") {
-                hnd.actions.push(UiAction::WorldPanoLook {
-                    delta_x: 0.0,
-                    delta_y: 0.0,
-                    is_dragging: false,
-                });
-            } else {
-                hnd.actions.push(UiAction::AvatarPreviewRotate {
-                    delta: 0.0,
-                    is_dragging: false,
-                });
-            }
-        } else if surface_id == SURFACE_QUICK && hnd.state.quick.avatar_preview_dragging {
-            hnd.state.quick.avatar_preview_dragging = false;
-            hnd.actions.push(UiAction::AvatarPreviewRotate {
-                delta: 0.0,
-                is_dragging: false,
-            });
-        }
+        reset_pointer_drag_and_preview(hnd, surface_id);
         if let Some(sid) = hnd.surface_id(surface_id) {
             if let Some(surf) = hnd.host.surface_mut(sid) {
                 surf.ui_mut().on_pointer_cancel();

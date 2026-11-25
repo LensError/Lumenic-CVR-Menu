@@ -181,52 +181,42 @@ internal sealed class ImageLoaderService : IDisposable
 
     private void ScheduleLocalTask(uint surfaceId, string key, Action loader)
     {
-        if (_disposed || IsUploaded(surfaceId, key))
+        if (_disposed || !TryAcquireFetchSlot(surfaceId, key, token: 0))
             return;
-
-        var uploadId = (surfaceId, key);
-        lock (_cacheLock)
-        {
-            if (_queuedUploads.Contains(uploadId))
-                return;
-
-            if (_bytesCache.TryGetValue(key, out byte[] cached))
-            {
-                _queuedUploads.Add(uploadId);
-                _pendingUploads.Enqueue((surfaceId, key, cached, 0));
-                return;
-            }
-            if (IsRecentlyFailedLocked(key) || _inFlight.Contains(uploadId))
-                return;
-            _inFlight.Add(uploadId);
-        }
 
         Task.Run(loader);
     }
 
     private void RequestRemoteUrl(uint surfaceId, string key, string url, int token)
     {
-        if (_disposed || !IsAllowedRemoteUrl(url) || IsUploaded(surfaceId, key))
+        if (_disposed || !IsAllowedRemoteUrl(url) || !TryAcquireFetchSlot(surfaceId, key, token))
             return;
+
+        Task.Run(() => FetchRemoteImageAsync(surfaceId, key, url, token));
+    }
+
+    private bool TryAcquireFetchSlot(uint surfaceId, string key, int token)
+    {
+        if (IsUploaded(surfaceId, key))
+            return false;
 
         var uploadId = (surfaceId, key);
         lock (_cacheLock)
         {
             if (_queuedUploads.Contains(uploadId))
-                return;
+                return false;
 
             if (_bytesCache.TryGetValue(key, out byte[] cached))
             {
                 _queuedUploads.Add(uploadId);
                 _pendingUploads.Enqueue((surfaceId, key, cached, token));
-                return;
+                return false;
             }
             if (IsRecentlyFailedLocked(key) || _inFlight.Contains(uploadId))
-                return;
+                return false;
             _inFlight.Add(uploadId);
+            return true;
         }
-
-        Task.Run(() => FetchRemoteImageAsync(surfaceId, key, url, token));
     }
 
     private bool IsRecentlyFailedLocked(string key)

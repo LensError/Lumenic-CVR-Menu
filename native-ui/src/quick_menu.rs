@@ -106,13 +106,10 @@ pub fn render_quick_menu(
     let accent = resolve_player_accent(state);
     state.quick.avatar_preview_rendered = false;
     let accent_border = tint_alpha(accent, 110);
-    let active_uilib_page = state.host.uilib.active_page.clone();
-    let active_uilib_modal = state.host.uilib.modal.clone();
-    let active_ext_page = state.extensions.qm_active_page.clone();
-    let active_ext_modal = state.extensions.qm_modal.clone();
-    let ext_tabs = state.extensions.qm_tabs.clone();
-    let active_toast = state.host.uilib.toast.clone();
-    let tabs = state.host.uilib.tabs.clone();
+    let active_uilib_page = state.host.uilib.active_page.take();
+    let active_ext_page = state.extensions.qm_active_page.take();
+    let ext_tabs = std::mem::take(&mut state.extensions.qm_tabs);
+    let tabs = std::mem::take(&mut state.host.uilib.tabs);
 
     // Menu-wide textured cursor-follow glow shader positioned behind all cards
     let [vw, vh] = ui.viewport_size();
@@ -358,6 +355,7 @@ pub fn render_quick_menu(
             crate::ext_view::render_slot_only(ui, state, "quick", "qm.home.banner", accent, actions);
             render_home_center(ui, state, accent, actions);
         }
+        state.host.uilib.active_page = active_uilib_page;
 
         // =====================================================================
         // 3. BOTTOM UILIB MOD TAB BAR (Touch-drag & wheel scrollable, zero scrollbar gutter)
@@ -592,6 +590,9 @@ pub fn render_quick_menu(
         .bd(1.0, border_subtle())
         .bevel_rounded(10.1, 2.0)
         .shadow(12.0, SHADOW_CARD);
+        state.extensions.qm_active_page = active_ext_page;
+        state.extensions.qm_tabs = ext_tabs;
+        state.host.uilib.tabs = tabs;
     })
             .w_frac(1.0)
             .h_frac(1.0)
@@ -610,23 +611,28 @@ pub fn render_quick_menu(
                 crate::settings_view::render_mod_update_modal(
                     ui, state, accent, actions, "qm",
                 );
-            } else if let Some(alert) = state.host.system_alert.clone() {
+            } else if let Some(alert) = state.host.system_alert.take() {
                 crate::settings_view::render_system_alert_modal(
                     ui, state, &alert, accent, actions, "qm",
                 );
-            } else if let Some(ref ext_modal) = active_ext_modal {
-                crate::ext_view::render_ext_modal(ui, state, "quick", ext_modal, accent, actions);
-            } else if let Some(ref modal) = active_uilib_modal {
-                render_uilib_modal(ui, state, modal, accent, actions);
-            } else if let Some(prompt) = state.host.content.group_mod_prompt.clone() {
+                state.host.system_alert = Some(alert);
+            } else if let Some(ext_modal) = state.extensions.qm_modal.take() {
+                crate::ext_view::render_ext_modal(ui, state, "quick", &ext_modal, accent, actions);
+                state.extensions.qm_modal = Some(ext_modal);
+            } else if let Some(modal) = state.host.uilib.modal.take() {
+                render_uilib_modal(ui, state, &modal, accent, actions);
+                state.host.uilib.modal = Some(modal);
+            } else if let Some(prompt) = state.host.content.group_mod_prompt.take() {
                 state.quick.qm_world_modal = None;
                 render_group_mod_prompt_modal(ui, &prompt, accent, actions, "qm");
-            } else if let Some((world_id, world_name)) = state.quick.qm_world_modal.clone() {
+                state.host.content.group_mod_prompt = Some(prompt);
+            } else if let Some((world_id, world_name)) = state.quick.qm_world_modal.take() {
                 render_qm_world_instance_modal(ui, state, &world_id, &world_name, accent, actions);
+                state.quick.qm_world_modal = Some((world_id, world_name));
             } else if state.quick.show_info_modal {
                 render_system_info_modal(ui, state, accent, actions);
             }
-            render_uilib_toast(ui, &active_toast, accent);
+            render_uilib_toast(ui, &state.host.uilib.toast, accent);
         })
         .w_frac(1.0)
         .h_frac(1.0);

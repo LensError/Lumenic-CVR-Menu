@@ -80,6 +80,7 @@ internal sealed class ContentBrowserService
         public string Error = string.Empty;
         public List<CardDto> Items = new List<CardDto>();
         public int RequestSeq;
+        public DateTime LastFetchedUtc = DateTime.MinValue;
     }
 
     private sealed class DetailState
@@ -173,6 +174,17 @@ internal sealed class ContentBrowserService
     private string _createInstanceError = string.Empty;
     private GroupModPromptState _groupModPrompt;
     private TaskCompletionSource<bool> _groupModPromptTcs;
+    private volatile bool _qmDirty = true;
+    private int _lastPinnedRev = -1;
+
+    public bool ConsumeQmDirty()
+    {
+        int pinnedRev = _pinnedContent != null ? _pinnedContent.Revision : 0;
+        bool dirty = _qmDirty || pinnedRev != _lastPinnedRev;
+        _qmDirty = false;
+        _lastPinnedRev = pinnedRev;
+        return dirty;
+    }
 
     private bool _discoverLoading;
     private bool _discoverLoaded;
@@ -345,6 +357,58 @@ internal sealed class ContentBrowserService
         _onDirty?.Invoke();
 
         Task.Run(() => FetchListAsync(kind, categoryKey, isSystem, clampedPage, (ContentOrder)clampedSort, ascending, seq, append: false));
+    }
+
+    public void RefreshIfStale(string kind)
+    {
+        ListState st = GetListState(kind);
+        if (st == null)
+            return;
+
+        string categoryKey;
+        bool isSystem;
+        int sortOrder;
+        bool ascending;
+        int seq;
+        lock (_lock)
+        {
+            if (RecentHistoryService.IsLocalRecentCategory(st.CategoryKey))
+            {
+                categoryKey = st.CategoryKey;
+                isSystem = true;
+                sortOrder = st.SortOrder;
+                ascending = st.Ascending;
+                seq = -1;
+            }
+            else
+            {
+                if (!AuthManager.IsAuthenticated || st.Loading || st.LoadingMore || !st.LoadedOnce || st.Page > 0)
+                    return;
+                if (string.IsNullOrWhiteSpace(st.CategoryKey))
+                    return;
+
+                double cooldownSecs = string.Equals(kind, "worlds", StringComparison.OrdinalIgnoreCase) ? 45.0 : 120.0;
+                if ((DateTime.UtcNow - st.LastFetchedUtc).TotalSeconds < cooldownSecs)
+                    return;
+
+                categoryKey = st.CategoryKey;
+                isSystem = st.IsSystem;
+                sortOrder = st.SortOrder;
+                ascending = st.Ascending;
+                st.Loading = true;
+                st.Error = string.Empty;
+                seq = ++st.RequestSeq;
+            }
+        }
+
+        if (seq < 0)
+        {
+            RefreshLocalRecentIfActive(kind);
+            return;
+        }
+
+        _onDirty?.Invoke();
+        Task.Run(() => FetchListAsync(kind, categoryKey, isSystem, 0, (ContentOrder)sortOrder, ascending, seq, append: false));
     }
 
     public void LoadMore(string kind)
@@ -856,6 +920,7 @@ internal sealed class ContentBrowserService
             {
                 _creatingInstance = false;
                 _createInstanceError = "Select a group first.";
+                _qmDirty = true;
             }
             _onDirty?.Invoke();
             return;
@@ -867,6 +932,7 @@ internal sealed class ContentBrowserService
                 return;
             _creatingInstance = true;
             _createInstanceError = string.Empty;
+            _qmDirty = true;
         }
         _onDirty?.Invoke();
 
@@ -892,6 +958,7 @@ internal sealed class ContentBrowserService
                     {
                         _creatingInstance = false;
                         _createInstanceError = err;
+                        _qmDirty = true;
                     }
                     _onDirty?.Invoke();
                     return;
@@ -927,6 +994,7 @@ internal sealed class ContentBrowserService
                 lock (_lock)
                 {
                     _creatingInstance = false;
+                    _qmDirty = true;
                     if (ready)
                     {
                         _createInstanceError = string.Empty;
@@ -959,6 +1027,7 @@ internal sealed class ContentBrowserService
                 lock (_lock)
                 {
                     _creatingInstance = false;
+                    _qmDirty = true;
                     _createInstanceError = ex.Message;
                 }
                 _onDirty?.Invoke();
@@ -977,6 +1046,7 @@ internal sealed class ContentBrowserService
         {
             prevTcs = _groupModPromptTcs;
             _groupModPromptTcs = nextTcs;
+            _qmDirty = true;
             _groupModPrompt = new GroupModPromptState
             {
                 InstanceId = details.Id ?? string.Empty,
@@ -1008,6 +1078,7 @@ internal sealed class ContentBrowserService
             tcs = _groupModPromptTcs;
             _groupModPromptTcs = null;
             _groupModPrompt = null;
+            _qmDirty = true;
         }
         tcs?.TrySetResult(accept);
         _onDirty?.Invoke();
@@ -1663,6 +1734,7 @@ internal sealed class ContentBrowserService
                             st.Loading = false;
                             st.LoadingMore = false;
                             st.LoadedOnce = true;
+                            st.LastFetchedUtc = DateTime.UtcNow;
                         }
                     }
                 }

@@ -274,8 +274,8 @@ pub fn render_avatar_settings_page(
                     actions.push(UiAction::AvatarApplyStaged);
                 }
 
-                if has_staged {
-                    if ui
+                if has_staged
+                    && ui
                         .btn_with("mm_aas_discard_staged", |ui| {
                             icons::icon(ui, icons::CLOSE, 14.0).fg(AMBER);
                         })
@@ -286,10 +286,9 @@ pub fn render_avatar_settings_page(
                         .bd(1.0, tint_alpha(AMBER, 175))
                         .bevel_rounded(6.0, 1.3)
                         .clicked()
-                    {
-                        push_click(actions);
-                        actions.push(UiAction::AvatarDiscardStaged);
-                    }
+                {
+                    push_click(actions);
+                    actions.push(UiAction::AvatarDiscardStaged);
                 }
             })
             .gap(6.0);
@@ -523,8 +522,8 @@ pub fn render_avatar_settings_page(
 
                         if edit_mode {
                             // Reorder Up
-                            if idx > 0 {
-                                if ui
+                            if idx > 0
+                                && ui
                                     .btn_with(&format!("mm_aas_prof_up_{idx}"), |ui| {
                                         icons::icon(ui, icons::ARROW_UP, 13.0).fg(TEXT_PRIMARY);
                                     })
@@ -534,18 +533,17 @@ pub fn render_avatar_settings_page(
                                     .bd(1.0, border_subtle())
                                     .bevel_rounded(4.5, 1.2)
                                     .clicked()
-                                {
-                                    push_click(actions);
-                                    let mut reordered = profiles.clone();
-                                    reordered.swap(idx - 1, idx);
-                                    actions.push(UiAction::AvatarReorderProfiles {
-                                        profiles: reordered,
-                                    });
-                                }
+                            {
+                                push_click(actions);
+                                let mut reordered = profiles.clone();
+                                reordered.swap(idx - 1, idx);
+                                actions.push(UiAction::AvatarReorderProfiles {
+                                    profiles: reordered,
+                                });
                             }
                             // Reorder Down
-                            if idx + 1 < profiles.len() {
-                                if ui
+                            if idx + 1 < profiles.len()
+                                && ui
                                     .btn_with(&format!("mm_aas_prof_dn_{idx}"), |ui| {
                                         icons::icon(ui, icons::ARROW_DOWN, 13.0).fg(TEXT_PRIMARY);
                                     })
@@ -555,14 +553,13 @@ pub fn render_avatar_settings_page(
                                     .bd(1.0, border_subtle())
                                     .bevel_rounded(4.5, 1.2)
                                     .clicked()
-                                {
-                                    push_click(actions);
-                                    let mut reordered = profiles.clone();
-                                    reordered.swap(idx, idx + 1);
-                                    actions.push(UiAction::AvatarReorderProfiles {
-                                        profiles: reordered,
-                                    });
-                                }
+                            {
+                                push_click(actions);
+                                let mut reordered = profiles.clone();
+                                reordered.swap(idx, idx + 1);
+                                actions.push(UiAction::AvatarReorderProfiles {
+                                    profiles: reordered,
+                                });
                             }
                             // Save / Overwrite
                             if ui
@@ -894,6 +891,7 @@ pub fn render_avatar_settings_page(
     .gap(9.0);
 }
 
+#[allow(clippy::too_many_arguments)]
 fn render_slider_axis(
     ui: &mut UiContext,
     state: &mut AppState,

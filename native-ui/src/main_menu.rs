@@ -123,13 +123,15 @@ pub fn nav_reset_to_tab(state: &mut AppState, tab: &str, actions: &mut Vec<UiAct
                 sort_order: list.sort_order,
                 ascending: list.ascending,
             });
+        } else if list.loaded_once && !list.loading && list.page == 0 {
+            actions.push(UiAction::ContentRefreshIfStale {
+                kind: String::from(tab),
+            });
         }
-    } else if tab == "discover"
-        && !state.host.content.discover_loaded
-        && !state.host.content.discover_loading
-        && state.host.content.discover_error.is_empty()
-    {
+    } else if tab == "discover" && !state.host.content.discover_loading {
         actions.push(UiAction::ContentLoadDiscover);
+    } else if tab == "home" {
+        actions.push(UiAction::SocialEnsureHomeFeeds);
     }
 }
 
@@ -341,6 +343,23 @@ pub fn render_main_menu(
             state.main_menu.active_tab = state.host.nav_tab.clone();
         }
     }
+    if state.host.mm_open_seq != state.main_menu.last_open_seq {
+        state.main_menu.last_open_seq = state.host.mm_open_seq;
+        match state.main_menu.active_tab.as_str() {
+            "worlds" | "avatars" | "props" => {
+                actions.push(UiAction::ContentRefreshIfStale {
+                    kind: state.main_menu.active_tab.clone(),
+                });
+            }
+            "discover" if !state.host.content.discover_loading => {
+                actions.push(UiAction::ContentLoadDiscover);
+            }
+            "home" => {
+                actions.push(UiAction::SocialEnsureHomeFeeds);
+            }
+            _ => {}
+        }
+    }
     crate::theme::begin_frame(state);
     let accent = resolve_player_accent(state);
 
@@ -382,7 +401,7 @@ pub fn render_main_menu(
                 // 1. MAIN CONTENT AREA (HOME DASHBOARD OR PAGE PLACEHOLDER)
                 // =============================================================
                 let active_tab = state.main_menu.active_tab.clone();
-                let active_mm_ext_page = state.extensions.mm_active_page.clone();
+                let active_mm_ext_page = state.extensions.mm_active_page.take();
                 if let Some(ref ext_page) = active_mm_ext_page {
                     crate::ext_view::render_ext_page(ui, state, "main", ext_page, accent, actions);
                 } else {
@@ -434,12 +453,11 @@ pub fn render_main_menu(
                 }
 
                 // Optional Main Menu extension tab strip (shown only when mods register MM tabs)
-                let mm_ext_tabs = state.extensions.mm_tabs.clone();
-                if !mm_ext_tabs.is_empty() {
+                if !state.extensions.mm_tabs.is_empty() {
                     ui.row(|ui| {
                         icons::icon(ui, icons::PUZZLE, 13.0).fg(accent);
                         ui.hscroll("mm_ext_tabs_hscroll", |ui| {
-                            for etab in &mm_ext_tabs {
+                            for etab in &state.extensions.mm_tabs {
                                 let is_active = active_mm_ext_page
                                     .as_ref()
                                     .is_some_and(|p| p.ext_id == etab.ext_id && p.tab_id == etab.id);
@@ -496,6 +514,7 @@ pub fn render_main_menu(
                     .bd(1.0, border_subtle())
                     .bevel_rounded(8.0, 1.5);
                 }
+                state.extensions.mm_active_page = active_mm_ext_page;
 
                 // =============================================================
                 // 2. PETITE BOTTOM NAVIGATION DOCK
@@ -507,8 +526,9 @@ pub fn render_main_menu(
             .p(14.0)
             .gap(10.0);
 
-            if let Some(prompt) = state.host.content.group_mod_prompt.clone() {
+            if let Some(prompt) = state.host.content.group_mod_prompt.take() {
                 crate::quick_menu::render_group_mod_prompt_modal(ui, &prompt, accent, actions, "mm");
+                state.host.content.group_mod_prompt = Some(prompt);
             }
             if !state.host.disclaimer_accepted {
                 crate::settings_view::render_first_use_disclaimer_modal(
@@ -522,16 +542,19 @@ pub fn render_main_menu(
                 crate::settings_view::render_mod_update_modal(
                     ui, state, accent, actions, "mm",
                 );
-            } else if let Some(alert) = state.host.system_alert.clone() {
+            } else if let Some(alert) = state.host.system_alert.take() {
                 crate::settings_view::render_system_alert_modal(
                     ui, state, &alert, accent, actions, "mm",
                 );
-            } else if let Some(ref ext_modal) = state.extensions.mm_modal.clone() {
-                crate::ext_view::render_ext_modal(ui, state, "main", ext_modal, accent, actions);
-            } else if let Some(dd) = state.main_menu.active_dropdown.clone() {
+                state.host.system_alert = Some(alert);
+            } else if let Some(ext_modal) = state.extensions.mm_modal.take() {
+                crate::ext_view::render_ext_modal(ui, state, "main", &ext_modal, accent, actions);
+                state.extensions.mm_modal = Some(ext_modal);
+            } else if let Some(dd) = state.main_menu.active_dropdown.take() {
                 crate::settings_view::render_dropdown_modal(
                     ui, state, &dd, accent, actions, "mm",
                 );
+                state.main_menu.active_dropdown = Some(dd);
             }
         })
         .w_frac(1.0)

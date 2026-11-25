@@ -618,20 +618,21 @@ internal static class SettingsBridge
         return "general";
     }
 
+    private static readonly string[] LabelPrefixes =
+    {
+        "HUDCustomization", "HudCustomization", "NameplateCustomization", "NameplateLocalCustomization",
+        "MessageSystemQM", "ContentFilterProps", "ContentFilter", "ImplementationRichPresence",
+        "ImplementationFaceTracking", "Implementation", "InteractionDynamicBoneInterCollision",
+        "InteractionDynamicBone", "InteractionHapticsTriggers", "InteractionProps", "Interaction",
+        "ExperimentalAdvancedSafety", "ExperimentalBundleVerifier", "ExperimentalGizmos", "Experimental",
+        "AudioPlayerVoiceAttenuation", "AudioInput", "Audio", "Graphics", "General", "Control",
+        "TextComms", "ChatBox", "HapticTouch", "IKDesktop", "IK"
+    };
+
     private static string FormatLabel(string key)
     {
         string trimmed = key;
-        string[] prefixes =
-        {
-            "HUDCustomization", "HudCustomization", "NameplateCustomization", "NameplateLocalCustomization",
-            "MessageSystemQM", "ContentFilterProps", "ContentFilter", "ImplementationRichPresence",
-            "ImplementationFaceTracking", "Implementation", "InteractionDynamicBoneInterCollision",
-            "InteractionDynamicBone", "InteractionHapticsTriggers", "InteractionProps", "Interaction",
-            "ExperimentalAdvancedSafety", "ExperimentalBundleVerifier", "ExperimentalGizmos", "Experimental",
-            "AudioPlayerVoiceAttenuation", "AudioInput", "Audio", "Graphics", "General", "Control",
-            "TextComms", "ChatBox", "HapticTouch", "IKDesktop", "IK"
-        };
-        foreach (string p in prefixes)
+        foreach (string p in LabelPrefixes)
         {
             if (trimmed.StartsWith(p, StringComparison.Ordinal) && trimmed.Length > p.Length)
             {

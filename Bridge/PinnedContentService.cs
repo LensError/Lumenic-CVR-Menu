@@ -39,6 +39,9 @@ internal sealed class PinnedContentService
     private PersistedPins _data = new PersistedPins();
     private bool _saveScheduled;
     private volatile bool _dirtyDisk;
+    private volatile int _revision;
+
+    public int Revision => _revision;
 
     public PinnedContentService(Action onDirty)
     {
@@ -82,6 +85,7 @@ internal sealed class PinnedContentService
                 });
                 pinnedNow = true;
             }
+            _revision++;
         }
 
         ScheduleSave();
@@ -95,6 +99,7 @@ internal sealed class PinnedContentService
         {
             _data = new PersistedPins();
             _dirtyDisk = false;
+            _revision++;
         }
         try
         {
@@ -126,7 +131,10 @@ internal sealed class PinnedContentService
                 && string.Equals(x.Id, trimId, StringComparison.OrdinalIgnoreCase));
             removed = idx >= 0;
             if (removed)
+            {
                 _data.Items.RemoveAt(idx);
+                _revision++;
+            }
         }
 
         if (removed)

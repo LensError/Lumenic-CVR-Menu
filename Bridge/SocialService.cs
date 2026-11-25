@@ -171,6 +171,58 @@ internal sealed class SocialService
     private int _massRoleSeq;
 
     private List<UserGroupDto> _myGroups = new List<UserGroupDto>();
+    private volatile bool _qmDirty = true;
+    private int _lastFriendsLiveHash;
+
+    public bool HasLiveFriendsChanged()
+    {
+        try
+        {
+            var friends = new List<Friend_t>();
+            Friends.UpdateFriendsList(in friends);
+            Dictionary<string, UserOnlineChangeCohtml> onlineMap = GetOnlineStateMap();
+            unchecked
+            {
+                int hash = 17;
+                hash = hash * 31 + friends.Count;
+                for (int i = 0; i < friends.Count; i++)
+                {
+                    Friend_t f = friends[i];
+                    if (string.IsNullOrEmpty(f.UserId)) continue;
+                    hash = hash * 31 + f.UserId.GetHashCode();
+                    if (onlineMap.TryGetValue(f.UserId, out UserOnlineChangeCohtml st) && st != null)
+                    {
+                        hash = hash * 31 + (st.IsOnline ? 1 : 0);
+                        hash = hash * 31 + (st.IsConnected ? 2 : 0);
+                        if (st.Instance != null)
+                        {
+                            if (!string.IsNullOrEmpty(st.Instance.Id))
+                                hash = hash * 31 + st.Instance.Id.GetHashCode();
+                            if (!string.IsNullOrEmpty(st.Instance.Name))
+                                hash = hash * 31 + st.Instance.Name.GetHashCode();
+                        }
+                    }
+                }
+                if (hash != _lastFriendsLiveHash)
+                {
+                    _lastFriendsLiveHash = hash;
+                    return true;
+                }
+            }
+        }
+        catch
+        {
+            // Keep UI alive if CVR social state mutates mid-frame.
+        }
+        return false;
+    }
+
+    public bool ConsumeQmDirty()
+    {
+        bool dirty = _qmDirty;
+        _qmDirty = false;
+        return dirty;
+    }
 
     public SocialService(Action onDirty, RecentHistoryService recentHistory = null)
     {
@@ -243,7 +295,7 @@ internal sealed class SocialService
             needProfile = !_localProfileFetched && !string.IsNullOrEmpty(myId);
             if (needProfile) _localProfileFetched = true;
 
-            needWorlds = !_activeWorldsFetching && (DateTime.UtcNow - _lastActiveWorldsFetch).TotalSeconds > 60.0;
+            needWorlds = !_activeWorldsFetching && (DateTime.UtcNow - _lastActiveWorldsFetch).TotalSeconds > 45.0;
             if (needWorlds)
             {
                 _activeWorldsFetching = true;
@@ -1907,7 +1959,10 @@ internal sealed class SocialService
                     _localRank = resp.Data.Rank ?? string.Empty;
                     _localImageUrl = resp.Data.ImageUrl ?? string.Empty;
                     if (groupsResp?.Data != null)
+                    {
                         _myGroups = myGroups;
+                        _qmDirty = true;
+                    }
                 }
                 _onDirty?.Invoke();
             }
@@ -2092,6 +2147,7 @@ internal sealed class SocialService
                 if (isLocal && groupsResp?.Data != null)
                 {
                     _myGroups = new List<UserGroupDto>(next.Groups);
+                    _qmDirty = true;
                 }
                 if (_userDetailSeq == seq)
                 {

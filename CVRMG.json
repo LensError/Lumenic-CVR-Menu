@@ -1,7 +1,7 @@
 {
   "_id": -1,
   "name": "LumenicMenu",
-  "modversion": "0.3.1",
+  "modversion": "0.3.2",
   "gameversion": "2026.3.0",
   "loaderversion": "0.7.2",
   "modtype": "Mod",
@@ -19,6 +19,6 @@
   "requirements": [],
   "downloadlink": "https://github.com/LensError/Lumenic-CVR-Menu/releases/latest/download/LumenicMenu.dll",
   "sourcelink": "https://github.com/LensError/Lumenic-CVR-Menu",
-  "changelog": "Revamped Group Management view (individual role picker, mass set to Member for Trial/non-Member users, member search/role filters/pagination, and group privacy settings), added World Pin to Quick Menu, upgraded World Active Instance cards with player previews and clickable card body, added Instance Details shortcut on User Details, added VR controller hover haptics, added Quick Menu bottom bar scroll-back arrow, matched Messages top bar button sizing to Discover, filtered hidden internal CVR settings, and fixed extension TextInput/Slider/VR keyboard handling.",
+  "changelog": "Smarter auto-refreshing for Worlds, Avatars, Props, Discover, Home Active Worlds, and live Online Friends, plus performance and stability improvements.",
   "embedcolor": "#321D71"
 }

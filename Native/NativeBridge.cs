@@ -443,11 +443,13 @@ internal sealed class NativeBridge : IDisposable
     public void TextInput(uint surfaceId, string text)
     {
         if (!IsHealthy || string.IsNullOrEmpty(text)) return;
-        byte[] utf8 = Encoding.UTF8.GetBytes(text);
-        GCHandle pin = GCHandle.Alloc(utf8, GCHandleType.Pinned);
+        int maxBytes = Encoding.UTF8.GetMaxByteCount(text.Length);
+        byte[] buf = EnsureScratchCapacity(maxBytes);
+        int byteCount = Encoding.UTF8.GetBytes(text, 0, text.Length, buf, 0);
+        GCHandle pin = GCHandle.Alloc(buf, GCHandleType.Pinned);
         try
         {
-            _textInput(_handle, surfaceId, pin.AddrOfPinnedObject(), (UIntPtr)utf8.Length);
+            _textInput(_handle, surfaceId, pin.AddrOfPinnedObject(), (UIntPtr)byteCount);
         }
         finally
         {
@@ -464,32 +466,28 @@ internal sealed class NativeBridge : IDisposable
     public bool CommitVirtualKeyboard(uint surfaceId, string fieldId, string text)
     {
         if (!IsHealthy || string.IsNullOrEmpty(fieldId)) return false;
-        byte[] fieldUtf8 = Encoding.UTF8.GetBytes(fieldId);
-        byte[] textUtf8 = string.IsNullOrEmpty(text) ? Array.Empty<byte>() : Encoding.UTF8.GetBytes(text);
-        GCHandle pinField = GCHandle.Alloc(fieldUtf8, GCHandleType.Pinned);
-        GCHandle pinText = default;
-        bool hasTextPin = false;
+        string t = text ?? string.Empty;
+        int maxField = Encoding.UTF8.GetMaxByteCount(fieldId.Length);
+        int maxText = Encoding.UTF8.GetMaxByteCount(t.Length);
+        byte[] buf = EnsureScratchCapacity(maxField + maxText + 1);
+        int fieldLen = Encoding.UTF8.GetBytes(fieldId, 0, fieldId.Length, buf, 0);
+        int textLen = t.Length > 0 ? Encoding.UTF8.GetBytes(t, 0, t.Length, buf, fieldLen) : 0;
+        GCHandle pin = GCHandle.Alloc(buf, GCHandleType.Pinned);
         try
         {
-            IntPtr textPtr = IntPtr.Zero;
-            if (textUtf8.Length > 0)
-            {
-                pinText = GCHandle.Alloc(textUtf8, GCHandleType.Pinned);
-                hasTextPin = true;
-                textPtr = pinText.AddrOfPinnedObject();
-            }
+            IntPtr basePtr = pin.AddrOfPinnedObject();
+            IntPtr textPtr = textLen > 0 ? IntPtr.Add(basePtr, fieldLen) : IntPtr.Zero;
             return _commitVirtualKeyboard(
                 _handle,
                 surfaceId,
-                pinField.AddrOfPinnedObject(),
-                (UIntPtr)fieldUtf8.Length,
+                basePtr,
+                (UIntPtr)fieldLen,
                 textPtr,
-                (UIntPtr)textUtf8.Length);
+                (UIntPtr)textLen);
         }
         finally
         {
-            pinField.Free();
-            if (hasTextPin) pinText.Free();
+            pin.Free();
         }
     }
 
@@ -583,8 +581,10 @@ internal sealed class NativeBridge : IDisposable
         if (!IsHealthy || string.IsNullOrEmpty(key) || imageBytes == null || imageBytes.Length == 0)
             return false;
 
-        byte[] keyUtf8 = Encoding.UTF8.GetBytes(key);
-        GCHandle pinKey = GCHandle.Alloc(keyUtf8, GCHandleType.Pinned);
+        int maxKey = Encoding.UTF8.GetMaxByteCount(key.Length);
+        byte[] keyBuf = EnsureScratchCapacity(maxKey);
+        int keyLen = Encoding.UTF8.GetBytes(key, 0, key.Length, keyBuf, 0);
+        GCHandle pinKey = GCHandle.Alloc(keyBuf, GCHandleType.Pinned);
         GCHandle pinBytes = GCHandle.Alloc(imageBytes, GCHandleType.Pinned);
         try
         {
@@ -592,7 +592,7 @@ internal sealed class NativeBridge : IDisposable
                 _handle,
                 surfaceId,
                 pinKey.AddrOfPinnedObject(),
-                (UIntPtr)keyUtf8.Length,
+                (UIntPtr)keyLen,
                 pinBytes.AddrOfPinnedObject(),
                 (UIntPtr)imageBytes.Length);
         }
@@ -622,8 +622,10 @@ internal sealed class NativeBridge : IDisposable
         if (rgbaBytes.Length < expected)
             return false;
 
-        byte[] keyUtf8 = Encoding.UTF8.GetBytes(key);
-        GCHandle pinKey = GCHandle.Alloc(keyUtf8, GCHandleType.Pinned);
+        int maxKey = Encoding.UTF8.GetMaxByteCount(key.Length);
+        byte[] keyBuf = EnsureScratchCapacity(maxKey);
+        int keyLen = Encoding.UTF8.GetBytes(key, 0, key.Length, keyBuf, 0);
+        GCHandle pinKey = GCHandle.Alloc(keyBuf, GCHandleType.Pinned);
         GCHandle pinRgba = GCHandle.Alloc(rgbaBytes, GCHandleType.Pinned);
         try
         {
@@ -631,7 +633,7 @@ internal sealed class NativeBridge : IDisposable
                 _handle,
                 surfaceId,
                 pinKey.AddrOfPinnedObject(),
-                (UIntPtr)keyUtf8.Length,
+                (UIntPtr)keyLen,
                 width,
                 height,
                 pinRgba.AddrOfPinnedObject(),
@@ -762,7 +764,11 @@ internal sealed class NativeBridge : IDisposable
         _clearFocus = null;
         _commitVirtualKeyboard = null;
         _uploadImageBytes = null;
+        _uploadRgbaTexture = null;
+        _registerFont = null;
+        _setDefaultFontFamily = null;
         _pushStateJson = null;
+        _pushExtensionsJson = null;
         _pushTelemetry = null;
         _step = null;
         _readPixels = null;

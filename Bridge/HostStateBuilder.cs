@@ -41,6 +41,8 @@ internal sealed class HostStateBuilder
     private List<object> _cachedActivityFeed = new List<object>();
     private object _cachedCvrSettings;
     private object _cachedAvatarSettings;
+    private object _cachedContentSnapshot;
+    private object _cachedSocialSnapshot;
 
     public void ReadTelemetry(
         float smoothedFps,
@@ -253,10 +255,22 @@ internal sealed class HostStateBuilder
             };
         }
 
-        object contentSnapshot = mod.Content?.BuildSnapshot(
-            mainVisible ? images : null,
-            quickVisible ? images : null);
-        object socialSnapshot = mod.Social?.BuildSocialSnapshot(mainVisible ? images : null);
+        bool contentQmDirty = mod.Content != null && mod.Content.ConsumeQmDirty();
+        if (mainVisible || _cachedContentSnapshot == null || contentQmDirty)
+        {
+            _cachedContentSnapshot = mod.Content?.BuildSnapshot(
+                mainVisible ? images : null,
+                quickVisible ? images : null);
+        }
+
+        bool socialQmDirty = mod.Social != null && mod.Social.ConsumeQmDirty();
+        if (mainVisible || _cachedSocialSnapshot == null || socialQmDirty)
+        {
+            _cachedSocialSnapshot = mod.Social?.BuildSocialSnapshot(mainVisible ? images : null);
+        }
+
+        object contentSnapshot = _cachedContentSnapshot;
+        object socialSnapshot = _cachedSocialSnapshot;
 
         var snapshot = new
         {
@@ -283,6 +297,7 @@ internal sealed class HostStateBuilder
             audio_voice = audioVoice,
             audio_video_player = audioVideo,
             nav_seq = mod.NavSeq,
+            mm_open_seq = mod.MmOpenSeq,
             nav_tab = mod.NavTab ?? string.Empty,
 
             accent_r = p1.r,
