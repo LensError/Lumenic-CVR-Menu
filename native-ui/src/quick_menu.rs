@@ -365,6 +365,25 @@ pub fn render_quick_menu(
         let suppress_tab_click = false;
 
         ui.row(|ui| {
+            let tab_scroll_x = ui.scroll_offset_x("qm_uilib_tabs_hscroll");
+            if tab_scroll_x > 4.0
+                && ui
+                    .btn_with("qm_uilib_tabs_scroll_home", |ui| {
+                        icons::icon(ui, icons::BACK, 18.0).fg(accent);
+                    })
+                    .w(crate::theme::text_box(30.0))
+                    .h(crate::theme::text_box(44.0))
+                    .center()
+                    .bg(tint_alpha(accent, 42))
+                    .hover_bg(tint_alpha(accent, 75))
+                    .bd(1.0, tint_alpha(accent, 185))
+                    .bevel_rounded(7.8, 1.3)
+                    .clicked()
+            {
+                push_click(actions);
+                ui.scroll_to_x("qm_uilib_tabs_hscroll", 0.0);
+            }
+
             let hscroll_resp = ui
                 .hscroll("qm_uilib_tabs_hscroll", |ui| {
                     let is_official = |t: &crate::state::UiLibTab| {
@@ -389,7 +408,7 @@ pub fn render_quick_menu(
                             (tile_idle_bg(), tile_idle_hover(), border_subtle())
                         };
 
-                        if ui
+                        let tab_resp = ui
                             .btn_with(&tab_btn_id, |ui| {
                                 ui.row(|ui| {
                                     match tab.kind.as_str() {
@@ -449,10 +468,16 @@ pub fn render_quick_menu(
                             .bg(bg)
                             .hover_bg(hover_bg)
                             .bd(if is_active { 1.5 } else { 1.0 }, bd)
-                            .bevel_rounded(7.8, 1.3)
-                            .clicked()
-                            && !suppress_tab_click
-                        {
+                            .bevel_rounded(7.8, 1.3);
+
+                        if tab.kind == "props" && tab_resp.double_clicked() && !suppress_tab_click {
+                            state.quick.go_home_confirm = false;
+                            push_click(actions);
+                            crate::main_menu::nav_reset_to_tab(state, "props", actions);
+                            actions.push(UiAction::OpenMainMenuPage {
+                                page: String::from("props"),
+                            });
+                        } else if tab_resp.clicked() && !suppress_tab_click {
                             state.quick.go_home_confirm = false;
                             push_click(actions);
                             actions.push(UiAction::UiLibSelectTab {

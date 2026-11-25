@@ -1,7 +1,7 @@
 {
   "_id": -1,
   "name": "LumenicMenu",
-  "modversion": "0.3.0",
+  "modversion": "0.3.1",
   "gameversion": "2026.3.0",
   "loaderversion": "0.7.2",
   "modtype": "Mod",
@@ -19,6 +19,6 @@
   "requirements": [],
   "downloadlink": "https://github.com/LensError/Lumenic-CVR-Menu/releases/latest/download/LumenicMenu.dll",
   "sourcelink": "https://github.com/LensError/Lumenic-CVR-Menu",
-  "changelog": "Added full MelonLoader C# Extension API (LumenicMenu.Api) with custom Quick Menu / Main Menu tabs, shared Extensions hub, declarative UiBuilder with styled dropdowns/comboboxes and masked password inputs, named section injection/override/replacement, global theme/layout/font overrides, live Texture2D uploads, Text Size presets (75%/100%/125%/150%), Support & Update Check tab, system alerts forwarding, and updated Lumenic v0.1.4.",
+  "changelog": "Revamped Group Management view (individual role picker, mass set to Member for Trial/non-Member users, member search/role filters/pagination, and group privacy settings), added World Pin to Quick Menu, upgraded World Active Instance cards with player previews and clickable card body, added Instance Details shortcut on User Details, added VR controller hover haptics, added Quick Menu bottom bar scroll-back arrow, matched Messages top bar button sizing to Discover, filtered hidden internal CVR settings, and fixed extension TextInput/Slider/VR keyboard handling.",
   "embedcolor": "#321D71"
 }

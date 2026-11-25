@@ -305,12 +305,7 @@ internal static class SettingsBridge
             if (string.IsNullOrEmpty(key) || valObj == null)
                 continue;
 
-            // Skip internal persistence / RGB transition color components / last-selected caches
-            if (key.EndsWith("-Last", StringComparison.Ordinal)
-                || key.EndsWith("Last", StringComparison.Ordinal)
-                || key.StartsWith("GraphicsTransitionColor", StringComparison.Ordinal)
-                || key.StartsWith("Last", StringComparison.Ordinal)
-                || key.StartsWith("ContentSort", StringComparison.Ordinal))
+            if (IsHiddenInternalSetting(key))
             {
                 continue;
             }
@@ -552,6 +547,61 @@ internal static class SettingsBridge
             MetaPort.Instance?.settings?.SetSetting(key, value ?? string.Empty);
             InvalidateCache();
         }
+    }
+
+    private static readonly HashSet<string> HiddenExactKeys = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "GeneralVideoPlayerTrustedHosts",
+        "GeneralUIPrimaryColourMaxLuma",
+        "GeneralUIColourizeMenu",
+        "GeneralUIGroupModerationNeverShow",
+        "GeneralUIChangelogVersion",
+        "NameplateRank",
+        "MiniMeEnabled",
+        "QuickMenuAnchorToHand",
+        "AvatarSettingsAutoApply",
+        "AvatarHeight",
+        "IncludeNSFWInSearch",
+        "IncludeNSFWInDiscover",
+        "PlayerColorUsePrimaryAsEmission",
+        "PenSelectedPalette",
+        "PenThickness",
+        "PenSmoothness",
+        "PenAnalogThickness",
+        "CVRVideoPlayerDefaultResolution",
+        "CVRVideoPlayerDefaultAudioOnly",
+        "CVRVideoPlayerUseLowLatency",
+        "ExperimentalConceptMirror"
+    };
+
+    private static bool IsHiddenInternalSetting(string key)
+    {
+        if (HiddenExactKeys.Contains(key))
+            return true;
+
+        if (key.EndsWith("-Last", StringComparison.Ordinal)
+            || key.EndsWith("Last", StringComparison.Ordinal)
+            || key.EndsWith("Vr", StringComparison.Ordinal)
+            || key.EndsWith("Desktop", StringComparison.Ordinal))
+            return true;
+
+        return key.StartsWith("Version", StringComparison.Ordinal)
+            || key.StartsWith("SelfModeration", StringComparison.Ordinal)
+            || key.StartsWith("InstanceCreationInitialSetting", StringComparison.Ordinal)
+            || key.StartsWith("HomeInstanceCreationSetting", StringComparison.Ordinal)
+            || key.StartsWith("Keyboard", StringComparison.Ordinal)
+            || key.StartsWith("PersonalMirror", StringComparison.Ordinal)
+            || key.StartsWith("SelfPortrait", StringComparison.Ordinal)
+            || key.StartsWith("ComfortAlignment", StringComparison.Ordinal)
+            || key.StartsWith("PlayerColorPrimary", StringComparison.Ordinal)
+            || key.StartsWith("PlayerColorSecondary", StringComparison.Ordinal)
+            || key.StartsWith("PenColorPalette", StringComparison.Ordinal)
+            || key.StartsWith("PortableCamera_", StringComparison.Ordinal)
+            || key.StartsWith("StereoscopicCapture_", StringComparison.Ordinal)
+            || key.StartsWith("CaptureIntegrations_", StringComparison.Ordinal)
+            || key.StartsWith("GraphicsTransitionColor", StringComparison.Ordinal)
+            || key.StartsWith("Last", StringComparison.Ordinal)
+            || key.StartsWith("ContentSort", StringComparison.Ordinal);
     }
 
     private static string CategorizeKey(string key)

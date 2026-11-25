@@ -402,7 +402,18 @@ pub fn render_main_menu(
                         crate::social_view::render_friends_page(ui, state, accent, actions);
                     }
                     "currentInstance" => {
-                        crate::social_view::render_current_instance_page(ui, state, accent, actions);
+                        if state.host.content.instance_detail.is_some() {
+                            crate::content_browser::render_content_browser(
+                                ui, state, "worlds", accent, actions,
+                            );
+                        } else {
+                            actions.push(UiAction::ContentLoadInstanceDetail {
+                                instance_id: String::from("__current__"),
+                            });
+                            crate::content_browser::render_content_browser(
+                                ui, state, "worlds", accent, actions,
+                            );
+                        }
                     }
                     "messages" => {
                         crate::social_view::render_messages_page(ui, state, accent, actions);
@@ -1017,8 +1028,11 @@ fn render_home_dashboard(
                     {
                         push_click(actions);
                         push_nav_history(state);
-                        state.main_menu.active_tab = String::from("currentInstance");
+                        state.main_menu.active_tab = String::from("worlds");
                         close_all_detail_overlays(actions);
+                        actions.push(UiAction::ContentLoadInstanceDetail {
+                            instance_id: String::from("__current__"),
+                        });
                     }
                 }
             })
@@ -1445,8 +1459,11 @@ fn render_home_dashboard(
                 {
                     push_click(actions);
                     push_nav_history(state);
-                    state.main_menu.active_tab = String::from("currentInstance");
+                    state.main_menu.active_tab = String::from("worlds");
                     close_all_detail_overlays(actions);
+                    actions.push(UiAction::ContentLoadInstanceDetail {
+                        instance_id: String::from("__current__"),
+                    });
                 }
 
                 // 2. Split Clear Button: Top = Remove All Avatars | Bottom = Remove All Props
@@ -2347,8 +2364,11 @@ fn render_game_instance_info_modal(
                             push_click(actions);
                             state.main_menu.info_modal_open = false;
                             push_nav_history(state);
-                            state.main_menu.active_tab = String::from("currentInstance");
+                            state.main_menu.active_tab = String::from("worlds");
                             close_all_detail_overlays(actions);
+                            actions.push(UiAction::ContentLoadInstanceDetail {
+                                instance_id: String::from("__current__"),
+                            });
                         }
                     })
                     .w(420.0)

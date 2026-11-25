@@ -843,7 +843,7 @@ dependencies = [
 
 [[package]]
 name = "lumenic_cvr_ui"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "lumenic",
  "serde",

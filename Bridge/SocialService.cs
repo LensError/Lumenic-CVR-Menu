@@ -121,9 +121,25 @@ internal sealed class SocialService
         public int MemberCount;
         public string OwnerId = string.Empty;
         public string OwnerName = string.Empty;
+        public string LocalUserId = string.Empty;
+        public string LocalRole = string.Empty;
         public bool IsOwner;
         public bool IsMember;
         public bool IsFeatured;
+        public bool CanManageRoles;
+        public bool CanKick;
+        public bool CanEdit;
+        public bool SettingListed;
+        public int SettingMemberPublicity;
+        public int SettingEventPublicity;
+        public int SettingPrivacyJoin;
+        public int MembersPage;
+        public int MembersTotalPages = 1;
+        public bool LoadingMoreMembers;
+        public bool MassRoleRunning;
+        public int MassRoleDone;
+        public int MassRoleTotal;
+        public int MassRoleFailed;
         public bool Loading;
         public bool Saving;
         public string StatusMsg = string.Empty;
@@ -152,6 +168,7 @@ internal sealed class SocialService
 
     private GroupDetailDto _groupDetail;
     private int _groupDetailSeq;
+    private int _massRoleSeq;
 
     private List<UserGroupDto> _myGroups = new List<UserGroupDto>();
 
@@ -341,9 +358,359 @@ internal sealed class SocialService
         lock (_lock)
         {
             _groupDetailSeq++;
+            _massRoleSeq++;
             _groupDetail = null;
         }
         _onDirty?.Invoke();
+    }
+
+    public void LoadMoreGroupMembers(string groupId)
+    {
+        if (!AuthManager.IsAuthenticated || string.IsNullOrWhiteSpace(groupId))
+            return;
+
+        int nextPage;
+        int seq;
+        lock (_lock)
+        {
+            if (_groupDetail == null
+                || !string.Equals(_groupDetail.Id, groupId, StringComparison.OrdinalIgnoreCase)
+                || _groupDetail.LoadingMoreMembers
+                || _groupDetail.MembersPage + 1 >= _groupDetail.MembersTotalPages)
+            {
+                return;
+            }
+            _groupDetail.LoadingMoreMembers = true;
+            nextPage = _groupDetail.MembersPage + 1;
+            seq = _groupDetailSeq;
+        }
+        _onDirty?.Invoke();
+
+        Task.Run(async () =>
+        {
+            try
+            {
+                BaseResponse<GroupMemberList> memResp = await ApiConnection.MakeRequest<GroupMemberList>(
+                    ApiConnection.ApiOperation.GroupGetMembers,
+                    new { id = groupId, page = nextPage, sortOrder = "default", sortAscending = false }).ConfigureAwait(false);
+
+                lock (_lock)
+                {
+                    if (_groupDetailSeq != seq || _groupDetail == null)
+                        return;
+                    _groupDetail.LoadingMoreMembers = false;
+                    if (memResp?.Data?.Entries != null)
+                    {
+                        _groupDetail.MembersPage = nextPage;
+                        if (memResp.Data.TotalPages > 0)
+                            _groupDetail.MembersTotalPages = memResp.Data.TotalPages;
+                        foreach (GroupMember m in memResp.Data.Entries)
+                        {
+                            if (m == null || string.IsNullOrEmpty(m.Id)) continue;
+                            if (_groupDetail.Members.Any(x => string.Equals(x.Id, m.Id, StringComparison.OrdinalIgnoreCase)))
+                                continue;
+                            _groupDetail.Members.Add(new GroupMemberDto
+                            {
+                                Id = m.Id,
+                                Name = m.Name ?? "Member",
+                                Role = m.Role ?? "Member",
+                                ImageUrl = m.Image ?? string.Empty
+                            });
+                        }
+                    }
+                    else
+                    {
+                        _groupDetail.Error = memResp?.Message ?? "Failed to load more members.";
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                lock (_lock)
+                {
+                    if (_groupDetailSeq == seq && _groupDetail != null)
+                    {
+                        _groupDetail.LoadingMoreMembers = false;
+                        _groupDetail.Error = ex.Message;
+                    }
+                }
+            }
+            _onDirty?.Invoke();
+        });
+    }
+
+    public void SetGroupMemberRole(string groupId, string userId, string role)
+    {
+        if (!AuthManager.IsAuthenticated
+            || string.IsNullOrWhiteSpace(groupId)
+            || string.IsNullOrWhiteSpace(userId)
+            || string.IsNullOrWhiteSpace(role))
+            return;
+
+        if (!Enum.TryParse(role, ignoreCase: true, out ABI_RC.Core.Networking.API.Responses.GroupResponses.GroupEnums.GroupMemberRole parsedRole))
+            return;
+
+        string roleName = parsedRole.ToString();
+        lock (_lock)
+        {
+            if (_groupDetail != null && string.Equals(_groupDetail.Id, groupId, StringComparison.OrdinalIgnoreCase))
+            {
+                _groupDetail.Saving = true;
+                _groupDetail.StatusMsg = string.Empty;
+                _groupDetail.Error = string.Empty;
+            }
+        }
+        _onDirty?.Invoke();
+
+        Task.Run(async () =>
+        {
+            try
+            {
+                var resp = await ApiConnection.MakeRequest<object>(
+                    ApiConnection.ApiOperation.GroupUserRoleAssign,
+                    new { groupId, userId, role = roleName }).ConfigureAwait(false);
+                lock (_lock)
+                {
+                    if (_groupDetail != null && string.Equals(_groupDetail.Id, groupId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        _groupDetail.Saving = false;
+                        if (resp != null && resp.IsSuccessStatusCode)
+                        {
+                            GroupMemberDto member = _groupDetail.Members.FirstOrDefault(m =>
+                                string.Equals(m.Id, userId, StringComparison.OrdinalIgnoreCase));
+                            if (member != null)
+                                member.Role = roleName;
+                            _groupDetail.StatusMsg = $"Updated role to {roleName}.";
+                        }
+                        else
+                        {
+                            _groupDetail.Error = resp?.Message ?? $"Failed to set role to {roleName}.";
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                lock (_lock)
+                {
+                    if (_groupDetail != null && string.Equals(_groupDetail.Id, groupId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        _groupDetail.Saving = false;
+                        _groupDetail.Error = ex.Message;
+                    }
+                }
+            }
+            _onDirty?.Invoke();
+        });
+    }
+
+    public void MassSetGroupMembersToMember(string groupId, List<string> userIds)
+    {
+        if (!AuthManager.IsAuthenticated || string.IsNullOrWhiteSpace(groupId) || userIds == null || userIds.Count == 0)
+            return;
+
+        string targetRole = ABI_RC.Core.Networking.API.Responses.GroupResponses.GroupEnums.GroupMemberRole.Member.ToString();
+        List<string> eligible;
+        int detailSeq;
+        int massSeq;
+        lock (_lock)
+        {
+            if (_groupDetail == null
+                || !string.Equals(_groupDetail.Id, groupId, StringComparison.OrdinalIgnoreCase)
+                || !_groupDetail.CanManageRoles
+                || _groupDetail.MassRoleRunning)
+            {
+                return;
+            }
+
+            string ownerId = _groupDetail.OwnerId;
+            string localId = _groupDetail.LocalUserId;
+            eligible = userIds
+                .Where(u => !string.IsNullOrWhiteSpace(u)
+                    && !string.Equals(u, ownerId, StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(u, localId, StringComparison.OrdinalIgnoreCase))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (eligible.Count == 0)
+                return;
+
+            detailSeq = _groupDetailSeq;
+            massSeq = ++_massRoleSeq;
+            _groupDetail.MassRoleRunning = true;
+            _groupDetail.MassRoleDone = 0;
+            _groupDetail.MassRoleTotal = eligible.Count;
+            _groupDetail.MassRoleFailed = 0;
+            _groupDetail.StatusMsg = string.Empty;
+            _groupDetail.Error = string.Empty;
+        }
+        _onDirty?.Invoke();
+
+        Task.Run(async () =>
+        {
+            int done = 0;
+            int failed = 0;
+            string lastErr = string.Empty;
+
+            for (int i = 0; i < eligible.Count; i++)
+            {
+                lock (_lock)
+                {
+                    if (_groupDetailSeq != detailSeq || _massRoleSeq != massSeq || _groupDetail == null)
+                        return;
+                }
+
+                string uid = eligible[i];
+                bool ok = false;
+                try
+                {
+                    var resp = await ApiConnection.MakeRequest<object>(
+                        ApiConnection.ApiOperation.GroupUserRoleAssign,
+                        new { groupId, userId = uid, role = targetRole }).ConfigureAwait(false);
+                    ok = resp != null && resp.IsSuccessStatusCode;
+                    if (!ok && !string.IsNullOrEmpty(resp?.Message))
+                        lastErr = resp.Message;
+                }
+                catch (Exception ex)
+                {
+                    lastErr = ex.Message;
+                }
+
+                if (ok) done++;
+                else failed++;
+
+                lock (_lock)
+                {
+                    if (_groupDetailSeq != detailSeq || _massRoleSeq != massSeq || _groupDetail == null)
+                        return;
+
+                    if (ok)
+                    {
+                        GroupMemberDto member = _groupDetail.Members.FirstOrDefault(m =>
+                            string.Equals(m.Id, uid, StringComparison.OrdinalIgnoreCase));
+                        if (member != null)
+                            member.Role = targetRole;
+                    }
+                    _groupDetail.MassRoleDone = done + failed;
+                    _groupDetail.MassRoleFailed = failed;
+                }
+                _onDirty?.Invoke();
+
+                if (i + 1 < eligible.Count)
+                    await Task.Delay(150).ConfigureAwait(false);
+            }
+
+            lock (_lock)
+            {
+                if (_groupDetailSeq == detailSeq && _massRoleSeq == massSeq && _groupDetail != null)
+                {
+                    _groupDetail.MassRoleRunning = false;
+                    if (failed == 0)
+                    {
+                        _groupDetail.StatusMsg = $"Updated {done} member(s) to Member.";
+                    }
+                    else
+                    {
+                        _groupDetail.StatusMsg = done > 0 ? $"Updated {done} member(s) to Member." : string.Empty;
+                        _groupDetail.Error = string.IsNullOrEmpty(lastErr)
+                            ? $"{failed} update(s) failed."
+                            : $"{failed} update(s) failed ({lastErr}).";
+                    }
+                }
+            }
+            _onDirty?.Invoke();
+        });
+    }
+
+    public void CancelMassGroupRole()
+    {
+        lock (_lock)
+        {
+            _massRoleSeq++;
+            if (_groupDetail != null && _groupDetail.MassRoleRunning)
+            {
+                _groupDetail.MassRoleRunning = false;
+                _groupDetail.StatusMsg = $"Mass update cancelled ({_groupDetail.MassRoleDone} / {_groupDetail.MassRoleTotal} processed).";
+            }
+        }
+        _onDirty?.Invoke();
+    }
+
+    public void UpdateGroupSettings(string groupId, bool listed, int memberPubIdx, int eventPubIdx, int joinPrivIdx)
+    {
+        if (!AuthManager.IsAuthenticated || string.IsNullOrWhiteSpace(groupId))
+            return;
+
+        if (!Enum.IsDefined(typeof(ABI_RC.Core.Networking.API.Responses.GroupResponses.GroupEnums.SettingMemberPublicity), memberPubIdx)
+            || !Enum.IsDefined(typeof(ABI_RC.Core.Networking.API.Responses.GroupResponses.GroupEnums.SettingEventPublicity), eventPubIdx)
+            || !Enum.IsDefined(typeof(ABI_RC.Core.Networking.API.Responses.GroupResponses.GroupEnums.SettingPrivacyJoin), joinPrivIdx))
+        {
+            return;
+        }
+
+        var memberPub = (ABI_RC.Core.Networking.API.Responses.GroupResponses.GroupEnums.SettingMemberPublicity)memberPubIdx;
+        var eventPub = (ABI_RC.Core.Networking.API.Responses.GroupResponses.GroupEnums.SettingEventPublicity)eventPubIdx;
+        var joinPriv = (ABI_RC.Core.Networking.API.Responses.GroupResponses.GroupEnums.SettingPrivacyJoin)joinPrivIdx;
+
+        lock (_lock)
+        {
+            if (_groupDetail != null && string.Equals(_groupDetail.Id, groupId, StringComparison.OrdinalIgnoreCase))
+            {
+                _groupDetail.Saving = true;
+                _groupDetail.StatusMsg = string.Empty;
+                _groupDetail.Error = string.Empty;
+            }
+        }
+        _onDirty?.Invoke();
+
+        Task.Run(async () =>
+        {
+            try
+            {
+                var resp = await ApiConnection.MakeRequest<object>(
+                    ApiConnection.ApiOperation.GroupSettingsUpdate,
+                    new
+                    {
+                        groupId,
+                        listed,
+                        memberPublicity = memberPub.ToString(),
+                        eventPublicity = eventPub.ToString(),
+                        privacyJoin = joinPriv.ToString()
+                    }).ConfigureAwait(false);
+
+                lock (_lock)
+                {
+                    if (_groupDetail != null && string.Equals(_groupDetail.Id, groupId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        _groupDetail.Saving = false;
+                        if (resp != null && resp.IsSuccessStatusCode)
+                        {
+                            _groupDetail.SettingListed = listed;
+                            _groupDetail.SettingMemberPublicity = memberPubIdx;
+                            _groupDetail.SettingEventPublicity = eventPubIdx;
+                            _groupDetail.SettingPrivacyJoin = joinPrivIdx;
+                            _groupDetail.StatusMsg = "Group settings saved.";
+                        }
+                        else
+                        {
+                            _groupDetail.Error = resp?.Message ?? "Failed to save group settings.";
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                lock (_lock)
+                {
+                    if (_groupDetail != null && string.Equals(_groupDetail.Id, groupId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        _groupDetail.Saving = false;
+                        _groupDetail.Error = ex.Message;
+                    }
+                }
+            }
+            _onDirty?.Invoke();
+        });
     }
 
     public void UpdateGroupName(string groupId, string newName)
@@ -630,9 +997,18 @@ internal sealed class SocialService
                 next.MemberCount = g.MemberCount;
                 next.OwnerId = g.Owner?.Id ?? string.Empty;
                 next.OwnerName = g.Owner?.Name ?? string.Empty;
+                next.LocalUserId = localOwnerId ?? string.Empty;
                 next.IsOwner = g.LocalUserOwns
                     || (!string.IsNullOrEmpty(localOwnerId) && string.Equals(next.OwnerId, localOwnerId, StringComparison.OrdinalIgnoreCase));
+                var perms = g.Relation?.Permissions ?? ABI_RC.Core.Networking.API.Responses.GroupResponses.GroupEnums.GroupPermissions.None;
                 next.IsMember = next.IsOwner || (g.Relation != null && g.Relation.MemberStatus != ABI_RC.Core.Networking.API.Responses.GroupResponses.GroupEnums.GroupMemberStatus.None);
+                next.CanManageRoles = next.IsOwner || (perms & ABI_RC.Core.Networking.API.Responses.GroupResponses.GroupEnums.GroupPermissions.Admin) != 0;
+                next.CanKick = next.IsOwner || (perms & ABI_RC.Core.Networking.API.Responses.GroupResponses.GroupEnums.GroupPermissions.Kick) != 0;
+                next.CanEdit = next.IsOwner || (perms & ABI_RC.Core.Networking.API.Responses.GroupResponses.GroupEnums.GroupPermissions.Edit) != 0;
+                next.SettingListed = g.SettingListed;
+                next.SettingMemberPublicity = (int)g.SettingMemberPublicity;
+                next.SettingEventPublicity = (int)g.SettingEventPublicity;
+                next.SettingPrivacyJoin = (int)g.SettingPrivacyJoin;
                 lock (_lock)
                 {
                     next.IsFeatured = !string.IsNullOrEmpty(_localFeaturedGroup)
@@ -646,6 +1022,8 @@ internal sealed class SocialService
 
             if (memResp?.Data?.Entries != null)
             {
+                next.MembersPage = 0;
+                next.MembersTotalPages = Math.Max(1, memResp.Data.TotalPages);
                 foreach (GroupMember m in memResp.Data.Entries)
                 {
                     if (m == null || string.IsNullOrEmpty(m.Id)) continue;
@@ -657,6 +1035,25 @@ internal sealed class SocialService
                         ImageUrl = m.Image ?? string.Empty
                     });
                 }
+            }
+
+            if (next.IsOwner)
+            {
+                next.LocalRole = "Owner";
+            }
+            else
+            {
+                GroupMemberDto selfMember = !string.IsNullOrEmpty(localOwnerId)
+                    ? next.Members.FirstOrDefault(m => string.Equals(m.Id, localOwnerId, StringComparison.OrdinalIgnoreCase))
+                    : null;
+                if (selfMember != null && !string.IsNullOrEmpty(selfMember.Role))
+                    next.LocalRole = selfMember.Role;
+                else if (next.CanManageRoles)
+                    next.LocalRole = "Admin";
+                else if (next.CanKick)
+                    next.LocalRole = "Moderator";
+                else if (next.IsMember)
+                    next.LocalRole = "Member";
             }
 
             lock (_lock)
@@ -1307,9 +1704,25 @@ internal sealed class SocialService
                 member_count = groupCopy.MemberCount,
                 owner_id = groupCopy.OwnerId,
                 owner_name = groupCopy.OwnerName,
+                local_user_id = groupCopy.LocalUserId,
+                local_role = groupCopy.LocalRole,
                 is_owner = groupCopy.IsOwner,
                 is_member = groupCopy.IsMember,
                 is_featured = groupCopy.IsFeatured,
+                can_manage_roles = groupCopy.CanManageRoles,
+                can_kick = groupCopy.CanKick,
+                can_edit = groupCopy.CanEdit,
+                setting_listed = groupCopy.SettingListed,
+                setting_member_publicity = groupCopy.SettingMemberPublicity,
+                setting_event_publicity = groupCopy.SettingEventPublicity,
+                setting_privacy_join = groupCopy.SettingPrivacyJoin,
+                members_page = groupCopy.MembersPage,
+                members_total_pages = groupCopy.MembersTotalPages,
+                loading_more_members = groupCopy.LoadingMoreMembers,
+                mass_role_running = groupCopy.MassRoleRunning,
+                mass_role_done = groupCopy.MassRoleDone,
+                mass_role_total = groupCopy.MassRoleTotal,
+                mass_role_failed = groupCopy.MassRoleFailed,
                 loading = groupCopy.Loading,
                 saving = groupCopy.Saving,
                 status_msg = groupCopy.StatusMsg,

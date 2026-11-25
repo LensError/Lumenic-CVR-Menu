@@ -25,7 +25,7 @@ namespace LumenicMenu;
 
 public sealed class LumenicMenuMod : MelonMod
 {
-    public const string ModVersion = "0.3.0";
+    public const string ModVersion = "0.3.1";
     private const string InputLockReason = "LumenicMenu";
 
     public static LumenicMenuMod Instance { get; private set; }

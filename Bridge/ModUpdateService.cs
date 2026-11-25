@@ -23,10 +23,10 @@ internal sealed class ModUpdateService
 {
     public const string BundledChangelog =
         "What's New in LumenicMenu v" + LumenicMenuMod.ModVersion + ":\n\n" +
-        "- Added LumenicMenu Extension API (LumenicMenu.Api) for MelonLoader mods: custom Quick Menu & Main Menu tabs, shared Extensions hub, declarative UiBuilder (including styled Dropdown/Combobox and masked password inputs), named section slots/overrides/replacement, ThemeTokens, custom fonts, and live Texture2D uploads.\n" +
-        "- Added Text Size presets (75%, 100%, 125%, 150%) in Settings -> LumenicMenu with proportional container scaling.\n" +
-        "- Added Support & Mod Issues tab, first-use disclaimer, What's New modal, manual Check for Updates, and ChilloutVR system alert/confirm forwarding.\n" +
-        "- Updated to Lumenic v0.1.4 (fixes dynamic font-size glyph atlas overflow and adds DropdownStyle support).";
+        "- Revamped Group Management view: full-width Members tab with search, role filters, pagination, individual role editing, mass 'Set Selected to Member' (with Select All Trial shortcut) for Admins/Owners, plus a Settings & Info tab with group privacy controls.\n" +
+        "- World Details: added Pin to Quick Menu button and upgraded Active Instance cards into clickable cards with a bottom player preview strip (+N more).\n" +
+        "- User Details & Instances: added Instance Details button when a user is in an instance, and unified Current Instance shortcuts to open the full Instance Details view.\n" +
+        "- VR & UI Polish: added VR controller haptics on button hover, Quick Menu bottom tab bar scroll-back arrow, Discover-matched Messages top bar buttons, filtered hidden internal CVR settings, and fixed extension TextInput/Slider/VR keyboard handling.";
 
     private const string LatestReleaseApiUrl = "https://api.github.com/repos/LensError/Lumenic-CVR-Menu/releases/latest";
     private const string DefaultReleasePageUrl = "https://github.com/LensError/Lumenic-CVR-Menu/releases/latest";

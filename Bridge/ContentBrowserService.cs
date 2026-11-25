@@ -62,6 +62,7 @@ internal sealed class ContentBrowserService
         public int PlayerCount;
         public int MaxPlayers;
         public string Region;
+        public List<InstanceMemberDto> Members = new List<InstanceMemberDto>();
     }
 
     private sealed class ListState
@@ -1198,7 +1199,15 @@ internal sealed class ContentBrowserService
             detailCopy = _detail;
             if (detailCopy != null)
             {
-                detailInstances = new List<InstanceDto>(detailCopy.Instances);
+                detailInstances = detailCopy.Instances.Select(i => new InstanceDto
+                {
+                    Id = i.Id,
+                    Name = i.Name,
+                    PlayerCount = i.PlayerCount,
+                    MaxPlayers = i.MaxPlayers,
+                    Region = i.Region,
+                    Members = i.Members != null ? new List<InstanceMemberDto>(i.Members) : new List<InstanceMemberDto>()
+                }).ToList();
                 detailCategories = new List<string>(detailCopy.Categories);
             }
             instDetailCopy = _instanceDetail;
@@ -1357,7 +1366,13 @@ internal sealed class ContentBrowserService
                         name = i.Name,
                         player_count = i.PlayerCount,
                         max_players = i.MaxPlayers,
-                        region = i.Region
+                        region = i.Region,
+                        members = (i.Members ?? new List<InstanceMemberDto>()).Select(m => new
+                        {
+                            id = m.Id,
+                            name = m.Name,
+                            image_key = images != null ? images.RequestThumbnail(NativeBridge.SurfaceMain, m.ImageUrl) : string.Empty
+                        }).ToList()
                     }).ToList()
                 }
         };
@@ -1802,14 +1817,28 @@ internal sealed class ContentBrowserService
                 _pinnedContent?.PatchMetadata(kind, id, next.Name, next.ImageUrl);
             }
 
+            List<string> instancesToEnrich = null;
             lock (_lock)
             {
                 if (_detailSeq == seq)
                 {
                     _detail = next;
+                    if (kind == "world" && next.Instances.Count > 0)
+                    {
+                        instancesToEnrich = next.Instances
+                            .Where(i => i.PlayerCount > 0 && !string.IsNullOrEmpty(i.Id))
+                            .Take(12)
+                            .Select(i => i.Id)
+                            .ToList();
+                    }
                 }
             }
             _onDirty?.Invoke();
+
+            if (instancesToEnrich != null && instancesToEnrich.Count > 0)
+            {
+                _ = Task.Run(() => EnrichWorldInstanceMembersAsync(instancesToEnrich, seq));
+            }
         }
         catch (Exception ex)
         {
@@ -1822,6 +1851,75 @@ internal sealed class ContentBrowserService
                 }
             }
             _onDirty?.Invoke();
+        }
+    }
+
+    private async Task EnrichWorldInstanceMembersAsync(List<string> instanceIds, int seq)
+    {
+        const int batchSize = 4;
+        for (int offset = 0; offset < instanceIds.Count; offset += batchSize)
+        {
+            lock (_lock)
+            {
+                if (_detailSeq != seq || _detail == null)
+                    return;
+            }
+
+            var batch = instanceIds.Skip(offset).Take(batchSize).ToList();
+            var tasks = batch.Select(async instId =>
+            {
+                try
+                {
+                    BaseResponse<InstanceDetailsResponse> resp = await ApiConnection.MakeRequest<InstanceDetailsResponse>(
+                        ApiConnection.ApiOperation.InstanceDetail,
+                        new { instanceID = instId }).ConfigureAwait(false);
+                    if (resp?.Data?.Members == null)
+                        return (instId, (List<InstanceMemberDto>)null);
+
+                    var list = new List<InstanceMemberDto>(4);
+                    foreach (UserDetails m in resp.Data.Members)
+                    {
+                        if (m == null || string.IsNullOrEmpty(m.Id))
+                            continue;
+                        list.Add(new InstanceMemberDto
+                        {
+                            Id = m.Id,
+                            Name = m.Name ?? "Player",
+                            ImageUrl = m.ImageUrl ?? string.Empty
+                        });
+                        if (list.Count >= 4)
+                            break;
+                    }
+                    return (instId, list);
+                }
+                catch
+                {
+                    return (instId, (List<InstanceMemberDto>)null);
+                }
+            }).ToArray();
+
+            var results = await Task.WhenAll(tasks).ConfigureAwait(false);
+            bool anyUpdated = false;
+            lock (_lock)
+            {
+                if (_detailSeq != seq || _detail == null)
+                    return;
+
+                foreach (var (instId, members) in results)
+                {
+                    if (members == null || members.Count == 0)
+                        continue;
+                    InstanceDto target = _detail.Instances.FirstOrDefault(i => i.Id == instId);
+                    if (target != null)
+                    {
+                        target.Members = members;
+                        anyUpdated = true;
+                    }
+                }
+            }
+
+            if (anyUpdated)
+                _onDirty?.Invoke();
         }
     }
 

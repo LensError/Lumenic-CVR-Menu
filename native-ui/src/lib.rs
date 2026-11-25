@@ -925,6 +925,9 @@ pub unsafe extern "C" fn lumenic_cvr_commit_virtual_keyboard(
             "mm_grp_desc_input" => {
                 hnd.state.main_menu.group_desc_input = lumenic::TextEditState::with_text(text);
             }
+            "mm_gd_member_search" => {
+                hnd.state.main_menu.group_member_search = lumenic::TextEditState::with_text(text);
+            }
             "mm_prof_pronouns" => {
                 let clipped: String = text.trim().chars().take(32).collect();
                 hnd.state.main_menu.profile_pronouns_input =

@@ -2133,6 +2133,63 @@ fn render_detail_view(
                                         world_id: detail.id.clone(),
                                     });
                                 }
+
+                                if !detail.id.is_empty() && detail.error.is_empty() {
+                                    let is_pinned = state.host.content.pinned_items.iter().any(|p| {
+                                        p.kind.eq_ignore_ascii_case("world")
+                                            && p.id.eq_ignore_ascii_case(&detail.id)
+                                    });
+                                    if ui
+                                        .btn_with("mm_det_world_pin_btn", |ui| {
+                                            ui.row(|ui| {
+                                                icons::icon(ui, icons::PIN, 14.0).fg(if is_pinned {
+                                                    accent
+                                                } else {
+                                                    TEXT_MUTED
+                                                });
+                                                ui.txt(if is_pinned {
+                                                    "Pinned to QM"
+                                                } else {
+                                                    "Pin to QM"
+                                                })
+                                                .sz(crate::theme::fs(12.0))
+                                                .semibold()
+                                                .fg(if is_pinned {
+                                                    TEXT_PRIMARY
+                                                } else {
+                                                    TEXT_MUTED
+                                                });
+                                            })
+                                            .center()
+                                            .grow(1.0)
+                                            .gap(6.0);
+                                        })
+                                        .grow(1.0)
+                                        .py(9.0)
+                                        .bg(if is_pinned {
+                                            tint_alpha(accent, 42)
+                                        } else {
+                                            tile_idle_bg()
+                                        })
+                                        .hover_bg(tile_idle_hover())
+                                        .bd(
+                                            1.0,
+                                            if is_pinned {
+                                                tint_alpha(accent, 185)
+                                            } else {
+                                                border_subtle()
+                                            },
+                                        )
+                                        .bevel_rounded(7.0, 1.3)
+                                        .clicked()
+                                    {
+                                        push_click(actions);
+                                        actions.push(UiAction::ContentTogglePin {
+                                            kind: String::from("world"),
+                                            id: detail.id.clone(),
+                                        });
+                                    }
+                                }
                             }
                         }
                     })
@@ -2440,42 +2497,114 @@ fn render_detail_view(
                                 ui.scroll("mm_det_inst_scroll", |ui| {
                                     for inst in &detail.instances {
                                         ui.row(|ui| {
-                                            ui.col(|ui| {
-                                                ui.txt(&inst.name)
-                                                    .sz(crate::theme::fs(12.0))
-                                                    .semibold()
-                                                    .fg(TEXT_PRIMARY)
-                                                    .ellipsis();
-                                                let meta = format!(
-                                                    "{} / {} players  |  {}",
-                                                    inst.player_count,
-                                                    inst.max_players.max(inst.player_count),
-                                                    if inst.region.is_empty() {
-                                                        "Global"
-                                                    } else {
-                                                        &inst.region
-                                                    }
-                                                );
-                                                ui.txt(&meta).sz(crate::theme::fs(10.5)).fg(TEXT_MUTED);
-                                            })
-                                            .gap(2.0)
-                                            .grow(1.0);
-
+                                            // Main clickable card body -> opens Instance Details
                                             if ui
-                                                .btn_with(&format!("mm_det_view_{}", inst.id), |ui| {
-                                                    ui.txt("View")
-                                                        .sz(crate::theme::fs(10.5))
-                                                        .semibold()
-                                                        .align(TextAlign::Center)
-                                                        .fg(TEXT_PRIMARY)
-                                                        .grow(1.0);
+                                                .btn_with(&format!("mm_det_inst_card_{}", inst.id), |ui| {
+                                                    ui.col(|ui| {
+                                                        ui.txt(&inst.name)
+                                                            .sz(crate::theme::fs(12.0))
+                                                            .semibold()
+                                                            .fg(TEXT_PRIMARY)
+                                                            .ellipsis();
+                                                        let meta = format!(
+                                                            "{} / {} players  |  {}",
+                                                            inst.player_count,
+                                                            inst.max_players.max(inst.player_count),
+                                                            if inst.region.is_empty() {
+                                                                "Global"
+                                                            } else {
+                                                                &inst.region
+                                                            }
+                                                        );
+                                                        ui.txt(&meta)
+                                                            .sz(crate::theme::fs(10.5))
+                                                            .fg(TEXT_MUTED);
+
+                                                        // Bottom player preview strip
+                                                        if !inst.members.is_empty() || inst.player_count > 0 {
+                                                            ui.row(|ui| {
+                                                                let shown = inst.members.len().min(3);
+                                                                for m in inst.members.iter().take(shown) {
+                                                                    ui.row(|ui| {
+                                                                        if let Some(tex) =
+                                                                            state.main_textures.get(&m.image_key)
+                                                                        {
+                                                                            ui.img(tex)
+                                                                                .w(18.0)
+                                                                                .h(18.0)
+                                                                                .fit(ImageFit::Cover)
+                                                                                .hexagon_pointy()
+                                                                                .r(2.0);
+                                                                        } else {
+                                                                            let init = m
+                                                                                .name
+                                                                                .chars()
+                                                                                .next()
+                                                                                .unwrap_or('?')
+                                                                                .to_ascii_uppercase()
+                                                                                .to_string();
+                                                                            ui.col(|ui| {
+                                                                                ui.txt(&init)
+                                                                                    .sz(crate::theme::fs(8.5))
+                                                                                    .bold()
+                                                                                    .align(TextAlign::Center)
+                                                                                    .fg(accent);
+                                                                            })
+                                                                            .center()
+                                                                            .w(18.0)
+                                                                            .h(18.0)
+                                                                            .bg(tint_alpha(accent, 30))
+                                                                            .hexagon_pointy()
+                                                                            .r(2.0);
+                                                                        }
+                                                                        ui.txt(&m.name)
+                                                                            .sz(crate::theme::fs(9.5))
+                                                                            .fg(TEXT_MUTED)
+                                                                            .max_w(86.0)
+                                                                            .ellipsis();
+                                                                    })
+                                                                    .align_center()
+                                                                    .gap(4.0)
+                                                                    .px(5.0)
+                                                                    .py(2.0)
+                                                                    .bg(tile_idle_bg())
+                                                                    .bd(1.0, border_subtle())
+                                                                    .bevel_rounded(4.5, 1.0);
+                                                                }
+
+                                                                let remaining =
+                                                                    inst.player_count.saturating_sub(shown as i32);
+                                                                if remaining > 0 {
+                                                                    let more_txt = if shown == 0 {
+                                                                        format!("{} in instance", remaining)
+                                                                    } else {
+                                                                        format!("+{} more", remaining)
+                                                                    };
+                                                                    ui.txt(&more_txt)
+                                                                        .sz(crate::theme::fs(9.5))
+                                                                        .semibold()
+                                                                        .fg(accent)
+                                                                        .px(6.0)
+                                                                        .py(2.0)
+                                                                        .bg(tint_alpha(accent, 24))
+                                                                        .bd(1.0, tint_alpha(accent, 95))
+                                                                        .bevel_rounded(4.5, 1.0);
+                                                                }
+                                                            })
+                                                            .align_center()
+                                                            .gap(4.0)
+                                                            .pt(3.0);
+                                                        }
+                                                    })
+                                                    .gap(2.5)
+                                                    .grow(1.0);
                                                 })
-                                                .w(52.0)
-                                                .py(6.0)
-                                                .bg(tile_idle_bg())
+                                                .grow(1.0)
+                                                .p(8.0)
+                                                .bg(Color::TRANSPARENT)
                                                 .hover_bg(tile_idle_hover())
-                                                .bd(1.0, tint_alpha(accent, 130))
-                                                .bevel_rounded(6.0, 1.3)
+                                                .borderless()
+                                                .bevel_rounded(6.0, 1.2)
                                                 .clicked()
                                             {
                                                 push_click(actions);
@@ -2485,54 +2614,58 @@ fn render_detail_view(
                                                 });
                                             }
 
-                                            if ui
-                                                .btn_with(&format!("mm_det_portal_{}", inst.id), |ui| {
-                                                    ui.txt("Portal")
-                                                        .sz(crate::theme::fs(10.5))
-                                                        .semibold()
-                                                        .align(TextAlign::Center)
-                                                        .fg(TEXT_PRIMARY)
-                                                        .grow(1.0);
-                                                })
-                                                .w(56.0)
-                                                .py(6.0)
-                                                .bg(tile_idle_bg())
-                                                .hover_bg(tile_idle_hover())
-                                                .bd(1.0, border_subtle())
-                                                .bevel_rounded(6.0, 1.3)
-                                                .clicked()
-                                            {
-                                                push_click(actions);
-                                                actions.push(UiAction::ContentDropPortal {
-                                                    instance_id: inst.id.clone(),
-                                                });
-                                            }
+                                            ui.col(|ui| {
+                                                if ui
+                                                    .btn_with(&format!("mm_det_join_{}", inst.id), |ui| {
+                                                        ui.txt("Join")
+                                                            .sz(crate::theme::fs(11.0))
+                                                            .bold()
+                                                            .align(TextAlign::Center)
+                                                            .fg(TEXT_PRIMARY)
+                                                            .grow(1.0);
+                                                    })
+                                                    .w(68.0)
+                                                    .py(5.5)
+                                                    .bg(tint_alpha(accent, 52))
+                                                    .hover_bg(tint_alpha(accent, 85))
+                                                    .bd(1.0, tint_alpha(accent, 195))
+                                                    .bevel_rounded(6.0, 1.3)
+                                                    .clicked()
+                                                {
+                                                    push_click(actions);
+                                                    actions.push(UiAction::ContentJoinInstance {
+                                                        instance_id: inst.id.clone(),
+                                                    });
+                                                }
 
-                                            if ui
-                                                .btn_with(&format!("mm_det_join_{}", inst.id), |ui| {
-                                                    ui.txt("Join")
-                                                        .sz(crate::theme::fs(11.0))
-                                                        .bold()
-                                                        .align(TextAlign::Center)
-                                                        .fg(TEXT_PRIMARY)
-                                                        .grow(1.0);
-                                                })
-                                                .w(64.0)
-                                                .py(6.0)
-                                                .bg(tint_alpha(accent, 52))
-                                                .hover_bg(tint_alpha(accent, 85))
-                                                .bd(1.0, tint_alpha(accent, 195))
-                                                .bevel_rounded(6.0, 1.3)
-                                                .clicked()
-                                            {
-                                                push_click(actions);
-                                                actions.push(UiAction::ContentJoinInstance {
-                                                    instance_id: inst.id.clone(),
-                                                });
-                                            }
+                                                if ui
+                                                    .btn_with(&format!("mm_det_portal_{}", inst.id), |ui| {
+                                                        ui.txt("Portal")
+                                                            .sz(crate::theme::fs(10.5))
+                                                            .semibold()
+                                                            .align(TextAlign::Center)
+                                                            .fg(TEXT_PRIMARY)
+                                                            .grow(1.0);
+                                                    })
+                                                    .w(68.0)
+                                                    .py(5.0)
+                                                    .bg(tile_idle_bg())
+                                                    .hover_bg(tile_idle_hover())
+                                                    .bd(1.0, border_subtle())
+                                                    .bevel_rounded(6.0, 1.3)
+                                                    .clicked()
+                                                {
+                                                    push_click(actions);
+                                                    actions.push(UiAction::ContentDropPortal {
+                                                        instance_id: inst.id.clone(),
+                                                    });
+                                                }
+                                            })
+                                            .gap(5.0);
                                         })
                                         .align_center()
-                                        .p(9.0)
+                                        .p(4.0)
+                                        .pr(8.0)
                                         .gap(6.0)
                                         .bg(card_inner_bg())
                                         .bd(1.0, border_subtle())

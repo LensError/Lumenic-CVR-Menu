@@ -37,6 +37,8 @@ internal static class GameActionDispatcher
         AccessTools.Method(typeof(ViewManager), "OpenLogsFolder");
     private static readonly MethodInfo HandleUiConfirmMethod =
         AccessTools.Method(typeof(ViewManager), "HandleUiConfirm", new[] { typeof(string), typeof(string), typeof(string) });
+    private static float _lastVrHoverHapticTime = -10f;
+    private const float VrHoverHapticCooldownSecs = 0.035f;
 
     public static void DispatchActionsJson(string actionsJson, LumenicMenuMod mod)
     {
@@ -76,9 +78,25 @@ internal static class GameActionDispatcher
         switch (type)
         {
             case "PlayUiSound":
+            {
+                string sound = obj.Value<string>("sound") ?? "Click";
+                if (string.Equals(sound, "Hover", StringComparison.OrdinalIgnoreCase)
+                    && MetaPort.Instance != null
+                    && MetaPort.Instance.isUsingVr)
+                {
+                    float now = Time.unscaledTime;
+                    if ((now - _lastVrHoverHapticTime) >= VrHoverHapticCooldownSecs)
+                    {
+                        _lastVrHoverHapticTime = now;
+                        CVRHand hand = CVR_MenuManager.Instance != null
+                            ? CVR_MenuManager.Instance.lastInteractedHand
+                            : CVRHand.Right;
+                        CVRInputManager.Instance?.Vibrate(0f, 0.04f, 10f, 0.15f, hand);
+                    }
+                }
+
                 if (Settings.UiClickSounds)
                 {
-                    string sound = obj.Value<string>("sound") ?? "Click";
                     if (!UiSoundPlayer.TryPlay(sound)
                         && Enum.TryParse(sound, ignoreCase: true, out AudioClipField clip))
                     {
@@ -86,6 +104,7 @@ internal static class GameActionDispatcher
                     }
                 }
                 break;
+            }
 
             case "SwitchToVanilla":
                 mod.SwitchToVanilla(obj.Value<string>("target") ?? "both");
@@ -214,7 +233,16 @@ internal static class GameActionDispatcher
                 mod.Content?.CloseInstanceDetail();
                 mod.Social?.CloseUserDetail();
                 mod.Social?.CloseGroupDetail();
-                if (page == "worlds" || page == "avatars" || page == "props")
+                if (page == "currentInstance")
+                {
+                    string curInstId = ABI_RC.Core.Networking.IO.Instancing.Instances.CurrentInstanceId ?? string.Empty;
+                    if (!string.IsNullOrEmpty(curInstId))
+                    {
+                        mod.Content?.LoadInstanceDetail(curInstId);
+                    }
+                    page = "worlds";
+                }
+                else if (page == "worlds" || page == "avatars" || page == "props")
                 {
                     mod.Content?.EnsureCategoriesAndLoad(page);
                 }
@@ -688,8 +716,13 @@ internal static class GameActionDispatcher
                 break;
 
             case "ContentLoadInstanceDetail":
-                mod.Content?.LoadInstanceDetail(obj.Value<string>("instance_id") ?? string.Empty);
+            {
+                string instId = obj.Value<string>("instance_id") ?? string.Empty;
+                if (instId == "__current__")
+                    instId = ABI_RC.Core.Networking.IO.Instancing.Instances.CurrentInstanceId ?? string.Empty;
+                mod.Content?.LoadInstanceDetail(instId);
                 break;
+            }
 
             case "ContentCloseInstanceDetail":
                 mod.Content?.CloseInstanceDetail();
@@ -936,6 +969,47 @@ internal static class GameActionDispatcher
 
             case "SocialDeleteGroup":
                 mod.Social?.DeleteGroup(obj.Value<string>("group_id") ?? string.Empty);
+                break;
+
+            case "SocialLoadMoreGroupMembers":
+                mod.Social?.LoadMoreGroupMembers(obj.Value<string>("group_id") ?? string.Empty);
+                break;
+
+            case "SocialSetGroupMemberRole":
+                mod.Social?.SetGroupMemberRole(
+                    obj.Value<string>("group_id") ?? string.Empty,
+                    obj.Value<string>("user_id") ?? string.Empty,
+                    obj.Value<string>("role") ?? string.Empty);
+                break;
+
+            case "SocialMassSetGroupMembersToMember":
+            {
+                string groupId = obj.Value<string>("group_id") ?? string.Empty;
+                var userIds = new System.Collections.Generic.List<string>();
+                if (obj["user_ids"] is JArray arr)
+                {
+                    foreach (JToken tok in arr)
+                    {
+                        string uid = tok?.Value<string>();
+                        if (!string.IsNullOrWhiteSpace(uid))
+                            userIds.Add(uid);
+                    }
+                }
+                mod.Social?.MassSetGroupMembersToMember(groupId, userIds);
+                break;
+            }
+
+            case "SocialCancelMassGroupRole":
+                mod.Social?.CancelMassGroupRole();
+                break;
+
+            case "SocialUpdateGroupSettings":
+                mod.Social?.UpdateGroupSettings(
+                    obj.Value<string>("group_id") ?? string.Empty,
+                    obj.Value<bool>("listed"),
+                    obj.Value<int>("member_publicity"),
+                    obj.Value<int>("event_publicity"),
+                    obj.Value<int>("privacy_join"));
                 break;
 
             case "ContentLoadDiscover":
