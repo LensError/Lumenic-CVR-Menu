@@ -222,6 +222,17 @@ pub fn nav_go_back(state: &mut AppState, fallback_tab: &str, actions: &mut Vec<U
     }
 }
 
+pub(crate) fn has_active_modal(state: &AppState) -> bool {
+    state.host.content.group_mod_prompt.is_some()
+        || !state.host.disclaimer_accepted
+        || state.host.show_whats_new
+        || state.host.update_status.show_modal
+        || state.host.system_alert.is_some()
+        || state.extensions.mm_modal.is_some()
+        || state.main_menu.active_dropdown.is_some()
+        || state.main_menu.info_modal_open
+}
+
 pub fn back_button_label(state: &AppState, fallback: &'static str) -> &'static str {
     if state.main_menu.nav_history.is_empty() {
         fallback
@@ -549,6 +560,10 @@ pub fn render_main_menu(
 
     if state.main_menu.info_modal_open {
         render_game_instance_info_modal(ui, state, accent, actions);
+    }
+
+    if has_active_modal(state) {
+        state.main_menu.aas_preview_rendered = false;
     }
 
     if !state.main_menu.aas_preview_rendered {

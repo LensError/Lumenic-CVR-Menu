@@ -824,8 +824,8 @@ checksum = "5d15f86d12da44cd8d4ec3c73984537eb7f4cadcb9776a575a0a8a05ca11005c"
 
 [[package]]
 name = "lumenic"
-version = "0.1.5"
-source = "git+https://github.com/LensError/Lumenic#229ae1e79f17da504d93fc7e059f8137a01a6ead"
+version = "0.1.6"
+source = "git+https://github.com/LensError/Lumenic#9b72ed95318cdcdc1511a0ec4f9a8263b416a17d"
 dependencies = [
  "arboard",
  "cosmic-text",

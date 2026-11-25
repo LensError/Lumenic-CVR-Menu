@@ -654,7 +654,9 @@ pub(super) fn render_detail_view(
                 // Left: Banner (or 360 World Pano) + Description + Primary Actions
                 ui.col(|ui| {
                     let has_pano = detail.kind == "world" && !detail.pano_url.is_empty();
-                    let use_pano = has_pano && state.main_menu.world_pano_enabled;
+                    let use_pano = has_pano
+                        && state.main_menu.world_pano_enabled
+                        && !crate::main_menu::has_active_modal(state);
                     if use_pano {
                         let [vw, vh] = ui.viewport_size();
                         let pano_target = format!("worldpano:{}", detail.pano_url);
