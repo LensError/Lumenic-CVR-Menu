@@ -256,7 +256,7 @@ internal sealed class MenuSurfaceHost : IDisposable
         {
             if (_usingD3D11Interop)
             {
-                MelonLogger.Warning($"[LumenicMenu] {Name} D3D11 interop blit fell back to CPU readback.");
+                MelonLogger.Warning($"[LumenicMenu] {Name} D3D11 interop blit fell back to CPU readback ({bridge.GetLastError()}).");
                 _d3d11InteropFailed = true;
                 ReallocateBuffers(bridge, _width, _height, _linearTexture);
             }

@@ -1848,11 +1848,10 @@ fn step_surface_inner(
                         d3d11_blitted = true;
                     }
                     Err(e) => {
-                        // Detach failed interop binding and fall back cleanly to CPU readback if caller supplied a buffer.
+                        // Detach failed interop binding and let the caller fall back cleanly to CPU readback
+                        // (either immediately via dst_ptr or via a follow-up ReadPixels call).
+                        set_last_error(format!("blit_to_d3d11_texture: {e}"));
                         guard.0.detach_d3d11_texture(sid);
-                        if dst_ptr.is_null() || dst_len == 0 {
-                            return Err(format!("blit_to_d3d11_texture: {e}"));
-                        }
                     }
                 }
             }
