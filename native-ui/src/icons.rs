@@ -70,3 +70,4 @@ pub const ARROW_UP: &str = "keyboard_arrow_up";
 pub const ARROW_DOWN: &str = "keyboard_arrow_down";
 pub const PIN: &str = "keep";
 pub const APPS: &str = "apps";
+pub const SHIELD: &str = "shield";

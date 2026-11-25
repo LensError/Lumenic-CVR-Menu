@@ -23,10 +23,10 @@ internal sealed class ModUpdateService
 {
     public const string BundledChangelog =
         "What's New in LumenicMenu v" + LumenicMenuMod.ModVersion + ":\n\n" +
-        "- Revamped Group Management view: full-width Members tab with search, role filters, pagination, individual role editing, mass 'Set Selected to Member' (with Select All Trial shortcut) for Admins/Owners, plus a Settings & Info tab with group privacy controls.\n" +
-        "- World Details: added Pin to Quick Menu button and upgraded Active Instance cards into clickable cards with a bottom player preview strip (+N more).\n" +
-        "- User Details & Instances: added Instance Details button when a user is in an instance, and unified Current Instance shortcuts to open the full Instance Details view.\n" +
-        "- VR & UI Polish: added VR controller haptics on button hover, Quick Menu bottom tab bar scroll-back arrow, Discover-matched Messages top bar buttons, filtered hidden internal CVR settings, and fixed extension TextInput/Slider/VR keyboard handling.";
+        "- Smoother Menus: reworked how menus draw and update behind the scenes so everything feels snappier with less overhead.\n" +
+        "- No More Image Stutters: profile pictures, thumbnails, and badges now load in the background without freezing or hitching while scrolling.\n" +
+        "- Friendlier Group Pages: group pages now open on an Overview with the description, Owner, Admins & Moderators, and your membership status, with management tools in a separate Manage tab.\n" +
+        "- Quick Menu Tweaks & Fixes: scaled Quick Menu down slightly so it doesn't cut off at max UI scale, updated the Quick Menu Player Details card to match the Big Menu, made user group cards clickable as a whole card, and fixed Back navigation from group pages.";
 
     private const string LatestReleaseApiUrl = "https://api.github.com/repos/LensError/Lumenic-CVR-Menu/releases/latest";
     private const string DefaultReleasePageUrl = "https://github.com/LensError/Lumenic-CVR-Menu/releases/latest";

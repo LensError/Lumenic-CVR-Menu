@@ -1,6 +1,6 @@
 [package]
 name = "lumenic_cvr_ui"
-version = "0.3.2"
+version = "0.3.3"
 edition = "2021"
 description = "Lumenic native offscreen UI library for ChilloutVR (LumenicMenu)"
 

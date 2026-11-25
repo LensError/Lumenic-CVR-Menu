@@ -3,9 +3,8 @@ use lumenic::{App, Color, ImageFit, TextAlign, UiContext};
 use crate::icons;
 use crate::state::{AppState, GroupModPromptSnapshot, UiAction};
 use crate::theme::{
-    push_click, resolve_player_accent, tint_alpha, AMBER, BG_GLOW_FRAG as QM_BG_GLOW_FRAG,
-    border_subtle, card_bg, card_inner_bg, EMERALD, RED, SHADOW_CARD, TEXT_DIM, TEXT_MUTED,
-    TEXT_PRIMARY, TILE_DISABLED_BG, tile_idle_bg, tile_idle_hover,
+    push_click, resolve_player_accent, tint_alpha, AMBER, border_subtle, card_bg, card_inner_bg,
+    EMERALD, RED, SHADOW_CARD, TEXT_DIM, TEXT_MUTED, TEXT_PRIMARY, tile_idle_bg, tile_idle_hover,
 };
 use crate::uilib_view::{render_uilib_modal, render_uilib_page, render_uilib_toast};
 
@@ -20,49 +19,22 @@ fn action_tile(
     enabled: bool,
     active_color: Color,
 ) -> bool {
-    let (bg, hover_bg, border, icon_col, title_col, status_col) = if !enabled {
-        (
-            TILE_DISABLED_BG,
-            TILE_DISABLED_BG,
-            Color::rgba(100, 116, 139, 32),
-            TEXT_DIM,
-            TEXT_DIM,
-            TEXT_DIM,
-        )
-    } else if active {
-        (
-            tint_alpha(active_color, 54),
-            tint_alpha(active_color, 78),
-            tint_alpha(active_color, 195),
-            active_color,
-            TEXT_PRIMARY,
-            active_color,
-        )
-    } else {
-        (
-            tile_idle_bg(),
-            tile_idle_hover(),
-            border_subtle(),
-            Color::rgb(203, 213, 225),
-            TEXT_PRIMARY,
-            TEXT_MUTED,
-        )
-    };
+    let c = crate::widgets::resolve_tile_colors(active, enabled, active_color);
 
     let resp = ui
         .btn_with(id, |ui| {
             ui.col(|ui| {
-                icons::icon(ui, icon_path, 19.0).fg(icon_col);
+                icons::icon(ui, icon_path, 19.0).fg(c.icon);
                 ui.txt(label)
                     .sz(crate::theme::fs(12.0))
                     .semibold()
                     .align(TextAlign::Center)
-                    .fg(title_col);
+                    .fg(c.title);
                 ui.txt(status)
                     .sz(crate::theme::fs(9.5))
                     .medium()
                     .align(TextAlign::Center)
-                    .fg(status_col);
+                    .fg(c.status);
             })
             .center()
             .gap(2.5)
@@ -72,9 +44,9 @@ fn action_tile(
         .h_frac(1.0)
         .min_h(crate::theme::tile_min_h())
         .p(crate::theme::pad(5.0))
-        .bg(bg)
-        .hover_bg(hover_bg)
-        .bd(if active { 1.5 } else { 1.0 }, border)
+        .bg(c.bg)
+        .hover_bg(c.hover_bg)
+        .bd(if active { 1.5 } else { 1.0 }, c.border)
         .bevel_rounded(7.8, 1.3)
         .opacity(if enabled { 1.0 } else { 0.52 });
 
@@ -112,51 +84,16 @@ pub fn render_quick_menu(
     let tabs = std::mem::take(&mut state.host.uilib.tabs);
 
     // Menu-wide textured cursor-follow glow shader positioned behind all cards
-    let [vw, vh] = ui.viewport_size();
-    let qm_rect = match state.quick.qm_root_rect {
-        Some([x, y, w, h]) if w > 1.0 && h > 1.0 => lumenic::Rect::new(x, y, w, h),
-        _ => lumenic::Rect::new(0.0, 0.0, vw.max(1.0), vh.max(1.0)),
-    };
-    let (ptr_u, ptr_v, ptr_active) = if let Some([px, py]) = ui.pointer_pos() {
-        let u = (px - qm_rect.x) / qm_rect.w.max(1.0);
-        let v = (py - qm_rect.y) / qm_rect.h.max(1.0);
-        let inside = (-0.25..=1.25).contains(&u) && (-0.25..=1.25).contains(&v);
-        (
-            u.clamp(0.0, 1.0),
-            v.clamp(0.0, 1.0),
-            if inside { 1.0 } else { 0.0 },
-        )
-    } else {
-        (0.5, 0.5, 0.0)
-    };
-    let ac = accent.to_normalized_f32();
-    let (has_cut, cut_x0, cut_y0, cut_x1, cut_y1) =
-        if let Some([cx, cy, cw, ch]) = state.quick.studio_cutout_rect {
-            (
-                1.0,
-                ((cx - qm_rect.x) / qm_rect.w.max(1.0)).clamp(0.0, 1.0),
-                ((cy - qm_rect.y) / qm_rect.h.max(1.0)).clamp(0.0, 1.0),
-                (((cx + cw) - qm_rect.x) / qm_rect.w.max(1.0)).clamp(0.0, 1.0),
-                (((cy + ch) - qm_rect.y) / qm_rect.h.max(1.0)).clamp(0.0, 1.0),
-            )
-        } else {
-            (0.0, 0.0, 0.0, 0.0, 0.0)
-        };
-    let shader_uniforms = [
-        ptr_u, ptr_v, ptr_active, ac[0], ac[1], ac[2], has_cut, cut_x0, cut_y0, cut_x1, cut_y1,
-    ];
+    let shader_uniforms = crate::widgets::compute_bg_glow_uniforms(
+        ui,
+        state.quick.qm_root_rect,
+        accent,
+        state.quick.studio_cutout_rect,
+    );
 
     let outer_resp = ui
         .zstack(|ui| {
-            ui.viewport("qm_bg_glow", move |c2d, _s3d| {
-                c2d.shader(0x4C55_4D01, QM_BG_GLOW_FRAG, &shader_uniforms);
-            })
-            .w_frac(1.0)
-            .h_frac(1.0)
-            .no_bg()
-            .borderless()
-            .r(0.0)
-            .passthrough();
+            crate::widgets::render_bg_glow(ui, "qm_bg_glow", 0x4C55_4D01, shader_uniforms);
 
             ui.col(|ui| {
         // =====================================================================
@@ -596,7 +533,8 @@ pub fn render_quick_menu(
     })
             .w_frac(1.0)
             .h_frac(1.0)
-            .p(12.0)
+            .px(24.0)
+            .py(44.0)
             .gap(10.0);
 
             if !state.host.disclaimer_accepted {

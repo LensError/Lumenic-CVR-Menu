@@ -1,18 +1,11 @@
 using System;
-using ABI.CCK.Components;
+using System.Threading;
 using ABI_RC.Core.InteractionSystem;
-using ABI_RC.Core.Networking.GameServer;
-using ABI_RC.Core.Player;
-using ABI_RC.Core.PropManagement;
-using GameCommon.Packets.Garrison.GameServer;
 using ABI_RC.Core.Savior;
 using ABI_RC.Core.UI;
 using ABI_RC.Core.UI.UIRework;
 using ABI_RC.Core.UI.UIRework.Managers;
-using ABI_RC.Systems.AvatarScaling;
-using ABI_RC.Systems.GameEventSystem;
 using ABI_RC.Systems.InputManagement;
-using ABI_RC.Systems.PlayerColors;
 using LumenicMenu.Bridge;
 using LumenicMenu.Native;
 using MelonLoader;
@@ -25,7 +18,7 @@ namespace LumenicMenu;
 
 public sealed class LumenicMenuMod : MelonMod
 {
-    public const string ModVersion = "0.3.2";
+    public const string ModVersion = "0.3.3";
     private const string InputLockReason = "LumenicMenu";
 
     public static LumenicMenuMod Instance { get; private set; }
@@ -35,6 +28,8 @@ public sealed class LumenicMenuMod : MelonMod
     private MenuSurfaceHost _quickSurface;
     private ImageLoaderService _images;
     private HostStateBuilder _stateBuilder;
+    private PreviewRigCoordinator _previewRig;
+    private LiveEventWiring _liveEvents;
 
     internal UiLibBridge UiLib { get; private set; }
     internal UiExpansionKitBridge Uix { get; private set; }
@@ -53,7 +48,6 @@ public sealed class LumenicMenuMod : MelonMod
     private bool _prevQuickShown;
     private bool _bridgeInitAttempted;
     private bool _notifiedApiReady;
-    private string _lastPushedStateJson = string.Empty;
     private float _lastTelemetryPollTime = -10f;
     private float _lastDynamicUiPollTime = -10f;
     private float _lastSocialLivePollTime = -10f;
@@ -63,11 +57,8 @@ public sealed class LumenicMenuMod : MelonMod
     private string _lastTelClock = string.Empty;
     private string _lastTelDate = string.Empty;
     private float _smoothedFps = 90f;
-    private volatile bool _stateDirty = true;
-    private bool _liveEventsSubscribed;
+    private int _dirtyDomains = (int)StateDomain.All;
     private bool _loggedTelemetryError;
-    private string _mainPreviewTarget = "local";
-    private string _quickPreviewTarget = "local";
     private string _pendingVanillaPage;
     private int _pendingVanillaPageFrames;
 
@@ -85,19 +76,21 @@ public sealed class LumenicMenuMod : MelonMod
         Settings.OnSettingsChanged += OnSettingsChanged;
 
         _bridge = new NativeBridge();
-        _images = new ImageLoaderService();
+        _images = new ImageLoaderService(_bridge);
         _stateBuilder = new HostStateBuilder();
+        _previewRig = new PreviewRigCoordinator();
+        _liveEvents = new LiveEventWiring(this);
         UiLib = new UiLibBridge();
-        Uix = new UiExpansionKitBridge(MarkStateDirty);
-        RecentHistory = new RecentHistoryService(MarkStateDirty);
-        PinnedContent = new PinnedContentService(MarkStateDirty);
-        Content = new ContentBrowserService(MarkStateDirty, RecentHistory, PinnedContent);
-        Social = new SocialService(MarkStateDirty, RecentHistory);
+        Uix = new UiExpansionKitBridge(() => MarkStateDirty(StateDomain.Uix));
+        RecentHistory = new RecentHistoryService(() => MarkStateDirty(StateDomain.Content | StateDomain.Social));
+        PinnedContent = new PinnedContentService(() => MarkStateDirty(StateDomain.Content));
+        Content = new ContentBrowserService(() => MarkStateDirty(StateDomain.Content), RecentHistory, PinnedContent);
+        Social = new SocialService(() => MarkStateDirty(StateDomain.Social | StateDomain.Core), RecentHistory);
         AvatarStage = new AvatarStageManager();
-        Updates = new ModUpdateService(ModVersion, MarkStateDirty);
-        SystemAlerts = new SystemAlertService(MarkStateDirty);
+        Updates = new ModUpdateService(ModVersion, () => MarkStateDirty(StateDomain.Core));
+        SystemAlerts = new SystemAlertService(() => MarkStateDirty(StateDomain.Core));
         _mainSurface = new MenuSurfaceHost(NativeBridge.SurfaceMain, "MainMenu", referenceLogicalHeight: 720f);
-        _quickSurface = new MenuSurfaceHost(NativeBridge.SurfaceQuick, "QuickMenu", referenceLogicalHeight: 800f);
+        _quickSurface = new MenuSurfaceHost(NativeBridge.SurfaceQuick, "QuickMenu", referenceLogicalHeight: 860f);
 
         _prevMainEnabled = Settings.EnableMainMenu;
         _prevQuickEnabled = Settings.EnableQuickMenu;
@@ -105,7 +98,7 @@ public sealed class LumenicMenuMod : MelonMod
         QuickMenuUI.PrepareSharedIcon();
         GameEvents.ApplyPatches(HarmonyInstance);
         GameEvents.SubscribeGameEvents();
-        SubscribeLiveStateEvents();
+        _liveEvents.Subscribe();
 
         MelonLogger.Msg("[LumenicMenu] Initialized.");
     }
@@ -114,7 +107,11 @@ public sealed class LumenicMenuMod : MelonMod
     {
         QuickMenuUI.Build();
         QuickMenuUI.SyncToggles();
-        Api.LumenicApi.NotifyReady();
+        if (!_notifiedApiReady)
+        {
+            _notifiedApiReady = true;
+            Api.LumenicApi.NotifyReady();
+        }
     }
 
     public override void OnLateUpdate()
@@ -212,13 +209,14 @@ public sealed class LumenicMenuMod : MelonMod
             PushTelemetryIfNeeded();
         }
 
-        // Poll dynamic BTKUILib mod pages / active toast at 4 Hz so third-party mutations stay live.
-        if (anyVisible
+        // Poll dynamic BTKUILib mod pages / active toast at 4 Hz so third-party mutations stay live
+        // without rebuilding or dirtying Main Menu domains.
+        if (quickShownNow
             && (UiLib.IsViewingUiLibPage || UiLib.HasActiveToast)
             && (Time.unscaledTime - _lastDynamicUiPollTime) >= 0.25f)
         {
             _lastDynamicUiPollTime = Time.unscaledTime;
-            _stateDirty = true;
+            MarkStateDirty(StateDomain.UiLib);
         }
 
         if (mainShownNow && (Time.unscaledTime - _lastSocialLivePollTime) >= 2.0f)
@@ -226,14 +224,19 @@ public sealed class LumenicMenuMod : MelonMod
             _lastSocialLivePollTime = Time.unscaledTime;
             if (Social != null && Social.HasLiveFriendsChanged())
             {
-                _stateDirty = true;
+                MarkStateDirty(StateDomain.Social);
             }
         }
 
         bool anyActions = false;
-        SyncRemotePlayerPreviewRig();
-        RenderTexture mainPreviewTex = GetOverlayTextureForSurface(NativeBridge.SurfaceMain);
-        RenderTexture quickPreviewTex = GetOverlayTextureForSurface(NativeBridge.SurfaceQuick);
+        _previewRig.SyncRemoteAndPano(this, _mainSurface, _quickSurface);
+        RenderTexture mainPreviewTex = _previewRig.GetOverlayTexture(this, _mainSurface, _quickSurface, NativeBridge.SurfaceMain);
+        RenderTexture quickPreviewTex = _previewRig.GetOverlayTexture(this, _mainSurface, _quickSurface, NativeBridge.SurfaceQuick);
+
+        if (anyVisible)
+        {
+            PushStateIfNeeded();
+        }
 
         // Main Menu surface
         if (mainActive)
@@ -252,8 +255,6 @@ public sealed class LumenicMenuMod : MelonMod
                 {
                     _mainSurface.WasGrabAborted = false;
                 }
-
-                PushStateIfNeeded();
 
                 _mainSurface.StepAndBlit(_bridge, vm.cohtmlView, dt, out bool mmActions, out bool mmFatal, mainPreviewTex);
                 if (mmFatal)
@@ -288,8 +289,6 @@ public sealed class LumenicMenuMod : MelonMod
                     _quickSurface.WasGrabAborted = false;
                 }
 
-                PushStateIfNeeded();
-
                 _quickSurface.StepAndBlit(_bridge, qm.cohtmlView, dt, out bool qmActions, out bool qmFatal, quickPreviewTex);
                 if (qmFatal)
                 {
@@ -317,6 +316,7 @@ public sealed class LumenicMenuMod : MelonMod
 
         Content?.FlushMainThreadActions();
         Uix?.FlushPendingSaves(Time.unscaledTime);
+        Settings.FlushPendingSave(Time.unscaledTime);
     }
 
     public override void OnApplicationQuit()
@@ -331,7 +331,21 @@ public sealed class LumenicMenuMod : MelonMod
 
     internal void MarkStateDirty()
     {
-        _stateDirty = true;
+        MarkStateDirty(StateDomain.All);
+    }
+
+    internal void MarkStateDirty(StateDomain domains)
+    {
+        int mask = (int)domains;
+        int initial, computed;
+        do
+        {
+            initial = Volatile.Read(ref _dirtyDomains);
+            computed = initial | mask;
+            if (computed == initial)
+                return;
+        }
+        while (Interlocked.CompareExchange(ref _dirtyDomains, computed, initial) != initial);
     }
 
     internal void CommitVirtualKeyboard(uint surfaceId, string fieldId, string text)
@@ -481,157 +495,44 @@ public sealed class LumenicMenuMod : MelonMod
         {
             MmOpenSeq++;
             SettingsBridge.InvalidateCache();
+            MarkStateDirty(StateDomain.All);
+        }
+        else
+        {
+            MarkStateDirty(StateDomain.Core | StateDomain.UiLib);
         }
         GetSurface(surfaceId)?.RequestForceRedraw();
         AvatarSettingsBridge.RefreshPreviewRendering();
-        _stateDirty = true;
     }
 
     internal void OnMenuClosedOrReloaded(uint surfaceId)
     {
         GetSurface(surfaceId)?.ResetTransientInteraction(_bridge);
         AvatarSettingsBridge.RefreshPreviewRendering();
-        SyncRemotePlayerPreviewRig();
+        _previewRig?.SyncRemoteAndPano(this, _mainSurface, _quickSurface);
         SetKeyboardInputLock(false);
-    }
-
-    private bool TryGetActiveOverlayTarget(uint surfaceId, out string target)
-    {
-        if (surfaceId == NativeBridge.SurfaceMain)
-        {
-            ViewManager vm = ViewManager.Instance;
-            if (vm != null
-                && vm.IsViewShown
-                && IsLumenicActiveFor(vm.cohtmlView, vm, NativeBridge.SurfaceMain)
-                && _mainSurface != null
-                && _mainSurface.IsLiveOverlayActive)
-            {
-                target = _mainPreviewTarget;
-                return true;
-            }
-        }
-        else
-        {
-            CVR_MenuManager qm = CVR_MenuManager.Instance;
-            if (qm != null
-                && qm.IsViewShown
-                && IsLumenicActiveFor(qm.cohtmlView, qm, NativeBridge.SurfaceQuick)
-                && _quickSurface != null
-                && _quickSurface.IsLiveOverlayActive)
-            {
-                target = _quickPreviewTarget;
-                return true;
-            }
-        }
-
-        target = null;
-        return false;
     }
 
     internal bool ShouldRenderAvatarPreview()
     {
-        return (TryGetActiveOverlayTarget(NativeBridge.SurfaceMain, out string mmTarget) && PlayerPreviewRig.IsLocalTarget(mmTarget))
-            || (TryGetActiveOverlayTarget(NativeBridge.SurfaceQuick, out string qmTarget) && PlayerPreviewRig.IsLocalTarget(qmTarget));
-    }
-
-    private static bool IsWorldPanoTarget(string target)
-    {
-        return !string.IsNullOrEmpty(target) && target.StartsWith("worldpano:", StringComparison.Ordinal);
-    }
-
-    private string GetActiveRemotePreviewTarget()
-    {
-        if (TryGetActiveOverlayTarget(NativeBridge.SurfaceMain, out string mmTarget)
-            && !PlayerPreviewRig.IsLocalTarget(mmTarget)
-            && !IsWorldPanoTarget(mmTarget))
-        {
-            return mmTarget;
-        }
-
-        if (TryGetActiveOverlayTarget(NativeBridge.SurfaceQuick, out string qmTarget)
-            && !PlayerPreviewRig.IsLocalTarget(qmTarget)
-            && !IsWorldPanoTarget(qmTarget))
-        {
-            return qmTarget;
-        }
-
-        return null;
-    }
-
-    private string GetActiveWorldPanoUrl()
-    {
-        if (TryGetActiveOverlayTarget(NativeBridge.SurfaceMain, out string mmTarget) && IsWorldPanoTarget(mmTarget))
-        {
-            return mmTarget.Substring("worldpano:".Length);
-        }
-        return null;
-    }
-
-    private void SyncRemotePlayerPreviewRig()
-    {
-        string remoteTarget = GetActiveRemotePreviewTarget();
-        if (!string.IsNullOrEmpty(remoteTarget))
-        {
-            PlayerPreviewRig.Instance.SyncTarget(remoteTarget, active: true);
-        }
-        else if (PlayerPreviewRig.HasInstance)
-        {
-            PlayerPreviewRig.Instance.SyncTarget(string.Empty, active: false);
-        }
-
-        string panoUrl = GetActiveWorldPanoUrl();
-        AvatarSettingsBridge.SyncWorldPano(panoUrl, !string.IsNullOrEmpty(panoUrl));
-    }
-
-    private RenderTexture GetOverlayTextureForSurface(uint surfaceId)
-    {
-        MenuSurfaceHost surf = GetSurface(surfaceId);
-        if (surf == null || !surf.IsLiveOverlayActive)
-            return null;
-
-        string target = surfaceId == NativeBridge.SurfaceMain ? _mainPreviewTarget : _quickPreviewTarget;
-        if (IsWorldPanoTarget(target))
-            return AvatarSettingsBridge.GetWorldPanoTexture();
-        if (PlayerPreviewRig.IsLocalTarget(target))
-            return ShouldRenderAvatarPreview() ? AvatarSettingsBridge.GetPreviewTexture() : null;
-
-        return PlayerPreviewRig.HasInstance ? PlayerPreviewRig.Instance.Texture : null;
+        return _previewRig != null && _previewRig.ShouldRenderLocalAvatarPreview(this, _mainSurface, _quickSurface);
     }
 
     internal void RotateActiveAvatarPreview(float delta, bool isDragging)
     {
-        string remoteTarget = GetActiveRemotePreviewTarget();
-        if (!string.IsNullOrEmpty(remoteTarget))
-        {
-            PlayerPreviewRig.Instance.Rotate(delta, isDragging);
-        }
-        else
-        {
-            AvatarSettingsBridge.RotatePreview(delta, isDragging);
-        }
+        _previewRig?.RotateActive(this, _mainSurface, _quickSurface, delta, isDragging);
     }
 
     internal void SyncAvatarPreview(uint surfaceId, bool active, string target, float normX, float normY, float normW, float normH)
     {
-        if (surfaceId == NativeBridge.SurfaceMain)
-            _mainPreviewTarget = string.IsNullOrEmpty(target) ? "local" : target;
-        else
-            _quickPreviewTarget = string.IsNullOrEmpty(target) ? "local" : target;
-
-        MenuSurfaceHost surf = GetSurface(surfaceId);
-        if (surf != null)
-        {
-            surf.SetLiveOverlay(active, normX, normY, normW, normH);
-        }
-        AvatarSettingsBridge.RefreshPreviewRendering();
-        SyncRemotePlayerPreviewRig();
+        _previewRig?.SyncSurfacePreview(this, _mainSurface, _quickSurface, surfaceId, active, target, normX, normY, normW, normH);
     }
 
     internal void OnVrModeSwitched(bool isVr)
     {
         _mainSurface?.RequestForceRedraw();
         _quickSurface?.RequestForceRedraw();
-        _stateDirty = true;
+        MarkStateDirty(StateDomain.Core);
     }
 
     internal void NavigateMainMenuTab(string tab)
@@ -642,7 +543,7 @@ public sealed class LumenicMenuMod : MelonMod
         NavTab = tab;
         NavSeq++;
         _mainSurface?.RequestForceRedraw();
-        _stateDirty = true;
+        MarkStateDirty(StateDomain.Core);
     }
 
     internal void OpenVanillaPageDeferred(string page)
@@ -669,121 +570,6 @@ public sealed class LumenicMenuMod : MelonMod
         {
             Settings.SetEnableMainMenu(false);
             Settings.SetEnableQuickMenu(false);
-        }
-    }
-
-    private void SubscribeLiveStateEvents()
-    {
-        if (_liveEventsSubscribed)
-            return;
-
-        CVRGameEventSystem.Microphone.OnMute.AddListener(OnExternalStateEvent);
-        CVRGameEventSystem.Microphone.OnUnmute.AddListener(OnExternalStateEvent);
-        CVRGameEventSystem.World.OnLoad.AddListener(OnWorldLoadForHistory);
-        CVRGameEventSystem.World.OnReady.AddListener(OnWorldReadyForHistory);
-        CVRGameEventSystem.Instance.OnConnected.AddListener(OnExternalWorldEvent);
-        CVRGameEventSystem.Instance.OnDisconnected.AddListener(OnExternalWorldEvent);
-        CVRGameEventSystem.Player.OnJoinEntity.AddListener(OnPlayerJoinedForHistory);
-        CVRGameEventSystem.Player.OnLeaveEntity.AddListener(OnExternalPlayerEvent);
-        CVRGameEventSystem.Avatar.OnLocalAvatarLoad.AddListener(OnLocalAvatarLoadForHistory);
-        CVRGameEventSystem.Avatar.OnLocalAvatarClear.AddListener(OnExternalAvatarEvent);
-        CVRGameEventSystem.Avatar.OnRemoteAvatarLoad.AddListener(OnRemoteAvatarLoadForHistory);
-        CVRGameEventSystem.Spawnable.OnPropSpawned.AddListener(OnPropSpawnedForHistory);
-        GSInfoHandler.OnGSInfoUpdate += OnGsInfoUpdated;
-        UniversalScaling.RulesChanged += OnExternalStateEvent;
-        PlayerColorsManager.OnLocalPlayerColorChanged += OnPlayerColorsChanged;
-        KeyboardManager.KeyboardClosed += OnVirtualKeyboardClosed;
-        _liveEventsSubscribed = true;
-    }
-
-    private void UnsubscribeLiveStateEvents()
-    {
-        if (!_liveEventsSubscribed)
-            return;
-
-        CVRGameEventSystem.Microphone.OnMute.RemoveListener(OnExternalStateEvent);
-        CVRGameEventSystem.Microphone.OnUnmute.RemoveListener(OnExternalStateEvent);
-        CVRGameEventSystem.World.OnLoad.RemoveListener(OnWorldLoadForHistory);
-        CVRGameEventSystem.World.OnReady.RemoveListener(OnWorldReadyForHistory);
-        CVRGameEventSystem.Instance.OnConnected.RemoveListener(OnExternalWorldEvent);
-        CVRGameEventSystem.Instance.OnDisconnected.RemoveListener(OnExternalWorldEvent);
-        CVRGameEventSystem.Player.OnJoinEntity.RemoveListener(OnPlayerJoinedForHistory);
-        CVRGameEventSystem.Player.OnLeaveEntity.RemoveListener(OnExternalPlayerEvent);
-        CVRGameEventSystem.Avatar.OnLocalAvatarLoad.RemoveListener(OnLocalAvatarLoadForHistory);
-        CVRGameEventSystem.Avatar.OnLocalAvatarClear.RemoveListener(OnExternalAvatarEvent);
-        CVRGameEventSystem.Avatar.OnRemoteAvatarLoad.RemoveListener(OnRemoteAvatarLoadForHistory);
-        CVRGameEventSystem.Spawnable.OnPropSpawned.RemoveListener(OnPropSpawnedForHistory);
-        GSInfoHandler.OnGSInfoUpdate -= OnGsInfoUpdated;
-        UniversalScaling.RulesChanged -= OnExternalStateEvent;
-        PlayerColorsManager.OnLocalPlayerColorChanged -= OnPlayerColorsChanged;
-        KeyboardManager.KeyboardClosed -= OnVirtualKeyboardClosed;
-        _liveEventsSubscribed = false;
-    }
-
-    private void OnExternalStateEvent() => _stateDirty = true;
-    private void OnExternalWorldEvent(string _) => _stateDirty = true;
-    private void OnExternalPlayerEvent(CVRPlayerEntity _) => _stateDirty = true;
-    private void OnExternalAvatarEvent(CVRAvatar _) => _stateDirty = true;
-
-    private void OnWorldLoadForHistory(string worldId)
-    {
-        RecentHistory?.RecordWorldVisited(worldId);
-        Content?.RefreshLocalRecentIfActive("worlds");
-        _stateDirty = true;
-    }
-
-    private void OnWorldReadyForHistory(string worldId)
-    {
-        RecentHistory?.RecordWorldVisited(worldId, MetaPort.Instance?.CurrentWorldName);
-        RecentHistory?.RefreshCurrentInstanceUsers();
-        Content?.RefreshLocalRecentIfActive("worlds");
-        _stateDirty = true;
-    }
-
-    private void OnPlayerJoinedForHistory(CVRPlayerEntity player)
-    {
-        RecentHistory?.RecordUserSeen(player);
-        _stateDirty = true;
-    }
-
-    private void OnLocalAvatarLoadForHistory(CVRAvatar _)
-    {
-        string avatarId = MetaPort.Instance?.currentAvatarGuid;
-        RecentHistory?.RecordAvatarUsed(avatarId);
-        Content?.RefreshLocalRecentIfActive("avatars");
-        _stateDirty = true;
-    }
-
-    private void OnRemoteAvatarLoadForHistory(CVRPlayerEntity player, CVRAvatar _)
-    {
-        if (player != null)
-        {
-            RecentHistory?.RecordAvatarSeen(player.ContentMetadata.AssetId, player.ContentMetadata.AssetName);
-            Content?.RefreshLocalRecentIfActive("avatars");
-        }
-        _stateDirty = true;
-    }
-
-    private void OnPropSpawnedForHistory(string _, PropSoul prop)
-    {
-        RecentHistory?.RecordPropSpawned(prop);
-        Content?.RefreshLocalRecentIfActive("props");
-        _stateDirty = true;
-    }
-
-    private void OnGsInfoUpdated(ServerInfoPacket _)
-    {
-        RecentHistory?.RefreshCurrentInstanceUsers();
-        _stateDirty = true;
-    }
-    private void OnPlayerColorsChanged(PlayerColors _) => _stateDirty = true;
-
-    private void OnVirtualKeyboardClosed()
-    {
-        if (_bridge != null && _bridge.IsHealthy)
-        {
-            _bridge.ClearFocus(NativeBridge.SurfaceMain);
-            _bridge.ClearFocus(NativeBridge.SurfaceQuick);
         }
     }
 
@@ -823,8 +609,8 @@ public sealed class LumenicMenuMod : MelonMod
         _prevMainEnabled = mainNow;
         _prevQuickEnabled = quickNow;
         AvatarSettingsBridge.RefreshPreviewRendering();
-        SyncRemotePlayerPreviewRig();
-        _stateDirty = true;
+        _previewRig?.SyncRemoteAndPano(this, _mainSurface, _quickSurface);
+        MarkStateDirty(StateDomain.Core | StateDomain.Settings);
     }
 
     private void TryInitializeNativeHost()
@@ -833,9 +619,9 @@ public sealed class LumenicMenuMod : MelonMod
         GetCurrentSurfaceDimensions(out uint mmW, out uint mmH, out uint qmW, out uint qmH);
         if (_bridge.Load(mmW, mmH, qmW, qmH, Settings.UiScale))
         {
-            _lastPushedStateJson = string.Empty;
+            _stateBuilder?.InvalidateCache();
             _lastTelFps = int.MinValue;
-            _stateDirty = true;
+            MarkStateDirty(StateDomain.All);
             Api.LumenicApi.Host.InvalidateNativeCache();
             _images?.InvalidateUploaded();
             _mainSurface?.ClearLiveOverlay();
@@ -901,13 +687,16 @@ public sealed class LumenicMenuMod : MelonMod
 
     private void PushStateIfNeeded()
     {
-        if (!_stateDirty || !_bridge.IsHealthy || _stateBuilder == null)
+        if (!_bridge.IsHealthy || _stateBuilder == null)
             return;
 
-        _stateDirty = false;
+        StateDomain dirty = (StateDomain)Interlocked.Exchange(ref _dirtyDomains, (int)StateDomain.None);
+        if (dirty == StateDomain.None)
+            return;
 
         GetCurrentSurfaceDimensions(out uint mmW, out uint mmH, out uint qmW, out uint qmH);
-        string json = _stateBuilder.BuildJson(
+        _stateBuilder.PushDirtyDomains(
+            dirty,
             this,
             _images,
             _mainSurface,
@@ -917,15 +706,6 @@ public sealed class LumenicMenuMod : MelonMod
             mmH,
             qmW,
             qmH);
-
-        if (json == _lastPushedStateJson)
-            return;
-
-        _lastPushedStateJson = json;
-        if (!_bridge.PushStateJson(json))
-        {
-            MelonLogger.Warning($"[LumenicMenu] PushStateJson failed: {_bridge.GetLastError()}");
-        }
     }
 
     private void FallbackToVanilla(string reason)
@@ -965,20 +745,21 @@ public sealed class LumenicMenuMod : MelonMod
 
     private void CleanupAll()
     {
+        Settings.FlushPendingSave(0f, force: true);
         Uix?.FlushPendingSaves(0f, force: true);
         Uix?.Dispose();
         Uix = null;
         RecentHistory?.FlushSave();
         PinnedContent?.FlushSave();
         Settings.OnSettingsChanged -= OnSettingsChanged;
-        UnsubscribeLiveStateEvents();
+        _liveEvents?.Unsubscribe();
         GameEvents.UnsubscribeGameEvents();
         try { HarmonyInstance.UnpatchSelf(); } catch { }
         SetKeyboardInputLock(false);
 
-        _mainSurface?.Dispose();
+        _mainSurface?.DetachAndDispose(_bridge);
         _mainSurface = null;
-        _quickSurface?.Dispose();
+        _quickSurface?.DetachAndDispose(_bridge);
         _quickSurface = null;
 
         AvatarStage?.Dispose();

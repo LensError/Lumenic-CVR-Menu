@@ -11,16 +11,30 @@ pub mod state;
 pub mod theme;
 pub mod uilib_view;
 pub mod uix_view;
+pub mod virtual_keyboard;
+pub mod widgets;
 
-pub const ABI_VERSION: u32 = 5;
+pub const ABI_VERSION: u32 = 8;
 
 pub const SURFACE_MAIN: u32 = 0;
 pub const SURFACE_QUICK: u32 = 1;
+
+// Domain IDs for incremental state pushes via `lumenic_cvr_push_domain_json`.
+pub const DOMAIN_CORE: u32 = 0;
+pub const DOMAIN_STATIC_CATALOG: u32 = 1;
+pub const DOMAIN_UILIB: u32 = 2;
+pub const DOMAIN_CONTENT: u32 = 3;
+pub const DOMAIN_SOCIAL: u32 = 4;
+pub const DOMAIN_SETTINGS: u32 = 5;
+pub const DOMAIN_AVATAR_SETTINGS: u32 = 6;
+pub const DOMAIN_UIX: u32 = 7;
 
 pub const STEP_FLAG_RENDERED: u32 = 1 << 0;
 pub const STEP_FLAG_TEXT_FOCUSED: u32 = 1 << 1;
 pub const STEP_FLAG_POINTER_OVER_UI: u32 = 1 << 2;
 pub const STEP_FLAG_HAS_ACTIONS: u32 = 1 << 3;
+pub const STEP_FLAG_PIXELS_READ: u32 = 1 << 4;
+pub const STEP_FLAG_D3D11_BLITTED: u32 = 1 << 5;
 pub const STEP_FLAG_ERROR_OR_PANIC: u32 = 1 << 31;
 
 pub const MOD_SHIFT: u32 = 1 << 0;
@@ -99,6 +113,26 @@ fn panic_payload_to_string(payload: Box<dyn std::any::Any + Send>) -> String {
         format!("Rust panic: {s}")
     } else {
         String::from("Rust panic: non-string payload")
+    }
+}
+
+fn ffi_bool(f: impl FnOnce() -> Result<(), String>) -> bool {
+    match catch_unwind(AssertUnwindSafe(f)) {
+        Ok(Ok(())) => true,
+        Ok(Err(err)) => {
+            set_last_error(err);
+            false
+        }
+        Err(payload) => {
+            set_last_error(panic_payload_to_string(payload));
+            false
+        }
+    }
+}
+
+fn ffi_void(f: impl FnOnce()) {
+    if let Err(payload) = catch_unwind(AssertUnwindSafe(f)) {
+        set_last_error(panic_payload_to_string(payload));
     }
 }
 
@@ -246,6 +280,14 @@ impl HostHandle {
         }
     }
 
+    fn mark_surface_dirty(&mut self, surface_id: u32) {
+        if let Some(sid) = self.surface_id(surface_id) {
+            if let Some(s) = self.host.surface_mut(sid) {
+                s.mark_dirty();
+            }
+        }
+    }
+
     fn mark_all_dirty(&mut self) {
         if let Some(s) = self.host.surface_mut(self.main_surface) {
             s.mark_dirty();
@@ -377,6 +419,231 @@ pub unsafe extern "C" fn lumenic_cvr_destroy(handle: *mut HostHandle) {
     }
 }
 
+/// Resolves an `ID3D11Texture2D*` and its owning `ID3D11Device*` from a Unity native texture pointer
+/// via COM `IUnknown::QueryInterface` (and `ID3D11View::GetResource` fallback if Unity handed an SRV).
+/// Returns `(device, texture, release_tex_after)` where `device` has an active COM ref that the caller
+/// must release via `com_release`.
+#[cfg(windows)]
+unsafe fn resolve_d3d11_texture_and_device(
+    raw_ptr: *mut std::ffi::c_void,
+) -> Result<(*mut std::ffi::c_void, *mut std::ffi::c_void, bool), String> {
+    #[repr(C)]
+    struct Guid {
+        data1: u32,
+        data2: u16,
+        data3: u16,
+        data4: [u8; 8],
+    }
+
+    // IID_ID3D11Texture2D: {6f15aaf2-d208-4e89-9ab4-489535d34f9c}
+    const IID_ID3D11_TEXTURE2D: Guid = Guid {
+        data1: 0x6f15aaf2,
+        data2: 0xd208,
+        data3: 0x4e89,
+        data4: [0x9a, 0xb4, 0x48, 0x95, 0x35, 0xd3, 0x4f, 0x9c],
+    };
+    // IID_ID3D11View: {839d1216-bb2e-412b-b7f4-a9dbebe08ed1}
+    const IID_ID3D11_VIEW: Guid = Guid {
+        data1: 0x839d1216,
+        data2: 0xbb2e,
+        data3: 0x412b,
+        data4: [0xb7, 0xf4, 0xa9, 0xdb, 0xeb, 0xe0, 0x8e, 0xd1],
+    };
+
+    type QueryInterfaceFn = unsafe extern "system" fn(
+        this: *mut std::ffi::c_void,
+        riid: *const Guid,
+        ppv: *mut *mut std::ffi::c_void,
+    ) -> i32;
+    type GetDeviceFn =
+        unsafe extern "system" fn(this: *mut std::ffi::c_void, pp_device: *mut *mut std::ffi::c_void);
+    type GetResourceFn =
+        unsafe extern "system" fn(this: *mut std::ffi::c_void, pp_res: *mut *mut std::ffi::c_void);
+
+    if raw_ptr.is_null() {
+        return Err(String::from("null D3D11 texture pointer"));
+    }
+
+    let vtbl = *(raw_ptr as *const *const usize);
+    if vtbl.is_null() {
+        return Err(String::from("invalid COM vtable"));
+    }
+    let qi: QueryInterfaceFn = std::mem::transmute(*vtbl.add(0));
+
+    let mut tex2d: *mut std::ffi::c_void = std::ptr::null_mut();
+    let hr_tex = qi(raw_ptr, &IID_ID3D11_TEXTURE2D, &mut tex2d);
+    if hr_tex < 0 || tex2d.is_null() {
+        // Fallback: if Unity handed an ID3D11ShaderResourceView*, unwrap its underlying ID3D11Texture2D*.
+        let mut view: *mut std::ffi::c_void = std::ptr::null_mut();
+        let hr_view = qi(raw_ptr, &IID_ID3D11_VIEW, &mut view);
+        if hr_view < 0 || view.is_null() {
+            return Err(format!(
+                "pointer is neither ID3D11Texture2D nor ID3D11View (hr=0x{:08X})",
+                hr_tex as u32
+            ));
+        }
+        let view_vtbl = *(view as *const *const usize);
+        // ID3D11View::GetResource is vtable slot 7 (IUnknown 0..2, ID3D11DeviceChild 3..6, GetResource 7).
+        let get_resource: GetResourceFn = std::mem::transmute(*view_vtbl.add(7));
+        let mut res: *mut std::ffi::c_void = std::ptr::null_mut();
+        get_resource(view, &mut res);
+        com_release(view);
+        if res.is_null() {
+            return Err(String::from("ID3D11View::GetResource returned null"));
+        }
+        let res_vtbl = *(res as *const *const usize);
+        let res_qi: QueryInterfaceFn = std::mem::transmute(*res_vtbl.add(0));
+        let hr_res_tex = res_qi(res, &IID_ID3D11_TEXTURE2D, &mut tex2d);
+        com_release(res);
+        if hr_res_tex < 0 || tex2d.is_null() {
+            return Err(format!(
+                "view resource is not ID3D11Texture2D (hr=0x{:08X})",
+                hr_res_tex as u32
+            ));
+        }
+    }
+
+    let tex_vtbl = *(tex2d as *const *const usize);
+    // ID3D11DeviceChild::GetDevice is vtable slot 3 (IUnknown 0..2, GetDevice 3).
+    let get_device: GetDeviceFn = std::mem::transmute(*tex_vtbl.add(3));
+    let mut device: *mut std::ffi::c_void = std::ptr::null_mut();
+    get_device(tex2d, &mut device);
+    if device.is_null() {
+        com_release(tex2d);
+        return Err(String::from("ID3D11DeviceChild::GetDevice returned null"));
+    }
+
+    Ok((device, tex2d, true))
+}
+
+#[cfg(windows)]
+unsafe fn describe_d3d11_texture(tex2d: *mut std::ffi::c_void) -> String {
+    #[repr(C)]
+    #[derive(Default)]
+    struct D3d11Texture2dDesc {
+        width: u32,
+        height: u32,
+        mip_levels: u32,
+        array_size: u32,
+        format: u32,
+        sample_count: u32,
+        sample_quality: u32,
+        usage: u32,
+        bind_flags: u32,
+        cpu_access_flags: u32,
+        misc_flags: u32,
+    }
+    type GetDescFn = unsafe extern "system" fn(*mut std::ffi::c_void, *mut D3d11Texture2dDesc);
+    if tex2d.is_null() {
+        return String::from("<null>");
+    }
+    let vtbl = *(tex2d as *const *const usize);
+    if vtbl.is_null() {
+        return String::from("<null-vtbl>");
+    }
+    // ID3D11Texture2D::GetDesc is vtable slot 10.
+    let get_desc: GetDescFn = std::mem::transmute(*vtbl.add(10));
+    let mut d = D3d11Texture2dDesc::default();
+    get_desc(tex2d, &mut d);
+    format!(
+        "{}x{} fmt={} mips={} arr={} samples={} usage={} bind=0x{:X} cpu=0x{:X} misc=0x{:X}",
+        d.width,
+        d.height,
+        d.format,
+        d.mip_levels,
+        d.array_size,
+        d.sample_count,
+        d.usage,
+        d.bind_flags,
+        d.cpu_access_flags,
+        d.misc_flags
+    )
+}
+
+#[cfg(windows)]
+unsafe fn com_release(ptr: *mut std::ffi::c_void) {
+    if ptr.is_null() {
+        return;
+    }
+    type ReleaseFn = unsafe extern "system" fn(this: *mut std::ffi::c_void) -> u32;
+    let vtbl = *(ptr as *const *const usize);
+    if !vtbl.is_null() {
+        let release: ReleaseFn = std::mem::transmute(*vtbl.add(2));
+        let _ = release(ptr);
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn lumenic_cvr_supports_d3d11_interop(handle: *mut HostHandle) -> bool {
+    let Some(hnd) = (unsafe { handle.as_ref() }) else {
+        return false;
+    };
+    catch_unwind(AssertUnwindSafe(|| hnd.host.supports_d3d11_interop())).unwrap_or(false)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn lumenic_cvr_attach_d3d11_texture(
+    handle: *mut HostHandle,
+    surface_id: u32,
+    d3d11_tex_ptr: *mut std::ffi::c_void,
+) -> bool {
+    clear_last_error();
+    let Some(hnd) = (unsafe { handle.as_mut() }) else {
+        set_last_error("lumenic_cvr_attach_d3d11_texture: null handle");
+        return false;
+    };
+    ffi_bool(|| {
+        #[cfg(not(windows))]
+        {
+            let _ = (surface_id, d3d11_tex_ptr, hnd);
+            return Err(String::from("D3D11 interop is only supported on Windows"));
+        }
+        #[cfg(windows)]
+        {
+            let Some(sid) = hnd.surface_id(surface_id) else {
+                return Err(format!("invalid surface_id: {surface_id}"));
+            };
+            if !hnd.host.supports_d3d11_interop() {
+                return Err(String::from("WGL_NV_DX_interop2 not supported by GL driver"));
+            }
+            let (device, tex2d, release_tex) =
+                unsafe { resolve_d3d11_texture_and_device(d3d11_tex_ptr)? };
+            let attach_res = {
+                let guard = MakeNotCurrentGuard(&mut hnd.host);
+                unsafe { guard.0.attach_d3d11_texture(sid, device, tex2d) }.map_err(|e| {
+                    let desc = unsafe { describe_d3d11_texture(tex2d) };
+                    format!("attach_d3d11_texture [{desc}]: {e}")
+                })
+            };
+            unsafe {
+                com_release(device);
+                if release_tex {
+                    com_release(tex2d);
+                }
+            }
+            attach_res
+        }
+    })
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn lumenic_cvr_detach_d3d11_texture(
+    handle: *mut HostHandle,
+    surface_id: u32,
+) -> bool {
+    let Some(hnd) = (unsafe { handle.as_mut() }) else {
+        return false;
+    };
+    catch_unwind(AssertUnwindSafe(|| {
+        let Some(sid) = hnd.surface_id(surface_id) else {
+            return false;
+        };
+        let guard = MakeNotCurrentGuard(&mut hnd.host);
+        guard.0.detach_d3d11_texture(sid)
+    }))
+    .unwrap_or(false)
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn lumenic_cvr_resize(
     handle: *mut HostHandle,
@@ -458,11 +725,12 @@ pub unsafe extern "C" fn lumenic_cvr_pointer_move(
             let lx = x / scale;
             let ly = y / scale;
             // Gate background hex-glow redraws (wider deadzone in VR so hand-laser jitter
-            // does not force 60 Hz full-surface CPU readbacks).
+            // does not force 60 Hz full-surface CPU readbacks; skipped entirely if glow is disabled).
+            let glow_enabled = hnd.state.extensions.theme.glow_intensity > 0.001;
             let glow_threshold = if hnd.state.host.is_vr { 10.0 } else { 2.0 };
-            let glow_moved = (lx - updated_drag.last_glow_pos[0])
-                .hypot(ly - updated_drag.last_glow_pos[1])
-                > glow_threshold;
+            let glow_moved = glow_enabled
+                && (lx - updated_drag.last_glow_pos[0]).hypot(ly - updated_drag.last_glow_pos[1])
+                    > glow_threshold;
             surf.ui_mut().on_pointer_move(lx, ly);
             if glow_moved {
                 updated_drag.last_glow_pos = [lx, ly];
@@ -691,7 +959,7 @@ pub unsafe extern "C" fn lumenic_cvr_pointer_leave(handle: *mut HostHandle, surf
     let Some(hnd) = (unsafe { handle.as_mut() }) else {
         return;
     };
-    if let Err(payload) = catch_unwind(AssertUnwindSafe(|| {
+    ffi_void(|| {
         reset_pointer_drag_and_preview(hnd, surface_id);
         if let Some(lh) = hnd.last_hovered_mut(surface_id) {
             *lh = None;
@@ -701,9 +969,7 @@ pub unsafe extern "C" fn lumenic_cvr_pointer_leave(handle: *mut HostHandle, surf
                 surf.ui_mut().on_pointer_leave();
             }
         }
-    })) {
-        set_last_error(panic_payload_to_string(payload));
-    }
+    });
 }
 
 #[no_mangle]
@@ -711,16 +977,14 @@ pub unsafe extern "C" fn lumenic_cvr_pointer_cancel(handle: *mut HostHandle, sur
     let Some(hnd) = (unsafe { handle.as_mut() }) else {
         return;
     };
-    if let Err(payload) = catch_unwind(AssertUnwindSafe(|| {
+    ffi_void(|| {
         reset_pointer_drag_and_preview(hnd, surface_id);
         if let Some(sid) = hnd.surface_id(surface_id) {
             if let Some(surf) = hnd.host.surface_mut(sid) {
                 surf.ui_mut().on_pointer_cancel();
             }
         }
-    })) {
-        set_last_error(panic_payload_to_string(payload));
-    }
+    });
 }
 
 #[no_mangle]
@@ -860,7 +1124,7 @@ pub unsafe extern "C" fn lumenic_cvr_commit_virtual_keyboard(
         set_last_error("lumenic_cvr_commit_virtual_keyboard: empty field_id");
         return false;
     }
-    let res = catch_unwind(AssertUnwindSafe(|| -> Result<(), String> {
+    ffi_bool(|| {
         let field_bytes = unsafe { checked_slice(field_id_ptr, field_id_len)? };
         let field_id =
             std::str::from_utf8(field_bytes).map_err(|e| format!("invalid field_id utf8: {e}"))?;
@@ -871,87 +1135,12 @@ pub unsafe extern "C" fn lumenic_cvr_commit_virtual_keyboard(
             std::str::from_utf8(text_bytes).map_err(|e| format!("invalid text utf8: {e}"))?
         };
 
-        match field_id {
-            "mm_search_input" | "mm_srch_page_input" => {
-                hnd.state.main_menu.search_input = lumenic::TextEditState::with_text(text);
-                hnd.state.main_menu.last_search = String::from(text);
-                let trimmed = text.trim();
-                if !trimmed.is_empty() {
-                    if hnd.state.main_menu.active_tab != "search" {
-                        crate::main_menu::push_nav_history(&mut hnd.state);
-                    }
-                    hnd.state.main_menu.active_tab = String::from("search");
-                    hnd.state.main_menu.search_filter_kind = String::from("all");
-                    crate::main_menu::close_all_detail_overlays(&mut hnd.actions);
-                    hnd.actions.push(UiAction::ContentGlobalSearch {
-                        query: String::from(trimmed),
-                    });
-                }
-            }
-            "mm_cb_filter" => {
-                hnd.state.main_menu.browser_local_filter = lumenic::TextEditState::with_text(text);
-            }
-            "mm_fr_search" => {
-                hnd.state.main_menu.friends_search_input = lumenic::TextEditState::with_text(text);
-            }
-            "mm_set_search" => {
-                hnd.state.main_menu.settings_search_input = lumenic::TextEditState::with_text(text);
-            }
-            "mm_uix_cat_search" => {
-                hnd.state.main_menu.uix_search_input = lumenic::TextEditState::with_text(text);
-            }
-            "mm_grp_name_input" => {
-                hnd.state.main_menu.group_name_input = lumenic::TextEditState::with_text(text);
-            }
-            "mm_grp_desc_input" => {
-                hnd.state.main_menu.group_desc_input = lumenic::TextEditState::with_text(text);
-            }
-            "mm_gd_member_search" => {
-                hnd.state.main_menu.group_member_search = lumenic::TextEditState::with_text(text);
-            }
-            "mm_prof_pronouns" => {
-                let clipped: String = text.trim().chars().take(32).collect();
-                hnd.state.main_menu.profile_pronouns_input =
-                    lumenic::TextEditState::with_text(&clipped);
-            }
-            "mm_prof_bio" => {
-                let clipped: String = text.trim().chars().take(512).collect();
-                hnd.state.main_menu.profile_bio_input =
-                    lumenic::TextEditState::with_text(&clipped);
-            }
-            "mm_aas_new_profile" => {
-                let trimmed: String = text.trim().chars().take(12).collect();
-                if !trimmed.is_empty() && !trimmed.eq_ignore_ascii_case("default") {
-                    hnd.actions.push(UiAction::AvatarSaveProfile { profile: trimmed });
-                }
-                hnd.state.main_menu.aas_new_profile_input = lumenic::TextEditState::new();
-            }
-            other if other.starts_with("ext|") => {
-                // Format: ext|<surface>|<ext_id>|<target_id>|<node_id>
-                // Uses '|' instead of ':' because hub ext_ids contain ':' (e.g. "hub:lumenic.mods").
-                let parts: Vec<&str> = other.splitn(5, '|').collect();
-                if parts.len() == 5 {
-                    let widget_id = format!(
-                        "ext_{}_{}_{}_{}",
-                        parts[1], parts[2], parts[3], parts[4]
-                    );
-                    hnd.state.ext_text_inputs.insert(
-                        widget_id,
-                        crate::state::ExtTextInputSlot::new(text),
-                    );
-                    hnd.actions.push(UiAction::ExtEvent {
-                        ext_id: parts[2].to_owned(),
-                        target_id: parts[3].to_owned(),
-                        node_id: parts[4].to_owned(),
-                        kind: String::from("submit"),
-                        string_val: text.to_owned(),
-                        float_val: 0.0,
-                        bool_val: false,
-                    });
-                }
-            }
-            _ => {}
-        }
+        crate::virtual_keyboard::commit_virtual_keyboard(
+            &mut hnd.state,
+            &mut hnd.actions,
+            field_id,
+            text,
+        );
 
         if let Some(sid) = hnd.surface_id(surface_id) {
             if let Some(surf) = hnd.host.surface_mut(sid) {
@@ -960,19 +1149,7 @@ pub unsafe extern "C" fn lumenic_cvr_commit_virtual_keyboard(
             }
         }
         Ok(())
-    }));
-
-    match res {
-        Ok(Ok(())) => true,
-        Ok(Err(err)) => {
-            set_last_error(err);
-            false
-        }
-        Err(payload) => {
-            set_last_error(panic_payload_to_string(payload));
-            false
-        }
-    }
+    })
 }
 
 #[no_mangle]
@@ -1107,6 +1284,103 @@ pub unsafe extern "C" fn lumenic_cvr_set_default_font_family(
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn lumenic_cvr_push_domain_json(
+    handle: *mut HostHandle,
+    domain_id: u32,
+    utf8_ptr: *const u8,
+    len: usize,
+) -> bool {
+    clear_last_error();
+    let Some(hnd) = (unsafe { handle.as_mut() }) else {
+        set_last_error("lumenic_cvr_push_domain_json: null handle");
+        return false;
+    };
+    if utf8_ptr.is_null() || len == 0 {
+        set_last_error("lumenic_cvr_push_domain_json: empty payload");
+        return false;
+    }
+    let res = catch_unwind(AssertUnwindSafe(|| -> Result<(), String> {
+        let bytes = unsafe { checked_slice(utf8_ptr, len)? };
+        match domain_id {
+            DOMAIN_CORE => {
+                let patch: crate::state::CoreStatePatch = serde_json::from_slice(bytes)
+                    .map_err(|e| format!("core JSON parse error: {e}"))?;
+                hnd.state.host.apply_core_patch(patch);
+                hnd.mark_all_dirty();
+            }
+            DOMAIN_STATIC_CATALOG => {
+                let catalog: crate::state::StaticCatalogSnapshot = serde_json::from_slice(bytes)
+                    .map_err(|e| format!("static catalog JSON parse error: {e}"))?;
+                hnd.state.host.player_color_presets = catalog.player_color_presets;
+                hnd.state.host.player_color_swatches = catalog.player_color_swatches;
+                hnd.state.host.whats_new_notes = catalog.whats_new_notes;
+                hnd.mark_surface_dirty(SURFACE_MAIN);
+            }
+            DOMAIN_UILIB => {
+                let uilib: crate::state::UiLibSnapshot = serde_json::from_slice(bytes)
+                    .map_err(|e| format!("uilib JSON parse error: {e}"))?;
+                hnd.state.host.uilib = uilib;
+                hnd.mark_surface_dirty(SURFACE_QUICK);
+            }
+            DOMAIN_CONTENT => {
+                let content: crate::state::ContentBrowserSnapshot = serde_json::from_slice(bytes)
+                    .map_err(|e| format!("content JSON parse error: {e}"))?;
+                let qm_changed = hnd.state.host.content.pinned_items != content.pinned_items
+                    || hnd.state.host.content.group_mod_prompt != content.group_mod_prompt;
+                hnd.state.host.content = content;
+                hnd.mark_surface_dirty(SURFACE_MAIN);
+                if qm_changed {
+                    hnd.mark_surface_dirty(SURFACE_QUICK);
+                }
+            }
+            DOMAIN_SOCIAL => {
+                let social_dom: crate::state::SocialDomainSnapshot = serde_json::from_slice(bytes)
+                    .map_err(|e| format!("social JSON parse error: {e}"))?;
+                hnd.state.host.online_friends = social_dom.online_friends;
+                hnd.state.host.active_worlds = social_dom.active_worlds;
+                hnd.state.host.activity_feed = social_dom.activity_feed;
+                hnd.state.host.social = social_dom.social;
+                hnd.mark_surface_dirty(SURFACE_MAIN);
+            }
+            DOMAIN_SETTINGS => {
+                let settings: crate::state::CvrSettingsSnapshot = serde_json::from_slice(bytes)
+                    .map_err(|e| format!("settings JSON parse error: {e}"))?;
+                hnd.state.host.cvr_settings = settings;
+                hnd.mark_surface_dirty(SURFACE_MAIN);
+            }
+            DOMAIN_AVATAR_SETTINGS => {
+                let avatar_settings: crate::state::AvatarSettingsSnapshot =
+                    serde_json::from_slice(bytes)
+                        .map_err(|e| format!("avatar_settings JSON parse error: {e}"))?;
+                hnd.state.host.avatar_settings = avatar_settings;
+                hnd.mark_surface_dirty(SURFACE_MAIN);
+            }
+            DOMAIN_UIX => {
+                let uix: crate::state::UixDomainSnapshot = serde_json::from_slice(bytes)
+                    .map_err(|e| format!("uix JSON parse error: {e}"))?;
+                hnd.state.host.uix_available = uix.uix_available;
+                hnd.state.host.uix_categories = uix.uix_categories;
+                hnd.mark_surface_dirty(SURFACE_MAIN);
+            }
+            _ => return Err(format!("invalid domain_id: {domain_id}")),
+        }
+        Ok(())
+    }));
+
+    match res {
+        Ok(Ok(())) => true,
+        Ok(Err(err)) => {
+            set_last_error(err);
+            false
+        }
+        Err(payload) => {
+            set_last_error(panic_payload_to_string(payload));
+            false
+        }
+    }
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn lumenic_cvr_push_state_json(
     handle: *mut HostHandle,
     utf8_ptr: *const u8,
@@ -1188,6 +1462,182 @@ pub unsafe extern "C" fn lumenic_cvr_push_extensions_json(
         Err(payload) => {
             set_last_error(panic_payload_to_string(payload));
             false
+        }
+    }
+}
+
+/// Stateless, thread-safe image decoder callable from C# background worker threads
+/// without touching the WGL context or `HostHandle`.
+#[no_mangle]
+pub unsafe extern "C" fn lumenic_cvr_decode_image(
+    bytes_ptr: *const u8,
+    bytes_len: usize,
+    out_width: *mut u32,
+    out_height: *mut u32,
+    out_rgba_ptr: *mut *mut u8,
+    out_rgba_len: *mut usize,
+) -> bool {
+    if !out_width.is_null() {
+        unsafe { *out_width = 0 };
+    }
+    if !out_height.is_null() {
+        unsafe { *out_height = 0 };
+    }
+    if !out_rgba_ptr.is_null() {
+        unsafe { *out_rgba_ptr = std::ptr::null_mut() };
+    }
+    if !out_rgba_len.is_null() {
+        unsafe { *out_rgba_len = 0 };
+    }
+    if bytes_ptr.is_null()
+        || bytes_len == 0
+        || out_width.is_null()
+        || out_height.is_null()
+        || out_rgba_ptr.is_null()
+        || out_rgba_len.is_null()
+    {
+        return false;
+    }
+
+    let res = catch_unwind(AssertUnwindSafe(|| -> Result<(), String> {
+        let raw_bytes = unsafe { checked_slice(bytes_ptr, bytes_len)? };
+        let decoded =
+            lumenic::decode_image(raw_bytes).map_err(|e| format!("decode_image: {e}"))?;
+        let mut boxed = decoded.data.into_boxed_slice();
+        let len = boxed.len();
+        let ptr = boxed.as_mut_ptr();
+        std::mem::forget(boxed);
+        unsafe {
+            *out_width = decoded.width;
+            *out_height = decoded.height;
+            *out_rgba_ptr = ptr;
+            *out_rgba_len = len;
+        }
+        Ok(())
+    }));
+
+    matches!(res, Ok(Ok(())))
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn lumenic_cvr_free_decoded(ptr: *mut u8, len: usize) {
+    if ptr.is_null() || len == 0 {
+        return;
+    }
+    let _ = catch_unwind(AssertUnwindSafe(|| {
+        let slice_ptr = std::ptr::slice_from_raw_parts_mut(ptr, len);
+        drop(unsafe { Box::from_raw(slice_ptr) });
+    }));
+}
+
+#[repr(C)]
+pub struct RgbaUploadItem {
+    pub surface_id: u32,
+    pub width: u32,
+    pub height: u32,
+    pub key_ptr: *const u8,
+    pub key_len: usize,
+    pub rgba_ptr: *const u8,
+    pub rgba_len: usize,
+}
+
+/// Uploads a batch of pre-decoded RGBA8 textures inside a single WGL context bind.
+/// Writes `1` (success) or `0` (failure) into `out_results[i]` when non-null.
+#[no_mangle]
+pub unsafe extern "C" fn lumenic_cvr_upload_rgba_batch(
+    handle: *mut HostHandle,
+    items_ptr: *const RgbaUploadItem,
+    count: usize,
+    out_results_ptr: *mut u8,
+) -> usize {
+    clear_last_error();
+    let Some(hnd) = (unsafe { handle.as_mut() }) else {
+        set_last_error("lumenic_cvr_upload_rgba_batch: null handle");
+        return 0;
+    };
+    if items_ptr.is_null() || count == 0 {
+        return 0;
+    }
+    let res = catch_unwind(AssertUnwindSafe(|| -> Result<usize, String> {
+        let items = unsafe { slice::from_raw_parts(items_ptr, count) };
+        let results = if out_results_ptr.is_null() {
+            None
+        } else {
+            Some(unsafe { slice::from_raw_parts_mut(out_results_ptr, count) })
+        };
+
+        let HostHandle {
+            host,
+            state,
+            main_surface,
+            quick_surface,
+            ..
+        } = hnd;
+        let guard = MakeNotCurrentGuard(host);
+        let mut uploaded = 0usize;
+        let mut results = results;
+
+        for (i, item) in items.iter().enumerate() {
+            let mut ok = false;
+            let sid = match item.surface_id {
+                SURFACE_MAIN => Some(*main_surface),
+                SURFACE_QUICK => Some(*quick_surface),
+                _ => None,
+            };
+            let expected_len = (item.width as usize)
+                .saturating_mul(item.height as usize)
+                .saturating_mul(4);
+
+            if let Some(sid) = sid {
+                if !item.key_ptr.is_null()
+                    && item.key_len > 0
+                    && !item.rgba_ptr.is_null()
+                    && item.width > 0
+                    && item.height > 0
+                    && item.rgba_len >= expected_len
+                {
+                    if let (Ok(key_bytes), Ok(rgba)) = (
+                        unsafe { checked_slice(item.key_ptr, item.key_len) },
+                        unsafe { checked_slice(item.rgba_ptr, expected_len) },
+                    ) {
+                        if let Ok(key) = std::str::from_utf8(key_bytes) {
+                            if let Some(surf) = guard.0.surface_mut(sid) {
+                                if let Ok(tex_id) = surf.app_mut().create_texture_rgba(
+                                    item.width,
+                                    item.height,
+                                    rgba,
+                                ) {
+                                    let cache = if item.surface_id == SURFACE_MAIN {
+                                        &mut state.main_textures
+                                    } else {
+                                        &mut state.quick_textures
+                                    };
+                                    cache.insert(surf.app_mut(), key.to_owned(), tex_id);
+                                    surf.mark_dirty();
+                                    ok = true;
+                                    uploaded += 1;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if let Some(res_slice) = results.as_deref_mut() {
+                res_slice[i] = if ok { 1 } else { 0 };
+            }
+        }
+        Ok(uploaded)
+    }));
+
+    match res {
+        Ok(Ok(n)) => n,
+        Ok(Err(err)) => {
+            set_last_error(err);
+            0
+        }
+        Err(payload) => {
+            set_last_error(panic_payload_to_string(payload));
+            0
         }
     }
 }
@@ -1337,6 +1787,148 @@ pub unsafe extern "C" fn lumenic_cvr_push_telemetry(
     }
 }
 
+fn step_surface_inner(
+    hnd: &mut HostHandle,
+    surface_id: u32,
+    dt_secs: f32,
+    force_redraw: bool,
+    dst_ptr: *mut u8,
+    dst_len: usize,
+) -> Result<u32, String> {
+    let safe_dt = if dt_secs.is_finite() && dt_secs > 0.0 {
+        dt_secs.min(0.25)
+    } else {
+        0.0
+    };
+    let Some(sid) = hnd.surface_id(surface_id) else {
+        return Err(format!("invalid surface_id: {surface_id}"));
+    };
+
+    // Flush accumulated same-frame UTF-8 text into a single on_ime_commit call.
+    if let Some(buf) = hnd.pending_text_mut(surface_id) {
+        if !buf.is_empty() {
+            let committed = std::mem::take(buf);
+            if let Some(surf) = hnd.host.surface_mut(sid) {
+                surf.ui_mut().on_ime_commit(committed);
+            }
+        }
+    }
+
+    let HostHandle {
+        host,
+        state,
+        actions,
+        main_last_hovered,
+        quick_last_hovered,
+        ..
+    } = hnd;
+
+    let render_fn = |ui: &mut lumenic::UiContext, app: &mut lumenic::App| {
+        if surface_id == SURFACE_MAIN {
+            render_main_menu(ui, app, state, actions);
+        } else {
+            render_quick_menu(ui, app, state, actions);
+        }
+    };
+
+    let (rendered, pixels_read, d3d11_blitted) = {
+        let guard = MakeNotCurrentGuard(host);
+        let step_result = if force_redraw {
+            guard.0.step_frame_forced(sid, safe_dt, render_fn)
+        } else {
+            guard.0.step_frame(sid, safe_dt, render_fn)
+        };
+        let rendered = step_result.map_err(|e| format!("step_frame: {e}"))?;
+        let mut pixels_read = false;
+        let mut d3d11_blitted = false;
+        if rendered || force_redraw {
+            if guard.0.has_d3d11_texture(sid) {
+                match guard.0.blit_to_d3d11_texture(sid, false) {
+                    Ok(()) => {
+                        d3d11_blitted = true;
+                    }
+                    Err(e) => {
+                        // Detach failed interop binding and fall back cleanly to CPU readback if caller supplied a buffer.
+                        guard.0.detach_d3d11_texture(sid);
+                        if dst_ptr.is_null() || dst_len == 0 {
+                            return Err(format!("blit_to_d3d11_texture: {e}"));
+                        }
+                    }
+                }
+            }
+            if !d3d11_blitted && !dst_ptr.is_null() && dst_len > 0 {
+                let expected = guard
+                    .0
+                    .surface(sid)
+                    .map(|s| s.rgba_byte_len())
+                    .ok_or_else(|| String::from("surface missing"))?;
+                if dst_len < expected {
+                    return Err(format!(
+                        "buffer too small: got {dst_len} bytes, need {expected}"
+                    ));
+                }
+                let dst = unsafe { checked_slice_mut(dst_ptr, expected)? };
+                guard
+                    .0
+                    .read_pixels_rgba_into(sid, dst, true)
+                    .map_err(|e| format!("read_pixels_rgba_into: {e}"))?;
+                pixels_read = true;
+            }
+        }
+        (rendered, pixels_read, d3d11_blitted)
+    };
+
+    let mut flags = 0u32;
+    if rendered {
+        flags |= STEP_FLAG_RENDERED;
+        // First frame entering any 3D avatar turntable view has prev_rect() == None;
+        // schedule one extra frame so SyncAvatarPreview emits immediately.
+        let needs_preview_rect_pass = (surface_id == SURFACE_MAIN
+            && state.main_menu.aas_preview_rendered
+            && state.main_menu.aas_last_preview_sync.is_none())
+            || (surface_id == SURFACE_QUICK
+                && state.quick.avatar_preview_rendered
+                && state.quick.last_avatar_preview_sync.is_none());
+        if needs_preview_rect_pass {
+            if let Some(surf) = host.surface_mut(sid) {
+                surf.mark_dirty();
+            }
+        }
+    }
+    if pixels_read {
+        flags |= STEP_FLAG_PIXELS_READ;
+    }
+    if d3d11_blitted {
+        flags |= STEP_FLAG_D3D11_BLITTED;
+    }
+    let current_hovered = host.surface(sid).and_then(|s| s.ui().hovered_id());
+    let prev_hovered = if surface_id == SURFACE_MAIN {
+        main_last_hovered
+    } else {
+        quick_last_hovered
+    };
+    if current_hovered != *prev_hovered {
+        *prev_hovered = current_hovered;
+        if current_hovered.is_some() {
+            actions.push(UiAction::PlayUiSound {
+                sound: String::from("Hover"),
+            });
+        }
+    }
+    if let Some(surf) = host.surface(sid) {
+        if surf.ui().is_text_input_focused() {
+            flags |= STEP_FLAG_TEXT_FOCUSED;
+        }
+        if surf.ui().is_pointer_over_ui() {
+            flags |= STEP_FLAG_POINTER_OVER_UI;
+        }
+    }
+    if !actions.is_empty() {
+        flags |= STEP_FLAG_HAS_ACTIONS;
+    }
+    Ok(flags)
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn lumenic_cvr_step(
     handle: *mut HostHandle,
@@ -1349,96 +1941,41 @@ pub unsafe extern "C" fn lumenic_cvr_step(
         set_last_error("lumenic_cvr_step: null handle");
         return STEP_FLAG_ERROR_OR_PANIC;
     };
-    let safe_dt = if dt_secs.is_finite() && dt_secs > 0.0 {
-        dt_secs.min(0.25)
-    } else {
-        0.0
+    let res = catch_unwind(AssertUnwindSafe(|| {
+        step_surface_inner(hnd, surface_id, dt_secs, force_redraw, std::ptr::null_mut(), 0)
+    }));
+
+    match res {
+        Ok(Ok(flags)) => flags,
+        Ok(Err(err)) => {
+            set_last_error(err);
+            STEP_FLAG_ERROR_OR_PANIC
+        }
+        Err(payload) => {
+            set_last_error(panic_payload_to_string(payload));
+            STEP_FLAG_ERROR_OR_PANIC
+        }
+    }
+}
+
+/// Steps the UI surface and, if rendered (or forced), reads RGBA8 pixels into `dst_ptr`
+/// within the same WGL context bind to avoid redundant context switches.
+#[no_mangle]
+pub unsafe extern "C" fn lumenic_cvr_step_and_read(
+    handle: *mut HostHandle,
+    surface_id: u32,
+    dt_secs: f32,
+    force_redraw: bool,
+    dst_ptr: *mut u8,
+    dst_len: usize,
+) -> u32 {
+    clear_last_error();
+    let Some(hnd) = (unsafe { handle.as_mut() }) else {
+        set_last_error("lumenic_cvr_step_and_read: null handle");
+        return STEP_FLAG_ERROR_OR_PANIC;
     };
-    let res = catch_unwind(AssertUnwindSafe(|| -> Result<u32, String> {
-        let Some(sid) = hnd.surface_id(surface_id) else {
-            return Err(format!("invalid surface_id: {surface_id}"));
-        };
-
-        // Flush accumulated same-frame UTF-8 text into a single on_ime_commit call.
-        if let Some(buf) = hnd.pending_text_mut(surface_id) {
-            if !buf.is_empty() {
-                let committed = std::mem::take(buf);
-                if let Some(surf) = hnd.host.surface_mut(sid) {
-                    surf.ui_mut().on_ime_commit(committed);
-                }
-            }
-        }
-
-        let HostHandle {
-            host,
-            state,
-            actions,
-            main_last_hovered,
-            quick_last_hovered,
-            ..
-        } = hnd;
-
-        let render_fn = |ui: &mut lumenic::UiContext, app: &mut lumenic::App| {
-            if surface_id == SURFACE_MAIN {
-                render_main_menu(ui, app, state, actions);
-            } else {
-                render_quick_menu(ui, app, state, actions);
-            }
-        };
-
-        let rendered = {
-            let guard = MakeNotCurrentGuard(host);
-            let step_result = if force_redraw {
-                guard.0.step_frame_forced(sid, safe_dt, render_fn)
-            } else {
-                guard.0.step_frame(sid, safe_dt, render_fn)
-            };
-            step_result.map_err(|e| format!("step_frame: {e}"))?
-        };
-
-        let mut flags = 0u32;
-        if rendered {
-            flags |= STEP_FLAG_RENDERED;
-            // First frame entering any 3D avatar turntable view has prev_rect() == None;
-            // schedule one extra frame so SyncAvatarPreview emits immediately.
-            let needs_preview_rect_pass = (surface_id == SURFACE_MAIN
-                && state.main_menu.aas_preview_rendered
-                && state.main_menu.aas_last_preview_sync.is_none())
-                || (surface_id == SURFACE_QUICK
-                    && state.quick.avatar_preview_rendered
-                    && state.quick.last_avatar_preview_sync.is_none());
-            if needs_preview_rect_pass {
-                if let Some(surf) = host.surface_mut(sid) {
-                    surf.mark_dirty();
-                }
-            }
-        }
-        let current_hovered = host.surface(sid).and_then(|s| s.ui().hovered_id());
-        let prev_hovered = if surface_id == SURFACE_MAIN {
-            main_last_hovered
-        } else {
-            quick_last_hovered
-        };
-        if current_hovered != *prev_hovered {
-            *prev_hovered = current_hovered;
-            if current_hovered.is_some() {
-                actions.push(UiAction::PlayUiSound {
-                    sound: String::from("Hover"),
-                });
-            }
-        }
-        if let Some(surf) = host.surface(sid) {
-            if surf.ui().is_text_input_focused() {
-                flags |= STEP_FLAG_TEXT_FOCUSED;
-            }
-            if surf.ui().is_pointer_over_ui() {
-                flags |= STEP_FLAG_POINTER_OVER_UI;
-            }
-        }
-        if !actions.is_empty() {
-            flags |= STEP_FLAG_HAS_ACTIONS;
-        }
-        Ok(flags)
+    let res = catch_unwind(AssertUnwindSafe(|| {
+        step_surface_inner(hnd, surface_id, dt_secs, force_redraw, dst_ptr, dst_len)
     }));
 
     match res {
@@ -1852,6 +2389,108 @@ mod tests {
             assert!(
                 join.y > 200.0 && join.y < 600.0,
                 "expected Join Instance button vertically inside 800px Quick Menu, got {join:?}"
+            );
+
+            lumenic_cvr_destroy(handle);
+        }
+    }
+
+    #[test]
+    fn ffi_step_and_read_and_upload_rgba_batch() {
+        let handle = lumenic_cvr_create(320, 240, 256, 256, 1.0);
+        assert!(!handle.is_null());
+
+        unsafe {
+            let key = b"test_batch_tex";
+            let rgba = vec![255u8; 4 * 4 * 4];
+            let item = RgbaUploadItem {
+                surface_id: SURFACE_MAIN,
+                width: 4,
+                height: 4,
+                key_ptr: key.as_ptr(),
+                key_len: key.len(),
+                rgba_ptr: rgba.as_ptr(),
+                rgba_len: rgba.len(),
+            };
+            let mut results = [0u8; 1];
+            let uploaded = lumenic_cvr_upload_rgba_batch(handle, &item, 1, results.as_mut_ptr());
+            assert_eq!(uploaded, 1);
+            assert_eq!(results[0], 1);
+
+            let mut pixels = vec![0u8; 320 * 240 * 4];
+            let flags = lumenic_cvr_step_and_read(
+                handle,
+                SURFACE_MAIN,
+                0.016,
+                true,
+                pixels.as_mut_ptr(),
+                pixels.len(),
+            );
+            assert_eq!(flags & STEP_FLAG_ERROR_OR_PANIC, 0);
+            assert_ne!(flags & STEP_FLAG_RENDERED, 0);
+            assert_ne!(flags & STEP_FLAG_PIXELS_READ, 0);
+            let non_zero_alpha = pixels.chunks_exact(4).filter(|p| p[3] > 0).count();
+            assert!(non_zero_alpha > 1_000);
+
+            lumenic_cvr_destroy(handle);
+        }
+    }
+
+    #[test]
+    fn ffi_push_domain_json_dirties_only_target_surface() {
+        let handle = lumenic_cvr_create(320, 240, 256, 256, 1.0);
+        assert!(!handle.is_null());
+
+        unsafe {
+            // Settle both surfaces so idle frames skip rendering.
+            for _ in 0..120 {
+                let _ = lumenic_cvr_step(handle, SURFACE_MAIN, 0.016, false);
+                let _ = lumenic_cvr_step(handle, SURFACE_QUICK, 0.016, false);
+            }
+            assert_eq!(lumenic_cvr_step(handle, SURFACE_MAIN, 0.016, false) & STEP_FLAG_RENDERED, 0);
+            assert_eq!(lumenic_cvr_step(handle, SURFACE_QUICK, 0.016, false) & STEP_FLAG_RENDERED, 0);
+
+            // Pushing UILib domain must dirty Quick Menu ONLY, never Main Menu.
+            let uilib_json = br#"{"toast":"hello"}"#;
+            assert!(lumenic_cvr_push_domain_json(
+                handle,
+                DOMAIN_UILIB,
+                uilib_json.as_ptr(),
+                uilib_json.len()
+            ));
+            assert_eq!(
+                lumenic_cvr_step(handle, SURFACE_MAIN, 0.016, false) & STEP_FLAG_RENDERED,
+                0,
+                "DOMAIN_UILIB must not dirty Main Menu"
+            );
+            assert_ne!(
+                lumenic_cvr_step(handle, SURFACE_QUICK, 0.016, false) & STEP_FLAG_RENDERED,
+                0,
+                "DOMAIN_UILIB must dirty Quick Menu"
+            );
+
+            // Settle Quick Menu again, then push Social domain -> must dirty Main Menu ONLY.
+            for _ in 0..120 {
+                let _ = lumenic_cvr_step(handle, SURFACE_QUICK, 0.016, false);
+            }
+            assert_eq!(lumenic_cvr_step(handle, SURFACE_QUICK, 0.016, false) & STEP_FLAG_RENDERED, 0);
+
+            let social_json = br#"{"online_friends":[],"active_worlds":[],"activity_feed":[],"social":{}}"#;
+            assert!(lumenic_cvr_push_domain_json(
+                handle,
+                DOMAIN_SOCIAL,
+                social_json.as_ptr(),
+                social_json.len()
+            ));
+            assert_eq!(
+                lumenic_cvr_step(handle, SURFACE_QUICK, 0.016, false) & STEP_FLAG_RENDERED,
+                0,
+                "DOMAIN_SOCIAL must not dirty Quick Menu"
+            );
+            assert_ne!(
+                lumenic_cvr_step(handle, SURFACE_MAIN, 0.016, false) & STEP_FLAG_RENDERED,
+                0,
+                "DOMAIN_SOCIAL must dirty Main Menu"
             );
 
             lumenic_cvr_destroy(handle);

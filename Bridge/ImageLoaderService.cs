@@ -33,13 +33,35 @@ internal sealed class ImageLoaderService : IDisposable
 
     private static readonly SemaphoreSlim RemoteFetchGate = new SemaphoreSlim(6, 6);
 
-    private readonly ConcurrentQueue<(uint SurfaceId, string Key, byte[] Bytes, int Token)> _pendingUploads =
-        new ConcurrentQueue<(uint, string, byte[], int)>();
+    private readonly struct PendingUpload
+    {
+        public readonly uint SurfaceId;
+        public readonly string Key;
+        public readonly byte[] RawBytes;
+        public readonly uint Width;
+        public readonly uint Height;
+        public readonly byte[] RgbaBytes;
+        public readonly int Token;
+
+        public PendingUpload(uint surfaceId, string key, byte[] rawBytes, uint width, uint height, byte[] rgbaBytes, int token)
+        {
+            SurfaceId = surfaceId;
+            Key = key;
+            RawBytes = rawBytes;
+            Width = width;
+            Height = height;
+            RgbaBytes = rgbaBytes;
+            Token = token;
+        }
+    }
+
+    private readonly NativeBridge _bridge;
+    private readonly ConcurrentQueue<PendingUpload> _pendingUploads = new ConcurrentQueue<PendingUpload>();
 
     private readonly object _cacheLock = new object();
     private readonly Dictionary<string, byte[]> _bytesCache = new Dictionary<string, byte[]>(StringComparer.Ordinal);
     private readonly LinkedList<string> _bytesOrder = new LinkedList<string>();
-    private readonly HashSet<(uint SurfaceId, string Key)> _inFlight = new HashSet<(uint, string)>();
+    private readonly Dictionary<string, HashSet<uint>> _inFlight = new Dictionary<string, HashSet<uint>>(StringComparer.Ordinal);
     private readonly Dictionary<string, DateTime> _failedKeys = new Dictionary<string, DateTime>(StringComparer.Ordinal);
     private readonly HashSet<(uint SurfaceId, string Key)> _queuedUploads = new HashSet<(uint, string)>();
 
@@ -51,16 +73,28 @@ internal sealed class ImageLoaderService : IDisposable
     private int _localPfpToken;
     private volatile bool _disposed;
 
+    public ImageLoaderService(NativeBridge bridge = null)
+    {
+        _bridge = bridge;
+    }
+
     static ImageLoaderService()
     {
         try
         {
-            SharedHttp.DefaultRequestHeaders.UserAgent.ParseAdd("LumenicMenu/0.2");
+            SharedHttp.DefaultRequestHeaders.UserAgent.ParseAdd($"LumenicMenu/{LumenicMenuMod.ModVersion}");
         }
         catch
         {
             // Ignore if header already set.
         }
+    }
+
+    private static bool IsPinnedKey(string key)
+    {
+        return key == "local_pfp"
+            || key.StartsWith("uilib:", StringComparison.Ordinal)
+            || key.StartsWith("ext:", StringComparison.Ordinal);
     }
 
     public void InvalidateUploaded()
@@ -91,8 +125,7 @@ internal sealed class ImageLoaderService : IDisposable
                 token = ++_localPfpToken;
                 _bytesCache.Remove("local_pfp");
                 _failedKeys.Remove("local_pfp");
-                _inFlight.Remove((NativeBridge.SurfaceMain, "local_pfp"));
-                _inFlight.Remove((NativeBridge.SurfaceQuick, "local_pfp"));
+                _inFlight.Remove("local_pfp");
                 _queuedUploads.Remove((NativeBridge.SurfaceMain, "local_pfp"));
                 _queuedUploads.Remove((NativeBridge.SurfaceQuick, "local_pfp"));
             }
@@ -209,12 +242,17 @@ internal sealed class ImageLoaderService : IDisposable
             if (_bytesCache.TryGetValue(key, out byte[] cached))
             {
                 _queuedUploads.Add(uploadId);
-                _pendingUploads.Enqueue((surfaceId, key, cached, token));
+                Task.Run(() => DecodeCachedAndEnqueue(surfaceId, key, cached, token));
                 return false;
             }
-            if (IsRecentlyFailedLocked(key) || _inFlight.Contains(uploadId))
+            if (IsRecentlyFailedLocked(key))
                 return false;
-            _inFlight.Add(uploadId);
+            if (_inFlight.TryGetValue(key, out HashSet<uint> waiters))
+            {
+                waiters.Add(surfaceId);
+                return false;
+            }
+            _inFlight[key] = new HashSet<uint> { surfaceId };
             return true;
         }
     }
@@ -373,8 +411,9 @@ internal sealed class ImageLoaderService : IDisposable
 
             StoreAndEnqueue(surfaceId, key, bytes, token);
         }
-        catch
+        catch (Exception ex)
         {
+            DiagLog.WarnOnce("ImageLoader.FetchRemote", ex);
             MarkFailed(surfaceId, key, token);
         }
         finally
@@ -403,21 +442,47 @@ internal sealed class ImageLoaderService : IDisposable
         return ms.ToArray();
     }
 
+    private void DecodeCachedAndEnqueue(uint surfaceId, string key, byte[] rawBytes, int token)
+    {
+        if (_disposed)
+            return;
+
+        if (_bridge != null && _bridge.TryDecodeImage(rawBytes, out uint w, out uint h, out byte[] rgba))
+        {
+            _pendingUploads.Enqueue(new PendingUpload(surfaceId, key, null, w, h, rgba, token));
+        }
+        else
+        {
+            _pendingUploads.Enqueue(new PendingUpload(surfaceId, key, rawBytes, 0, 0, null, token));
+        }
+    }
+
     private void StoreAndEnqueue(uint surfaceId, string key, byte[] bytes, int token)
     {
-        var uploadId = (surfaceId, key);
+        // Decode off Unity's main thread while still on the worker thread.
+        uint decodedW = 0;
+        uint decodedH = 0;
+        byte[] decodedRgba = null;
+        bool hasDecoded = _bridge != null && _bridge.TryDecodeImage(bytes, out decodedW, out decodedH, out decodedRgba);
+
         lock (_cacheLock)
         {
             if (_disposed)
                 return;
             if (key == "local_pfp" && token != _localPfpToken)
             {
-                _inFlight.Remove(uploadId);
+                _inFlight.Remove(key);
                 return;
             }
 
-            _inFlight.Remove(uploadId);
-            if (key != "local_pfp")
+            HashSet<uint> waiters = null;
+            if (_inFlight.TryGetValue(key, out var existingWaiters))
+            {
+                waiters = existingWaiters;
+                _inFlight.Remove(key);
+            }
+
+            if (!IsPinnedKey(key))
             {
                 _bytesOrder.Remove(key);
                 _bytesOrder.AddLast(key);
@@ -431,19 +496,35 @@ internal sealed class ImageLoaderService : IDisposable
                 _bytesCache.Remove(oldest);
             }
 
-            if (_queuedUploads.Add(uploadId))
+            byte[] enqueueRaw = hasDecoded ? null : bytes;
+            if (waiters != null && waiters.Count > 0)
             {
-                _pendingUploads.Enqueue((surfaceId, key, bytes, token));
+                waiters.Add(surfaceId);
+                foreach (uint targetSurface in waiters)
+                {
+                    var targetId = (targetSurface, key);
+                    if (_queuedUploads.Add(targetId))
+                    {
+                        _pendingUploads.Enqueue(new PendingUpload(targetSurface, key, enqueueRaw, decodedW, decodedH, decodedRgba, token));
+                    }
+                }
+            }
+            else
+            {
+                var uploadId = (surfaceId, key);
+                if (_queuedUploads.Add(uploadId))
+                {
+                    _pendingUploads.Enqueue(new PendingUpload(surfaceId, key, enqueueRaw, decodedW, decodedH, decodedRgba, token));
+                }
             }
         }
     }
 
     private void MarkFailed(uint surfaceId, string key, int token = 0)
     {
-        var uploadId = (surfaceId, key);
         lock (_cacheLock)
         {
-            _inFlight.Remove(uploadId);
+            _inFlight.Remove(key);
             if (key == "local_pfp" && token != _localPfpToken)
                 return;
             if (_failedKeys.Count >= MaxFailedEntries)
@@ -452,19 +533,32 @@ internal sealed class ImageLoaderService : IDisposable
         }
     }
 
+    private NativeBridge.RgbaBatchItem[] _batchScratch;
+    private PendingUpload[] _batchPendingScratch;
+    private byte[] _batchResultsScratch;
+
     /// <summary>
-    /// Must be called on Unity's main thread. Uploads up to maxPerFrame decoded images to Rust.
+    /// Must be called on Unity's main thread. Uploads up to maxPerFrame pre-decoded RGBA images
+    /// to Rust in a single batched WGL bind (falling back to encoded upload if not yet decoded).
     /// </summary>
     public bool DrainUploads(NativeBridge bridge, out bool uploadedMain, out bool uploadedQuick, int maxPerFrame = 4)
     {
         uploadedMain = false;
         uploadedQuick = false;
-        if (_disposed || bridge == null || !bridge.IsHealthy)
+        if (_disposed || bridge == null || !bridge.IsHealthy || maxPerFrame <= 0)
             return false;
 
+        if (_batchScratch == null || _batchScratch.Length < maxPerFrame)
+        {
+            _batchScratch = new NativeBridge.RgbaBatchItem[maxPerFrame];
+            _batchPendingScratch = new PendingUpload[maxPerFrame];
+            _batchResultsScratch = new byte[maxPerFrame];
+        }
+
         bool uploadedAny = false;
+        int batchCount = 0;
         int count = 0;
-        while (count < maxPerFrame && _pendingUploads.TryDequeue(out var item))
+        while (count < maxPerFrame && _pendingUploads.TryDequeue(out PendingUpload item))
         {
             int curPfpToken;
             lock (_cacheLock)
@@ -476,22 +570,63 @@ internal sealed class ImageLoaderService : IDisposable
             if (item.Key == "local_pfp" && item.Token != curPfpToken)
                 continue;
 
-            if (bridge.UploadImageBytes(item.SurfaceId, item.Key, item.Bytes))
+            if (item.RgbaBytes != null && item.Width > 0 && item.Height > 0)
             {
-                RecordUploadedKey(item.SurfaceId, item.Key);
-                uploadedAny = true;
-                if (item.SurfaceId == NativeBridge.SurfaceMain)
-                    uploadedMain = true;
-                else if (item.SurfaceId == NativeBridge.SurfaceQuick)
-                    uploadedQuick = true;
+                _batchScratch[batchCount] = new NativeBridge.RgbaBatchItem(
+                    item.SurfaceId,
+                    item.Key,
+                    item.Width,
+                    item.Height,
+                    item.RgbaBytes);
+                _batchPendingScratch[batchCount] = item;
+                _batchResultsScratch[batchCount] = 0;
+                batchCount++;
             }
-            else
+            else if (item.RawBytes != null && item.RawBytes.Length > 0)
             {
-                MelonLogger.Warning($"[LumenicMenu] Failed to upload image '{item.Key}': {bridge.GetLastError()}");
-                MarkFailed(item.SurfaceId, item.Key, item.Token);
+                if (bridge.UploadImageBytes(item.SurfaceId, item.Key, item.RawBytes))
+                {
+                    RecordUploadedKey(item.SurfaceId, item.Key);
+                    uploadedAny = true;
+                    if (item.SurfaceId == NativeBridge.SurfaceMain)
+                        uploadedMain = true;
+                    else if (item.SurfaceId == NativeBridge.SurfaceQuick)
+                        uploadedQuick = true;
+                }
+                else
+                {
+                    MelonLogger.Warning($"[LumenicMenu] Failed to upload image '{item.Key}': {bridge.GetLastError()}");
+                    MarkFailed(item.SurfaceId, item.Key, item.Token);
+                }
             }
             count++;
         }
+
+        if (batchCount > 0)
+        {
+            bridge.UploadRgbaBatch(_batchScratch, batchCount, _batchResultsScratch);
+            for (int i = 0; i < batchCount; i++)
+            {
+                PendingUpload item = _batchPendingScratch[i];
+                _batchScratch[i] = default;
+                _batchPendingScratch[i] = default;
+                if (_batchResultsScratch[i] != 0)
+                {
+                    RecordUploadedKey(item.SurfaceId, item.Key);
+                    uploadedAny = true;
+                    if (item.SurfaceId == NativeBridge.SurfaceMain)
+                        uploadedMain = true;
+                    else if (item.SurfaceId == NativeBridge.SurfaceQuick)
+                        uploadedQuick = true;
+                }
+                else
+                {
+                    MelonLogger.Warning($"[LumenicMenu] Failed to upload decoded image '{item.Key}': {bridge.GetLastError()}");
+                    MarkFailed(item.SurfaceId, item.Key, item.Token);
+                }
+            }
+        }
+
         return uploadedAny;
     }
 
@@ -514,7 +649,7 @@ internal sealed class ImageLoaderService : IDisposable
         }
 
         set.Add(key);
-        if (key != "local_pfp")
+        if (!IsPinnedKey(key))
         {
             order.Remove(key);
             order.AddLast(key);

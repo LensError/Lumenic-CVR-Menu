@@ -1,4 +1,4 @@
-﻿use lumenic::{Color, ImageFit, TextAlign, UiContext};
+use lumenic::{Color, ImageFit, TextAlign, UiContext};
 
 use crate::icons;
 use crate::state::{AppState, UiAction, UserDetailSnapshot};
@@ -326,138 +326,135 @@ pub fn render_user_detail_view(
                                         border_subtle()
                                     };
                                     ui.row(|ui| {
-                                        if let Some(tex) = state.main_textures.get(&g.image_key) {
-                                            ui.img(tex)
-                                                .w(44.0)
-                                                .h(44.0)
-                                                .fit(ImageFit::Cover)
-                                                .bevel_rounded(6.0, 1.3);
-                                        } else {
-                                            ui.col(|ui| {
-                                                icons::icon(ui, icons::PLAYERS, 20.0).fg(accent);
+                                        let card_clicked = ui
+                                            .btn_with(&format!("mm_ud_open_g_{}", g.id), |ui| {
+                                                ui.row(|ui| {
+                                                    if let Some(tex) =
+                                                        state.main_textures.get(&g.image_key)
+                                                    {
+                                                        ui.img(tex)
+                                                            .w(44.0)
+                                                            .h(44.0)
+                                                            .fit(ImageFit::Cover)
+                                                            .bevel_rounded(6.0, 1.3);
+                                                    } else {
+                                                        ui.col(|ui| {
+                                                            icons::icon(ui, icons::PLAYERS, 20.0)
+                                                                .fg(accent);
+                                                        })
+                                                        .center()
+                                                        .w(44.0)
+                                                        .h(44.0)
+                                                        .bg(tint_alpha(accent, 28))
+                                                        .bd(1.0, border_subtle())
+                                                        .bevel_rounded(6.0, 1.3);
+                                                    }
+
+                                                    ui.col(|ui| {
+                                                        ui.row(|ui| {
+                                                            ui.txt(&g.name)
+                                                                .sz(crate::theme::fs(12.5))
+                                                                .bold()
+                                                                .fg(TEXT_PRIMARY)
+                                                                .ellipsis()
+                                                                .grow(1.0);
+                                                            if !g.tag.is_empty() {
+                                                                ui.txt(&format!("[{}]", g.tag))
+                                                                    .sz(crate::theme::fs(9.5))
+                                                                    .fg(accent)
+                                                                    .bg(tint_alpha(accent, 28))
+                                                                    .px(5.0)
+                                                                    .py(1.0)
+                                                                    .bevel_rounded(4.0, 1.1);
+                                                            }
+                                                            if g.is_featured {
+                                                                ui.txt("FEATURED")
+                                                                    .sz(crate::theme::fs(9.0))
+                                                                    .bold()
+                                                                    .fg(EMERALD)
+                                                                    .bg(tint_alpha(EMERALD, 32))
+                                                                    .px(6.0)
+                                                                    .py(1.5)
+                                                                    .bevel_rounded(4.0, 1.1);
+                                                            }
+                                                        })
+                                                        .align_center()
+                                                        .gap(5.0);
+
+                                                        let role = if g.is_owner {
+                                                            "Owner"
+                                                        } else {
+                                                            "Member"
+                                                        };
+                                                        ui.txt(&format!(
+                                                            "{role}  |  {} members",
+                                                            g.member_count.max(1)
+                                                        ))
+                                                        .sz(crate::theme::fs(10.5))
+                                                        .fg(TEXT_MUTED);
+                                                    })
+                                                    .gap(2.5)
+                                                    .grow(1.0);
+                                                })
+                                                .align_center()
+                                                .gap(10.0)
+                                                .grow(1.0);
                                             })
-                                            .center()
-                                            .w(44.0)
-                                            .h(44.0)
-                                            .bg(tint_alpha(accent, 28))
-                                            .bd(1.0, border_subtle())
-                                            .bevel_rounded(6.0, 1.3);
+                                            .grow(1.0)
+                                            .p(10.0)
+                                            .bg(Color::TRANSPARENT)
+                                            .hover_bg(tile_idle_hover())
+                                            .borderless()
+                                            .bevel_rounded(7.5, 1.3)
+                                            .clicked();
+
+                                        if card_clicked && !g.id.is_empty() {
+                                            push_click(actions);
+                                            crate::main_menu::push_nav_entry(
+                                                state,
+                                                crate::state::MainNavEntry::UserDetail {
+                                                    tab: state.main_menu.active_tab.clone(),
+                                                    user_id: detail.id.clone(),
+                                                    detail_tab: state.main_menu.user_detail_tab,
+                                                },
+                                            );
+                                            state.main_menu.safety_confirm_action.clear();
+                                            actions.push(UiAction::SocialLoadGroupDetail {
+                                                group_id: g.id.clone(),
+                                            });
                                         }
 
-                                        ui.col(|ui| {
-                                            ui.row(|ui| {
-                                                ui.txt(&g.name)
-                                                    .sz(crate::theme::fs(12.5))
-                                                    .bold()
-                                                    .fg(TEXT_PRIMARY)
-                                                    .ellipsis()
-                                                    .grow(1.0);
-                                                if !g.tag.is_empty() {
-                                                    ui.txt(&format!("[{}]", g.tag))
-                                                        .sz(crate::theme::fs(9.5))
-                                                        .fg(accent)
-                                                        .bg(tint_alpha(accent, 28))
-                                                        .px(5.0)
-                                                        .py(1.0)
-                                                        .bevel_rounded(4.0, 1.1);
-                                                }
-                                                if g.is_featured {
-                                                    ui.txt("FEATURED")
-                                                        .sz(crate::theme::fs(9.0))
-                                                        .bold()
-                                                        .fg(EMERALD)
-                                                        .bg(tint_alpha(EMERALD, 32))
-                                                        .px(6.0)
-                                                        .py(1.5)
-                                                        .bevel_rounded(4.0, 1.1);
-                                                }
-                                            })
-                                            .align_center()
-                                            .gap(5.0);
-
-                                            let role = if g.is_owner { "Owner" } else { "Member" };
-                                            ui.txt(&format!(
-                                                "{role}  |  {} members",
-                                                g.member_count.max(1)
-                                            ))
-                                            .sz(crate::theme::fs(10.5))
-                                            .fg(TEXT_MUTED);
-                                        })
-                                        .gap(2.5)
-                                        .grow(1.0);
-
-                                        if !g.id.is_empty() {
-                                            ui.row(|ui| {
-                                                if detail.is_local && !g.is_featured {
-                                                    if ui
-                                                        .btn_with(&format!("mm_ud_feat_g_{}", g.id), |ui| {
-                                                            ui.txt("Feature")
-                                                                .sz(crate::theme::fs(10.5))
-                                                                .semibold()
-                                                                .fg(TEXT_PRIMARY);
-                                                        })
-                                                        .px(9.0)
-                                                        .py(5.5)
-                                                        .bg(tint_alpha(accent, 48))
-                                                        .hover_bg(tile_idle_hover())
-                                                        .bd(1.0, tint_alpha(accent, 180))
-                                                        .bevel_rounded(5.5, 1.3)
-                                                        .clicked()
-                                                    {
-                                                        push_click(actions);
-                                                        actions.push(UiAction::SocialSetFeaturedGroup {
-                                                            group_id: g.id.clone(),
-                                                        });
-                                                    }
-                                                }
-
-                                                let open_lbl = if detail.is_local && g.is_owner {
-                                                    "Manage"
-                                                } else {
-                                                    "View"
-                                                };
-                                                if ui
-                                                    .btn_with(&format!("mm_ud_open_g_{}", g.id), |ui| {
-                                                        ui.txt(open_lbl)
-                                                            .sz(crate::theme::fs(10.5))
-                                                            .semibold()
-                                                            .fg(TEXT_PRIMARY);
-                                                    })
-                                                    .px(10.0)
-                                                    .py(5.5)
-                                                    .bg(if detail.is_local && g.is_owner {
-                                                        tint_alpha(EMERALD, 45)
-                                                    } else {
-                                                        tile_idle_bg()
-                                                    })
-                                                    .hover_bg(tile_idle_hover())
-                                                    .bd(
-                                                        1.0,
-                                                        if detail.is_local && g.is_owner {
-                                                            tint_alpha(EMERALD, 180)
-                                                        } else {
-                                                            border_subtle()
-                                                        },
-                                                    )
-                                                    .bevel_rounded(5.5, 1.3)
-                                                    .clicked()
-                                                {
-                                                    push_click(actions);
-                                                    crate::main_menu::push_nav_history(state);
-                                                    state.main_menu.safety_confirm_action.clear();
-                                                    actions.push(UiAction::SocialLoadGroupDetail {
-                                                        group_id: g.id.clone(),
-                                                    });
-                                                }
-                                            })
-                                            .align_center()
-                                            .gap(5.0);
+                                        if !g.id.is_empty() && detail.is_local && !g.is_featured {
+                                            if ui
+                                                .btn_with(&format!("mm_ud_feat_g_{}", g.id), |ui| {
+                                                    ui.txt("Feature")
+                                                        .sz(crate::theme::fs(10.5))
+                                                        .semibold()
+                                                        .fg(TEXT_PRIMARY);
+                                                })
+                                                .px(9.0)
+                                                .py(5.5)
+                                                .bg(tint_alpha(accent, 48))
+                                                .hover_bg(tile_idle_hover())
+                                                .bd(1.0, tint_alpha(accent, 180))
+                                                .bevel_rounded(5.5, 1.3)
+                                                .clicked()
+                                            {
+                                                push_click(actions);
+                                                actions.push(UiAction::SocialSetFeaturedGroup {
+                                                    group_id: g.id.clone(),
+                                                });
+                                            }
                                         }
                                     })
                                     .align_center()
                                     .grow(1.0)
-                                    .p(10.0)
-                                    .gap(10.0)
+                                    .pr(if !g.id.is_empty() && detail.is_local && !g.is_featured {
+                                        10.0
+                                    } else {
+                                        0.0
+                                    })
+                                    .gap(6.0)
                                     .bg(card_inner_bg())
                                     .bd(1.0, bd_col)
                                     .bevel_rounded(8.0, 1.3);

@@ -296,6 +296,18 @@ pub fn begin_frame(state: &AppState) {
     ACTIVE_THEME.with(|t| t.set(runtime));
 }
 
+struct StyleOverrideGuard {
+    prev_theme: ThemeRuntime,
+    prev_palette: PanelPalette,
+}
+
+impl Drop for StyleOverrideGuard {
+    fn drop(&mut self) {
+        ACTIVE_THEME.with(|t| t.set(self.prev_theme));
+        ACTIVE_PALETTE.with(|p| p.set(self.prev_palette));
+    }
+}
+
 /// Temporarily applies a named section's style/layout overrides while rendering that section.
 pub fn with_style_override<R>(ov: Option<&ExtStyleOverride>, f: impl FnOnce() -> R) -> R {
     let Some(ov) = ov else {
@@ -303,6 +315,10 @@ pub fn with_style_override<R>(ov: Option<&ExtStyleOverride>, f: impl FnOnce() ->
     };
     let prev_theme = ACTIVE_THEME.with(|t| t.get());
     let prev_palette = ACTIVE_PALETTE.with(|p| p.get());
+    let _guard = StyleOverrideGuard {
+        prev_theme,
+        prev_palette,
+    };
 
     let mut next_theme = prev_theme;
     if let Some(fs) = ov.font_scale.filter(|v| v.is_finite() && *v > 0.0) {
@@ -331,10 +347,7 @@ pub fn with_style_override<R>(ov: Option<&ExtStyleOverride>, f: impl FnOnce() ->
 
     ACTIVE_THEME.with(|t| t.set(next_theme));
     ACTIVE_PALETTE.with(|p| p.set(next_palette));
-    let out = f();
-    ACTIVE_THEME.with(|t| t.set(prev_theme));
-    ACTIVE_PALETTE.with(|p| p.set(prev_palette));
-    out
+    f()
 }
 
 #[inline]

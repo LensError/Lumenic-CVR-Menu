@@ -144,6 +144,8 @@ internal sealed class SocialService
         public bool Saving;
         public string StatusMsg = string.Empty;
         public string Error = string.Empty;
+        public bool StaffScanning;
+        public List<GroupMemberDto> Staff = new List<GroupMemberDto>();
         public List<GroupMemberDto> Members = new List<GroupMemberDto>();
     }
 
@@ -1018,6 +1020,93 @@ internal sealed class SocialService
         });
     }
 
+    private static bool IsGroupStaffMember(string role, string memberId, string ownerId)
+    {
+        if (!string.IsNullOrEmpty(ownerId) && string.Equals(memberId, ownerId, StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (string.IsNullOrEmpty(role))
+            return false;
+        return role.IndexOf("admin", StringComparison.OrdinalIgnoreCase) >= 0
+            || role.IndexOf("mod", StringComparison.OrdinalIgnoreCase) >= 0
+            || role.IndexOf("owner", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    private async Task ScanRemainingStaffAsync(string groupId, string ownerId, int totalPages, int seq)
+    {
+        int maxPage = Math.Min(totalPages, 25);
+        try
+        {
+            for (int page = 1; page < maxPage; page++)
+            {
+                lock (_lock)
+                {
+                    if (_groupDetailSeq != seq || _groupDetail == null)
+                        return;
+                }
+
+                BaseResponse<GroupMemberList> memResp;
+                try
+                {
+                    memResp = await ApiConnection.MakeRequest<GroupMemberList>(
+                        ApiConnection.ApiOperation.GroupGetMembers,
+                        new { id = groupId, page, sortOrder = "default", sortAscending = false }).ConfigureAwait(false);
+                }
+                catch
+                {
+                    break;
+                }
+
+                if (memResp?.Data?.Entries == null || memResp.Data.Entries.Count == 0)
+                    break;
+
+                bool addedAny = false;
+                lock (_lock)
+                {
+                    if (_groupDetailSeq != seq || _groupDetail == null)
+                        return;
+
+                    foreach (GroupMember m in memResp.Data.Entries)
+                    {
+                        if (m == null || string.IsNullOrEmpty(m.Id)) continue;
+                        string role = m.Role ?? "Member";
+                        if (!IsGroupStaffMember(role, m.Id, ownerId)) continue;
+                        if (_groupDetail.Staff.Any(x => string.Equals(x.Id, m.Id, StringComparison.OrdinalIgnoreCase)))
+                            continue;
+                        _groupDetail.Staff.Add(new GroupMemberDto
+                        {
+                            Id = m.Id,
+                            Name = m.Name ?? "Member",
+                            Role = role,
+                            ImageUrl = m.Image ?? string.Empty
+                        });
+                        addedAny = true;
+                    }
+                }
+
+                if (addedAny)
+                {
+                    _onDirty?.Invoke();
+                }
+            }
+        }
+        finally
+        {
+            bool changed = false;
+            lock (_lock)
+            {
+                if (_groupDetailSeq == seq && _groupDetail != null && _groupDetail.StaffScanning)
+                {
+                    _groupDetail.StaffScanning = false;
+                    changed = true;
+                }
+            }
+            if (changed)
+            {
+                _onDirty?.Invoke();
+            }
+        }
+    }
+
     private async Task FetchGroupDetailAsync(string groupId, string localOwnerId, int seq)
     {
         try
@@ -1079,15 +1168,21 @@ internal sealed class SocialService
                 foreach (GroupMember m in memResp.Data.Entries)
                 {
                     if (m == null || string.IsNullOrEmpty(m.Id)) continue;
-                    next.Members.Add(new GroupMemberDto
+                    var dto = new GroupMemberDto
                     {
                         Id = m.Id,
                         Name = m.Name ?? "Member",
                         Role = m.Role ?? "Member",
                         ImageUrl = m.Image ?? string.Empty
-                    });
+                    };
+                    next.Members.Add(dto);
+                    if (IsGroupStaffMember(dto.Role, dto.Id, next.OwnerId))
+                    {
+                        next.Staff.Add(dto);
+                    }
                 }
             }
+            next.StaffScanning = next.MembersTotalPages > 1;
 
             if (next.IsOwner)
             {
@@ -1114,6 +1209,11 @@ internal sealed class SocialService
                     _groupDetail = next;
             }
             _onDirty?.Invoke();
+
+            if (next.StaffScanning)
+            {
+                _ = Task.Run(() => ScanRemainingStaffAsync(groupId, next.OwnerId, next.MembersTotalPages, seq));
+            }
         }
         catch (Exception ex)
         {
@@ -1724,12 +1824,16 @@ internal sealed class SocialService
 
         GroupDetailDto groupCopy;
         List<GroupMemberDto> groupMembers = null;
+        List<GroupMemberDto> groupStaff = null;
         List<UserGroupDto> myGroupsCopy;
         lock (_lock)
         {
             groupCopy = _groupDetail;
             if (groupCopy != null)
+            {
                 groupMembers = new List<GroupMemberDto>(groupCopy.Members);
+                groupStaff = new List<GroupMemberDto>(groupCopy.Staff);
+            }
             myGroupsCopy = new List<UserGroupDto>(_myGroups);
         }
 
@@ -1779,6 +1883,14 @@ internal sealed class SocialService
                 saving = groupCopy.Saving,
                 status_msg = groupCopy.StatusMsg,
                 error = groupCopy.Error,
+                staff_scanning = groupCopy.StaffScanning,
+                staff = groupStaff.Select(m => (object)new
+                {
+                    id = m.Id,
+                    name = m.Name,
+                    role = m.Role,
+                    image_key = images != null ? images.RequestThumbnail(NativeBridge.SurfaceMain, m.ImageUrl) : string.Empty
+                }).ToList(),
                 members = groupMembers.Select(m => (object)new
                 {
                     id = m.Id,

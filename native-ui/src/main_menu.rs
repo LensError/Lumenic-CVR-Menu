@@ -3,9 +3,9 @@ use lumenic::{App, Color, ImageFit, TextAlign, UiContext};
 use crate::icons;
 use crate::state::{AppState, MainNavEntry, UiAction};
 use crate::theme::{
-    push_click, resolve_player_accent, tint_alpha, AMBER, BG_GLOW_FRAG as MM_BG_GLOW_FRAG,
-    border_subtle, card_bg, card_inner_bg, EMERALD, RED, SHADOW_CARD, TEXT_DIM, TEXT_MUTED,
-    TEXT_PRIMARY, TILE_DISABLED_BG, tile_idle_bg, tile_idle_hover,
+    push_click, resolve_player_accent, tint_alpha, AMBER, border_subtle, card_bg, card_inner_bg,
+    EMERALD, RED, SHADOW_CARD, TEXT_DIM, TEXT_MUTED, TEXT_PRIMARY, TILE_DISABLED_BG, tile_idle_bg,
+    tile_idle_hover,
 };
 
 const MAX_NAV_HISTORY: usize = 24;
@@ -74,14 +74,18 @@ pub fn current_nav_entry(state: &AppState) -> MainNavEntry {
     }
 }
 
-pub fn push_nav_history(state: &mut AppState) {
-    let entry = current_nav_entry(state);
+pub fn push_nav_entry(state: &mut AppState, entry: MainNavEntry) {
     if state.main_menu.nav_history.last() != Some(&entry) {
         state.main_menu.nav_history.push(entry);
         if state.main_menu.nav_history.len() > MAX_NAV_HISTORY {
             state.main_menu.nav_history.remove(0);
         }
     }
+}
+
+pub fn push_nav_history(state: &mut AppState) {
+    let entry = current_nav_entry(state);
+    push_nav_entry(state, entry);
 }
 
 pub fn close_all_detail_overlays(actions: &mut Vec<UiAction>) {
@@ -364,37 +368,16 @@ pub fn render_main_menu(
     let accent = resolve_player_accent(state);
 
     // Menu-wide hex cursor-follow glow shader behind all floating cards
-    let [vw, vh] = ui.viewport_size();
-    let mm_rect = match state.main_menu.mm_root_rect {
-        Some([x, y, w, h]) if w > 1.0 && h > 1.0 => lumenic::Rect::new(x, y, w, h),
-        _ => lumenic::Rect::new(0.0, 0.0, vw.max(1.0), vh.max(1.0)),
-    };
-    let (ptr_u, ptr_v, ptr_active) = if let Some([px, py]) = ui.pointer_pos() {
-        let u = (px - mm_rect.x) / mm_rect.w.max(1.0);
-        let v = (py - mm_rect.y) / mm_rect.h.max(1.0);
-        let inside = (-0.25..=1.25).contains(&u) && (-0.25..=1.25).contains(&v);
-        (
-            u.clamp(0.0, 1.0),
-            v.clamp(0.0, 1.0),
-            if inside { 1.0 } else { 0.0 },
-        )
-    } else {
-        (0.5, 0.5, 0.0)
-    };
-    let ac = accent.to_normalized_f32();
-    let shader_uniforms = [ptr_u, ptr_v, ptr_active, ac[0], ac[1], ac[2]];
+    let shader_uniforms = crate::widgets::compute_bg_glow_uniforms(
+        ui,
+        state.main_menu.mm_root_rect,
+        accent,
+        None,
+    );
 
     let outer_resp = ui
         .zstack(|ui| {
-            ui.viewport("mm_bg_glow", move |c2d, _s3d| {
-                c2d.shader(0x4C55_4D10, MM_BG_GLOW_FRAG, &shader_uniforms);
-            })
-            .w_frac(1.0)
-            .h_frac(1.0)
-            .no_bg()
-            .borderless()
-            .r(0.0)
-            .passthrough();
+            crate::widgets::render_bg_glow(ui, "mm_bg_glow", 0x4C55_4D10, shader_uniforms);
 
             ui.col(|ui| {
                 // =============================================================

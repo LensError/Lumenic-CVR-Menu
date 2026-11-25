@@ -19,30 +19,198 @@ using ABI_RC.Systems.IK;
 using ABI_RC.Systems.PlayerColors;
 using HarmonyLib;
 using LumenicMenu.Native;
+using MelonLoader;
 using Newtonsoft.Json;
 using UnityEngine;
 
 namespace LumenicMenu.Bridge;
 
+[Flags]
+internal enum StateDomain
+{
+    None = 0,
+    Core = 1 << 0,
+    StaticCatalog = 1 << 1,
+    UiLib = 1 << 2,
+    Content = 1 << 3,
+    Social = 1 << 4,
+    Settings = 1 << 5,
+    AvatarSettings = 1 << 6,
+    Uix = 1 << 7,
+    All = Core | StaticCatalog | UiLib | Content | Social | Settings | AvatarSettings | Uix
+}
+
 /// <summary>
-/// Builds and caches the JSON host state snapshot pushed to the Rust UI layer.
-/// Preserves last-known Main Menu / Quick Menu domain snapshots so toggling one menu
-/// never clobbers or forces unnecessary rebuilds for the other.
+/// Builds and pushes domain-scoped JSON state snapshots to the Rust UI layer.
+/// Each domain diffs independently and only dirties the surface(s) that consume it,
+/// avoiding monolithic JSON serialization and cross-surface redraw storms.
 /// </summary>
 internal sealed class HostStateBuilder
 {
     private static readonly FieldInfo BigMenuToggleMirrorField =
         AccessTools.Field(typeof(PortableMirrorInstance), "_bigMenuToggleMirror");
 
-    private object _cachedUiLibSnapshot;
-    private object _cachedUixCategories = Array.Empty<object>();
-    private List<object> _cachedOnlineFriends = new List<object>();
-    private List<object> _cachedActiveWorlds = new List<object>();
-    private List<object> _cachedActivityFeed = new List<object>();
-    private object _cachedCvrSettings;
-    private object _cachedAvatarSettings;
-    private object _cachedContentSnapshot;
-    private object _cachedSocialSnapshot;
+    private sealed class NotificationButtonDto
+    {
+        public string id;
+        public string text;
+        public bool is_accept;
+        public bool is_decline;
+    }
+
+    private sealed class NotificationDto
+    {
+        public string id;
+        public string title;
+        public string body;
+        public string category;
+        public List<NotificationButtonDto> buttons;
+    }
+
+    private sealed class ColorPresetDto
+    {
+        public int id;
+        public string name;
+        public byte r1;
+        public byte g1;
+        public byte b1;
+        public byte r2;
+        public byte g2;
+        public byte b2;
+    }
+
+    private sealed class ColorSwatchDto
+    {
+        public int id;
+        public string name;
+        public byte r;
+        public byte g;
+        public byte b;
+    }
+
+    private sealed class StaticCatalogDto
+    {
+        public List<ColorPresetDto> player_color_presets;
+        public List<ColorSwatchDto> player_color_swatches;
+        public string whats_new_notes;
+    }
+
+    private sealed class SocialDomainDto
+    {
+        public List<object> online_friends;
+        public List<object> active_worlds;
+        public List<object> activity_feed;
+        public object social;
+    }
+
+    private sealed class UixDomainDto
+    {
+        public bool uix_available;
+        public object uix_categories;
+    }
+
+    private sealed class CoreStateDto
+    {
+        public bool is_vr;
+        public string user_id;
+        public string username;
+        public string user_rank;
+        public string cvr_version;
+        public string cvr_branch;
+        public string world_name;
+        public string local_pfp_key;
+
+        public bool is_muted;
+        public bool is_flying;
+        public bool flight_allowed;
+        public bool is_seated;
+        public bool fbt_available;
+        public bool fbt_enabled;
+        public bool camera_open;
+        public bool mirror_open;
+        public bool minime_enabled;
+
+        public int audio_master;
+        public int audio_voice;
+        public int audio_video_player;
+        public uint nav_seq;
+        public uint mm_open_seq;
+        public string nav_tab;
+
+        public byte accent_r;
+        public byte accent_g;
+        public byte accent_b;
+        public byte accent2_r;
+        public byte accent2_g;
+        public byte accent2_b;
+        public bool has_player_accent;
+        public bool colorize_menu;
+        public bool use_primary_as_emission;
+
+        public List<NotificationDto> notifications;
+        public string featured_badge;
+        public string featured_badge_image_key;
+        public string featured_group;
+        public string featured_group_image_key;
+        public string instance_name;
+        public string instance_privacy;
+        public string instance_owner;
+        public bool instance_locked;
+        public int instance_max_props;
+        public string gs_version;
+        public int instance_uptime_mins;
+        public int instance_players;
+
+        public string[] qm_quick_actions_order;
+        public string[] mm_quick_tools_order;
+        public bool ui_click_sounds;
+        public string ui_sound_pack;
+        public bool enable_recent_history;
+        public bool disclaimer_accepted;
+        public bool show_whats_new;
+        public UpdateStatusDto update_status;
+        public SystemAlertDto system_alert;
+        public float desktop_scroll_multiplier;
+        public float vr_scroll_multiplier;
+
+        public uint mm_width;
+        public uint mm_height;
+        public uint qm_width;
+        public uint qm_height;
+        public float mm_step_ms;
+        public float mm_readback_ms;
+        public float mm_upload_ms;
+        public float mm_blit_ms;
+        public float qm_step_ms;
+        public float qm_readback_ms;
+        public float qm_upload_ms;
+        public float qm_blit_ms;
+        public int max_refresh_hz;
+        public float font_scale;
+        public bool linear_texture;
+        public bool perf_logging;
+    }
+
+    private string _lastCoreJson = string.Empty;
+    private string _lastUiLibJson = string.Empty;
+    private string _lastContentJson = string.Empty;
+    private string _lastSocialJson = string.Empty;
+    private string _lastSettingsJson = string.Empty;
+    private string _lastAvatarSettingsJson = string.Empty;
+    private string _lastUixJson = string.Empty;
+    private bool _staticCatalogPushed;
+
+    public void InvalidateCache()
+    {
+        _lastCoreJson = string.Empty;
+        _lastUiLibJson = string.Empty;
+        _lastContentJson = string.Empty;
+        _lastSocialJson = string.Empty;
+        _lastSettingsJson = string.Empty;
+        _lastAvatarSettingsJson = string.Empty;
+        _lastUixJson = string.Empty;
+        _staticCatalogPushed = false;
+    }
 
     public void ReadTelemetry(
         float smoothedFps,
@@ -62,12 +230,141 @@ internal sealed class HostStateBuilder
         voicePing = GetVoicePing();
     }
 
-    public string BuildJson(
+    public void PushDirtyDomains(
+        StateDomain dirty,
         LumenicMenuMod mod,
         ImageLoaderService images,
         MenuSurfaceHost mainSurface,
         MenuSurfaceHost quickSurface,
         NativeBridge bridge,
+        uint mmW,
+        uint mmH,
+        uint qmW,
+        uint qmH)
+    {
+        if (bridge == null || !bridge.IsHealthy)
+            return;
+
+        bool mainVisible = ViewManager.Instance != null && ViewManager.Instance.IsViewShown;
+        bool quickVisible = CVR_MenuManager.Instance != null && CVR_MenuManager.Instance.IsViewShown;
+
+        if (!_staticCatalogPushed || (dirty & StateDomain.StaticCatalog) != 0)
+        {
+            EnsurePlayerColorCatalog();
+            string catalogJson = JsonConvert.SerializeObject(new StaticCatalogDto
+            {
+                player_color_presets = _cachedColorPresets,
+                player_color_swatches = _cachedColorSwatches,
+                whats_new_notes = ModUpdateService.BundledChangelog
+            });
+            if (bridge.PushDomainJson(NativeBridge.DomainStaticCatalog, catalogJson))
+            {
+                _staticCatalogPushed = true;
+            }
+            else
+            {
+                MelonLogger.Warning($"[LumenicMenu] PushDomainJson(StaticCatalog) failed: {bridge.GetLastError()}");
+            }
+        }
+
+        if ((dirty & StateDomain.Core) != 0 || string.IsNullOrEmpty(_lastCoreJson))
+        {
+            string coreJson = BuildCoreJson(mod, images, mainSurface, quickSurface, mainVisible, mmW, mmH, qmW, qmH);
+            PushIfChanged(bridge, NativeBridge.DomainCore, "Core", coreJson, ref _lastCoreJson);
+        }
+
+        if (quickVisible && ((dirty & StateDomain.UiLib) != 0 || string.IsNullOrEmpty(_lastUiLibJson)))
+        {
+            object uiLibSnap = mod.UiLib?.BuildSnapshot(images);
+            if (uiLibSnap != null)
+            {
+                string uiLibJson = JsonConvert.SerializeObject(uiLibSnap);
+                PushIfChanged(bridge, NativeBridge.DomainUiLib, "UiLib", uiLibJson, ref _lastUiLibJson);
+            }
+        }
+
+        if (quickVisible && !mainVisible)
+        {
+            mod.Social?.EnsureLocalProfileLoaded();
+        }
+
+        bool contentQmDirty = mod.Content != null && mod.Content.ConsumeQmDirty();
+        if (contentQmDirty || (mainVisible && ((dirty & StateDomain.Content) != 0 || string.IsNullOrEmpty(_lastContentJson))))
+        {
+            object contentSnap = mod.Content?.BuildSnapshot(
+                mainVisible ? images : null,
+                quickVisible ? images : null);
+            if (contentSnap != null)
+            {
+                string contentJson = JsonConvert.SerializeObject(contentSnap);
+                PushIfChanged(bridge, NativeBridge.DomainContent, "Content", contentJson, ref _lastContentJson);
+            }
+        }
+
+        bool socialQmDirty = mod.Social != null && mod.Social.ConsumeQmDirty();
+        if (socialQmDirty || (mainVisible && ((dirty & StateDomain.Social) != 0 || string.IsNullOrEmpty(_lastSocialJson))))
+        {
+            if (mainVisible)
+            {
+                mod.Social?.EnsureHomeFeedsLoaded();
+            }
+            var socialDom = new SocialDomainDto
+            {
+                online_friends = mod.Social?.BuildOnlineFriendsLeaflet() ?? new List<object>(),
+                active_worlds = mod.Social?.BuildActiveWorldsLeaflet() ?? new List<object>(),
+                activity_feed = mod.Social?.BuildActivityFeed() ?? new List<object>(),
+                social = mod.Social?.BuildSocialSnapshot(mainVisible ? images : null)
+            };
+            string socialJson = JsonConvert.SerializeObject(socialDom);
+            PushIfChanged(bridge, NativeBridge.DomainSocial, "Social", socialJson, ref _lastSocialJson);
+        }
+
+        if (mainVisible && ((dirty & StateDomain.Settings) != 0 || string.IsNullOrEmpty(_lastSettingsJson)))
+        {
+            string settingsJson = JsonConvert.SerializeObject(SettingsBridge.BuildSnapshot());
+            PushIfChanged(bridge, NativeBridge.DomainSettings, "Settings", settingsJson, ref _lastSettingsJson);
+        }
+
+        if (mainVisible && ((dirty & StateDomain.AvatarSettings) != 0 || string.IsNullOrEmpty(_lastAvatarSettingsJson)))
+        {
+            string avatarJson = JsonConvert.SerializeObject(AvatarSettingsBridge.BuildSnapshot());
+            PushIfChanged(bridge, NativeBridge.DomainAvatarSettings, "AvatarSettings", avatarJson, ref _lastAvatarSettingsJson);
+        }
+
+        if (mainVisible && ((dirty & StateDomain.Uix) != 0 || string.IsNullOrEmpty(_lastUixJson)))
+        {
+            bool uixAvailable = mod.Uix != null && mod.Uix.IsAvailable;
+            var uixDom = new UixDomainDto
+            {
+                uix_available = uixAvailable,
+                uix_categories = uixAvailable ? mod.Uix.BuildCategoriesSnapshot() : Array.Empty<object>()
+            };
+            string uixJson = JsonConvert.SerializeObject(uixDom);
+            PushIfChanged(bridge, NativeBridge.DomainUix, "Uix", uixJson, ref _lastUixJson);
+        }
+    }
+
+    private static void PushIfChanged(NativeBridge bridge, uint domainId, string label, string json, ref string lastJson)
+    {
+        if (string.Equals(json, lastJson, StringComparison.Ordinal))
+            return;
+
+        if (bridge.PushDomainJson(domainId, json))
+        {
+            lastJson = json;
+        }
+        else
+        {
+            MelonLogger.Warning($"[LumenicMenu] PushDomainJson({label}) failed: {bridge.GetLastError()}");
+        }
+    }
+
+    private static string BuildCoreJson(
+        LumenicMenuMod mod,
+        ImageLoaderService images,
+        MenuSurfaceHost mainSurface,
+        MenuSurfaceHost quickSurface,
+        bool mainVisible,
         uint mmW,
         uint mmH,
         uint qmW,
@@ -94,16 +391,15 @@ internal sealed class HostStateBuilder
         bool usePrimaryAsEmission = PlayerColorsManager.CurrentColors.UsePrimaryAsEmission;
         bool colorizeMenu = settings != null && settings.GetSettingsBool(PlayerColorsManager.ColourizeMenuSettingKey);
         bool hasAccent = colorizeMenu && ((p1.r | p1.g | p1.b | p2.r | p2.g | p2.b) != 0);
-        EnsurePlayerColorCatalog();
 
         string worldName = string.Empty;
         try
         {
             worldName = MetaPort.Instance?.CurrentWorldName?.Trim() ?? string.Empty;
         }
-        catch
+        catch (Exception ex)
         {
-            // Ignore when not yet in an instance.
+            DiagLog.WarnOnce("HostState.WorldName", ex);
         }
 
         string pfpUrl = null;
@@ -119,9 +415,9 @@ internal sealed class HostStateBuilder
             if (string.IsNullOrWhiteSpace(pfpUrl))
                 pfpUrl = ABI_RC.Systems.UI.UILib.QuickMenuAPI.LocalPlayerObject?.PlayerIconURL;
         }
-        catch
+        catch (Exception ex)
         {
-            // PlayerSetup / AuthManager may not be initialized yet during early startup.
+            DiagLog.WarnOnce("HostState.PfpUrl", ex);
         }
         if (!string.IsNullOrWhiteSpace(pfpUrl))
         {
@@ -159,9 +455,6 @@ internal sealed class HostStateBuilder
         {
             // Ignore during early startup.
         }
-
-        bool mainVisible = ViewManager.Instance != null && ViewManager.Instance.IsViewShown;
-        bool quickVisible = CVR_MenuManager.Instance != null && CVR_MenuManager.Instance.IsViewShown;
 
         string featuredBadgeImgKey = (mainVisible && images != null && !string.IsNullOrWhiteSpace(featuredBadgeImgUrl))
             ? images.RequestThumbnail(NativeBridge.SurfaceMain, featuredBadgeImgUrl)
@@ -207,72 +500,12 @@ internal sealed class HostStateBuilder
                 }
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // Ignore when not yet in an instance.
+            DiagLog.WarnOnce("HostState.WorldName", ex);
         }
 
-        if (quickVisible || _cachedUiLibSnapshot == null)
-        {
-            _cachedUiLibSnapshot = mod.UiLib?.BuildSnapshot(images);
-        }
-
-        bool uixAvailable = mod.Uix != null && mod.Uix.IsAvailable;
-        if (quickVisible && !mainVisible)
-        {
-            mod.Social?.EnsureLocalProfileLoaded();
-        }
-
-        if (mainVisible)
-        {
-            mod.Social?.EnsureHomeFeedsLoaded();
-            _cachedUixCategories = uixAvailable ? mod.Uix.BuildCategoriesSnapshot() : Array.Empty<object>();
-            if (mod.Social != null)
-            {
-                _cachedOnlineFriends = mod.Social.BuildOnlineFriendsLeaflet();
-                _cachedActiveWorlds = mod.Social.BuildActiveWorldsLeaflet();
-                _cachedActivityFeed = mod.Social.BuildActivityFeed();
-            }
-            _cachedCvrSettings = SettingsBridge.BuildSnapshot();
-            _cachedAvatarSettings = AvatarSettingsBridge.BuildSnapshot();
-        }
-        else
-        {
-            _cachedCvrSettings ??= new { items = Array.Empty<object>() };
-            _cachedAvatarSettings ??= new
-            {
-                auto_apply = true,
-                has_staged = false,
-                current_profile = string.Empty,
-                staged_profile = string.Empty,
-                avatar_height = 1.6f,
-                initial_height = 1.6f,
-                scale_min = 0.2f,
-                scale_max = 5.0f,
-                scaling_allowed = true,
-                entries = Array.Empty<object>(),
-                profiles = Array.Empty<string>()
-            };
-        }
-
-        bool contentQmDirty = mod.Content != null && mod.Content.ConsumeQmDirty();
-        if (mainVisible || _cachedContentSnapshot == null || contentQmDirty)
-        {
-            _cachedContentSnapshot = mod.Content?.BuildSnapshot(
-                mainVisible ? images : null,
-                quickVisible ? images : null);
-        }
-
-        bool socialQmDirty = mod.Social != null && mod.Social.ConsumeQmDirty();
-        if (mainVisible || _cachedSocialSnapshot == null || socialQmDirty)
-        {
-            _cachedSocialSnapshot = mod.Social?.BuildSocialSnapshot(mainVisible ? images : null);
-        }
-
-        object contentSnapshot = _cachedContentSnapshot;
-        object socialSnapshot = _cachedSocialSnapshot;
-
-        var snapshot = new
+        var dto = new CoreStateDto
         {
             is_vr = MetaPort.Instance != null && MetaPort.Instance.isUsingVr,
             user_id = userId,
@@ -309,8 +542,6 @@ internal sealed class HostStateBuilder
             has_player_accent = hasAccent,
             colorize_menu = colorizeMenu,
             use_primary_as_emission = usePrimaryAsEmission,
-            player_color_presets = _cachedColorPresets,
-            player_color_swatches = _cachedColorSwatches,
 
             notifications = CollectQmNotifications(),
             featured_badge = featuredBadge,
@@ -325,28 +556,18 @@ internal sealed class HostStateBuilder
             gs_version = gsVersion,
             instance_uptime_mins = instanceUptimeMins,
             instance_players = instancePlayers,
-            online_friends = _cachedOnlineFriends,
-            active_worlds = _cachedActiveWorlds,
-            activity_feed = _cachedActivityFeed,
-            uilib = _cachedUiLibSnapshot,
-            uix_available = uixAvailable,
-            uix_categories = _cachedUixCategories,
-            content = contentSnapshot,
-            social = socialSnapshot,
-            cvr_settings = _cachedCvrSettings,
-            avatar_settings = _cachedAvatarSettings,
+
+            qm_quick_actions_order = ParseOrderCsv(Settings.QmQuickActionsOrder),
+            mm_quick_tools_order = ParseOrderCsv(Settings.MmQuickToolsOrder),
             ui_click_sounds = Settings.UiClickSounds,
             ui_sound_pack = Settings.UiSoundPack,
             enable_recent_history = Settings.EnableRecentHistory,
             disclaimer_accepted = Settings.DisclaimerAccepted,
             show_whats_new = !string.Equals(Settings.LastSeenVersion, LumenicMenuMod.ModVersion, StringComparison.OrdinalIgnoreCase),
-            whats_new_notes = ModUpdateService.BundledChangelog,
             update_status = mod.Updates?.BuildSnapshot() ?? new UpdateStatusDto { current_version = LumenicMenuMod.ModVersion },
             system_alert = mod.SystemAlerts?.PeekActive(),
             desktop_scroll_multiplier = Settings.DesktopScrollMultiplier,
             vr_scroll_multiplier = Settings.VrScrollMultiplier,
-            qm_quick_actions_order = ParseOrderCsv(Settings.QmQuickActionsOrder),
-            mm_quick_tools_order = ParseOrderCsv(Settings.MmQuickToolsOrder),
 
             mm_width = mmW,
             mm_height = mmH,
@@ -366,7 +587,7 @@ internal sealed class HostStateBuilder
             perf_logging = Settings.PerfLogging
         };
 
-        return JsonConvert.SerializeObject(snapshot);
+        return JsonConvert.SerializeObject(dto);
     }
 
     private static string[] ParseOrderCsv(string csv)
@@ -422,9 +643,9 @@ internal sealed class HostStateBuilder
         return false;
     }
 
-    private static List<object> CollectQmNotifications()
+    private static List<NotificationDto> CollectQmNotifications()
     {
-        var list = new List<object>();
+        var list = new List<NotificationDto>();
         if (UIMessageManager.Instance == null)
             return list;
 
@@ -441,13 +662,13 @@ internal sealed class HostStateBuilder
                 if (msg == null || msg.MessageCleared)
                     continue;
 
-                var btns = new List<object>();
+                var btns = new List<NotificationButtonDto>();
                 if (msg.Buttons != null)
                 {
                     foreach (UIMessageButton b in msg.Buttons)
                     {
                         if (b == null) continue;
-                        btns.Add(new
+                        btns.Add(new NotificationButtonDto
                         {
                             id = b.ButtonElementID ?? string.Empty,
                             text = b.ButtonText ?? "Action",
@@ -461,11 +682,11 @@ internal sealed class HostStateBuilder
                     ? msg.QuickMenuText
                     : (msg.MessageText ?? string.Empty);
 
-                list.Add(new
+                list.Add(new NotificationDto
                 {
                     id = msg.MessageElementID ?? string.Empty,
                     title = msg.MessageName ?? "Notification",
-                    body,
+                    body = body,
                     category = msg.MessageCategory.ToString(),
                     buttons = btns
                 });
@@ -478,15 +699,15 @@ internal sealed class HostStateBuilder
         return list;
     }
 
-    private static List<object> _cachedColorPresets;
-    private static List<object> _cachedColorSwatches;
+    private static List<ColorPresetDto> _cachedColorPresets;
+    private static List<ColorSwatchDto> _cachedColorSwatches;
 
     private static void EnsurePlayerColorCatalog()
     {
         if (_cachedColorPresets != null && _cachedColorSwatches != null)
             return;
 
-        var presets = new List<object>();
+        var presets = new List<ColorPresetDto>();
         try
         {
             foreach (PlayerColorPresets p in Enum.GetValues(typeof(PlayerColorPresets)))
@@ -495,7 +716,7 @@ internal sealed class HostStateBuilder
                     continue;
                 Color32 c1 = p == PlayerColorPresets.ChilloutVR ? (Color32)pair.Item2 : (Color32)pair.Item1;
                 Color32 c2 = p == PlayerColorPresets.ChilloutVR ? (Color32)pair.Item1 : (Color32)pair.Item2;
-                presets.Add(new
+                presets.Add(new ColorPresetDto
                 {
                     id = (int)p,
                     name = PrettyEnumName(p.ToString()),
@@ -513,13 +734,13 @@ internal sealed class HostStateBuilder
             // Keep empty list if enum unavailable.
         }
 
-        var swatches = new List<object>();
+        var swatches = new List<ColorSwatchDto>();
         try
         {
             foreach (KeyValuePair<PlayerColorSwatches, Color> kv in PlayerColorsUtility.ColorSwatchToColor)
             {
                 Color32 c = kv.Value;
-                swatches.Add(new
+                swatches.Add(new ColorSwatchDto
                 {
                     id = (int)kv.Key,
                     name = PrettyEnumName(kv.Key.ToString()),

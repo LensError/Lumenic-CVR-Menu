@@ -26,6 +26,10 @@ internal static class Settings
     private static MelonPreferences_Entry<string> _qmQuickActionsOrder;
     private static MelonPreferences_Entry<string> _mmQuickToolsOrder;
 
+    private const float SaveDebounceSeconds = 0.5f;
+    private static bool _savePending;
+    private static float _lastDirtyTime;
+
     public static event Action OnSettingsChanged;
 
     public static bool EnableMainMenu => _enableMainMenu?.Value ?? true;
@@ -177,7 +181,7 @@ internal static class Settings
         if (_qmQuickActionsOrder != null && _qmQuickActionsOrder.Value != safe)
         {
             _qmQuickActionsOrder.Value = safe;
-            MelonPreferences.Save();
+            ScheduleSave();
         }
     }
 
@@ -187,7 +191,7 @@ internal static class Settings
         if (_mmQuickToolsOrder != null && _mmQuickToolsOrder.Value != safe)
         {
             _mmQuickToolsOrder.Value = safe;
-            MelonPreferences.Save();
+            ScheduleSave();
         }
     }
 
@@ -196,7 +200,7 @@ internal static class Settings
         if (_uiClickSounds != null && _uiClickSounds.Value != value)
         {
             _uiClickSounds.Value = value;
-            MelonPreferences.Save();
+            ScheduleSave();
         }
     }
 
@@ -205,7 +209,7 @@ internal static class Settings
         if (_uiSoundPack != null && !string.IsNullOrWhiteSpace(pack) && _uiSoundPack.Value != pack)
         {
             _uiSoundPack.Value = pack;
-            MelonPreferences.Save();
+            ScheduleSave();
         }
     }
 
@@ -215,7 +219,7 @@ internal static class Settings
         if (_maxRefreshHz != null && _maxRefreshHz.Value != clamped)
         {
             _maxRefreshHz.Value = clamped;
-            MelonPreferences.Save();
+            ScheduleSave();
         }
     }
 
@@ -225,7 +229,7 @@ internal static class Settings
         if (_fontScale != null && Math.Abs(_fontScale.Value - clamped) > 0.001f)
         {
             _fontScale.Value = clamped;
-            MelonPreferences.Save();
+            ScheduleSave();
         }
     }
 
@@ -234,7 +238,7 @@ internal static class Settings
         if (_enableMainMenu != null && _enableMainMenu.Value != value)
         {
             _enableMainMenu.Value = value;
-            MelonPreferences.Save();
+            ScheduleSave();
         }
     }
 
@@ -243,7 +247,7 @@ internal static class Settings
         if (_enableQuickMenu != null && _enableQuickMenu.Value != value)
         {
             _enableQuickMenu.Value = value;
-            MelonPreferences.Save();
+            ScheduleSave();
         }
     }
 
@@ -252,7 +256,7 @@ internal static class Settings
         if (_linearTextureMode != null && _linearTextureMode.Value != value)
         {
             _linearTextureMode.Value = value;
-            MelonPreferences.Save();
+            ScheduleSave();
         }
     }
 
@@ -261,7 +265,7 @@ internal static class Settings
         if (_enableRecentHistory != null && _enableRecentHistory.Value != value)
         {
             _enableRecentHistory.Value = value;
-            MelonPreferences.Save();
+            ScheduleSave();
         }
     }
 
@@ -270,7 +274,7 @@ internal static class Settings
         if (_disclaimerAccepted != null && _disclaimerAccepted.Value != value)
         {
             _disclaimerAccepted.Value = value;
-            MelonPreferences.Save();
+            ScheduleSave();
         }
     }
 
@@ -280,7 +284,7 @@ internal static class Settings
         if (_lastSeenVersion != null && _lastSeenVersion.Value != safe)
         {
             _lastSeenVersion.Value = safe;
-            MelonPreferences.Save();
+            ScheduleSave();
         }
     }
 
@@ -290,7 +294,7 @@ internal static class Settings
         if (_dismissedUpdateVersion != null && _dismissedUpdateVersion.Value != safe)
         {
             _dismissedUpdateVersion.Value = safe;
-            MelonPreferences.Save();
+            ScheduleSave();
         }
     }
 
@@ -300,7 +304,7 @@ internal static class Settings
         if (_desktopScrollMultiplier != null && Math.Abs(_desktopScrollMultiplier.Value - clamped) > 0.01f)
         {
             _desktopScrollMultiplier.Value = clamped;
-            MelonPreferences.Save();
+            ScheduleSave();
         }
     }
 
@@ -310,7 +314,7 @@ internal static class Settings
         if (_vrScrollMultiplier != null && Math.Abs(_vrScrollMultiplier.Value - clamped) > 0.01f)
         {
             _vrScrollMultiplier.Value = clamped;
-            MelonPreferences.Save();
+            ScheduleSave();
         }
     }
 
@@ -319,8 +323,26 @@ internal static class Settings
         if (_perfLogging != null && _perfLogging.Value != value)
         {
             _perfLogging.Value = value;
-            MelonPreferences.Save();
+            ScheduleSave();
         }
+    }
+
+    private static void ScheduleSave()
+    {
+        _savePending = true;
+        _lastDirtyTime = Time.unscaledTime;
+    }
+
+    public static void FlushPendingSave(float now, bool force = false)
+    {
+        if (!_savePending)
+            return;
+
+        if (!force && (now - _lastDirtyTime) < SaveDebounceSeconds)
+            return;
+
+        _savePending = false;
+        MelonPreferences.Save();
     }
 
     private static void NotifyChanged()

@@ -5,8 +5,8 @@ use crate::state::{
     AppState, UiAction, UiLibCategory, UiLibElement, UiLibModalSnapshot, UiLibPageSnapshot,
 };
 use crate::theme::{
-    push_click, tint_alpha, border_subtle, card_bg, card_inner_bg, RED, SHADOW_CARD, TEXT_DIM,
-    TEXT_MUTED, TEXT_PRIMARY, tile_idle_bg, tile_idle_hover,
+    push_click, tint_alpha, border_subtle, card_bg, card_inner_bg, EMERALD, RED, SHADOW_CARD,
+    TEXT_DIM, TEXT_MUTED, TEXT_PRIMARY, tile_idle_bg, tile_idle_hover,
 };
 
 fn parse_hex_rgb(hex: &str) -> Option<Color> {
@@ -170,58 +170,16 @@ pub fn render_uilib_page(
         if is_player_details {
             let scroll_id = format!("uilib_page_scroll_{}", page.id);
             ui.row(|ui| {
-                // Left column: Scrollable Player Info, Bio, Quick Actions, and Moderation/Interactions
+                // Left column: Scrollable Player Identity + Bio, Quick Actions, and Moderation/Interactions
                 ui.scroll(&scroll_id, |ui| {
-                    render_uilib_category(ui, state, &page.categories[0], accent, 2, actions);
-
-                    // User Bio Card
-                    let is_local_player = page.selected_player_id.is_empty()
-                        || (!state.host.user_id.is_empty()
-                            && page
-                                .selected_player_id
-                                .eq_ignore_ascii_case(&state.host.user_id));
-                    ui.col(|ui| {
-                        ui.row(|ui| {
-                            ui.txt("Bio").sz(crate::theme::fs(11.5)).bold().fg(TEXT_MUTED).grow(1.0);
-                            if is_local_player
-                                && ui
-                                    .btn_with("uilib_player_edit_profile", |ui| {
-                                        ui.txt("Edit")
-                                            .sz(crate::theme::fs(10.5))
-                                            .semibold()
-                                            .fg(TEXT_PRIMARY);
-                                    })
-                                    .px(9.0)
-                                    .py(3.5)
-                                    .bg(tint_alpha(accent, 38))
-                                    .hover_bg(tint_alpha(accent, 78))
-                                    .bd(1.0, tint_alpha(accent, 150))
-                                    .bevel_rounded(5.5, 1.2)
-                                    .clicked()
-                            {
-                                push_click(actions);
-                                state.main_menu.user_detail_tab = 0;
-                                state.main_menu.profile_editing = true;
-                                actions.push(UiAction::OpenPlayerInMainMenu);
-                            }
-                        })
-                        .align_center()
-                        .gap(6.0);
-                        let bio_trimmed = page.player_bio.trim();
-                        if bio_trimmed.is_empty() {
-                            ui.txt("No bio set.").sz(crate::theme::fs(11.0)).fg(TEXT_DIM);
-                        } else {
-                            ui.txt(bio_trimmed)
-                                .sz(crate::theme::fs(11.5))
-                                .fg(TEXT_PRIMARY)
-                                .wrap();
-                        }
-                    })
-                    .p(9.0)
-                    .gap(4.0)
-                    .bg(card_bg())
-                    .bd(1.0, border_subtle())
-                    .bevel_rounded(8.6, 1.3);
+                    render_player_identity_card(
+                        ui,
+                        state,
+                        page,
+                        &page.categories[0],
+                        accent,
+                        actions,
+                    );
 
                     render_player_quick_actions_card(
                         ui,
@@ -425,6 +383,270 @@ pub fn render_uilib_page(
     })
     .grow(1.0)
     .gap(7.0);
+}
+
+/// Renders Category 0 ("Player Info") + Bio on Quick Menu Player Details in a cohesive
+/// Big Menu style: hexagonal PFP, bold name, rank/pronoun pills, metadata, and integrated bio.
+fn render_player_identity_card(
+    ui: &mut UiContext,
+    state: &mut AppState,
+    page: &crate::state::UiLibPageSnapshot,
+    cat: &UiLibCategory,
+    accent: Color,
+    actions: &mut Vec<UiAction>,
+) {
+    let is_local_player = page.selected_player_id.is_empty()
+        || (!state.host.user_id.is_empty()
+            && page
+                .selected_player_id
+                .eq_ignore_ascii_case(&state.host.user_id));
+    let details_el = cat
+        .elements
+        .iter()
+        .find(|el| el.kind == "content_details");
+
+    ui.push_id(&cat.id);
+    ui.col(|ui| {
+        if let Some(el) = details_el {
+            ui.row(|ui| {
+                // Hexagonal PFP matching Big Menu's user_detail.rs
+                let img_id = format!("uilib_cdet_img_{}", el.id);
+                let pfp_tex = if !el.icon_key.is_empty() {
+                    state.quick_textures.get(&el.icon_key)
+                } else {
+                    None
+                }
+                .or_else(|| {
+                    if is_local_player {
+                        state.quick_textures.get("local_pfp")
+                    } else {
+                        None
+                    }
+                });
+
+                let ring = if is_local_player { EMERALD } else { accent };
+                let pfp_resp = ui.btn_with(&img_id, |ui| {
+                    if let Some(tex) = pfp_tex {
+                        ui.img(tex)
+                            .w(60.0)
+                            .h(60.0)
+                            .fit(ImageFit::Cover)
+                            .hexagon_pointy()
+                            .r(3.5)
+                            .bd(2.0, ring);
+                    } else {
+                        let initial = el
+                            .detail_blocks
+                            .first()
+                            .and_then(|b| b.text.chars().next())
+                            .or_else(|| page.title.chars().next())
+                            .unwrap_or('?')
+                            .to_ascii_uppercase()
+                            .to_string();
+                        ui.col(|ui| {
+                            ui.txt(&initial)
+                                .sz(crate::theme::fs(21.0))
+                                .bold()
+                                .align(TextAlign::Center)
+                                .fg(ring);
+                        })
+                        .center()
+                        .w(60.0)
+                        .h(60.0)
+                        .bg(tint_alpha(ring, 32))
+                        .bd(2.0, ring)
+                        .hexagon_pointy()
+                        .r(3.5);
+                    }
+                })
+                .bg(Color::TRANSPARENT)
+                .hover_bg(Color::TRANSPARENT)
+                .borderless();
+
+                if !el.disabled && pfp_resp.clicked() {
+                    push_click(actions);
+                    actions.push(UiAction::UiLibClick {
+                        element_id: el.id.clone(),
+                    });
+                }
+
+                // Identity lines: Name + Rank/Pronouns + remaining detail blocks
+                ui.col(|ui| {
+                    let mut name_text: Option<&str> = None;
+                    let mut badge_blocks: Vec<&crate::state::UiLibDetailBlock> = Vec::new();
+                    let mut info_blocks: Vec<&crate::state::UiLibDetailBlock> = Vec::new();
+
+                    for blk in &el.detail_blocks {
+                        if blk.header.is_empty() && blk.text.is_empty() {
+                            continue;
+                        }
+                        if name_text.is_none() && !blk.badge && blk.header.is_empty() {
+                            name_text = Some(blk.text.as_str());
+                        } else if blk.badge {
+                            badge_blocks.push(blk);
+                        } else {
+                            info_blocks.push(blk);
+                        }
+                    }
+
+                    let display_name = name_text.unwrap_or(if page.title.is_empty() {
+                        "Player"
+                    } else {
+                        page.title.as_str()
+                    });
+                    ui.txt(display_name)
+                        .sz(crate::theme::fs(15.5))
+                        .bold()
+                        .fg(TEXT_PRIMARY)
+                        .ellipsis();
+
+                    if !badge_blocks.is_empty() {
+                        ui.row(|ui| {
+                            for blk in &badge_blocks {
+                                if !blk.text.is_empty() {
+                                    ui.row(|ui| {
+                                        if !blk.header.is_empty() {
+                                            ui.txt(&blk.header)
+                                                .sz(crate::theme::fs(9.5))
+                                                .fg(TEXT_MUTED);
+                                        }
+                                        ui.txt(&blk.text)
+                                            .sz(crate::theme::fs(9.5))
+                                            .semibold()
+                                            .fg(TEXT_PRIMARY);
+                                    })
+                                    .align_center()
+                                    .gap(4.0)
+                                    .px(6.5)
+                                    .py(2.0)
+                                    .bg(tint_alpha(accent, 42))
+                                    .bd(1.0, tint_alpha(accent, 150))
+                                    .bevel_rounded(4.5, 1.2);
+                                }
+                            }
+                        })
+                        .align_center()
+                        .gap(5.0);
+                    }
+
+                    for blk in &info_blocks {
+                        ui.row(|ui| {
+                            if !blk.header.is_empty() {
+                                ui.txt(&blk.header)
+                                    .sz(crate::theme::fs(10.5))
+                                    .semibold()
+                                    .fg(TEXT_MUTED);
+                            }
+                            if !blk.text.is_empty() {
+                                ui.txt(&blk.text)
+                                    .sz(crate::theme::fs(10.5))
+                                    .fg(TEXT_PRIMARY)
+                                    .ellipsis();
+                            }
+                        })
+                        .align_center()
+                        .gap(5.0);
+                    }
+                })
+                .gap(3.0)
+                .grow(1.0);
+            })
+            .align_center()
+            .gap(11.0);
+
+            if !el.extra_buttons.is_empty() {
+                ui.row(|ui| {
+                    for eb in &el.extra_buttons {
+                        let ebid = format!("uilib_cdet_btn_{}", eb.id);
+                        let eb_resp = ui
+                            .btn_with(&ebid, |ui| {
+                                ui.txt(&eb.label)
+                                    .sz(crate::theme::fs(10.5))
+                                    .semibold()
+                                    .fg(TEXT_PRIMARY);
+                            })
+                            .px(8.0)
+                            .py(5.0)
+                            .bg(tile_idle_bg())
+                            .hover_bg(tint_alpha(accent, 75))
+                            .bd(1.0, border_subtle())
+                            .bevel_rounded(5.5, 1.3)
+                            .opacity(if eb.disabled { 0.45 } else { 1.0 });
+                        if !eb.disabled && eb_resp.clicked() {
+                            push_click(actions);
+                            actions.push(UiAction::UiLibClick {
+                                element_id: eb.id.clone(),
+                            });
+                        }
+                    }
+                })
+                .gap(5.0);
+            }
+        }
+
+        // Render any non-content_details elements in category 0 if present.
+        for el in cat.elements.iter().filter(|e| e.kind != "content_details") {
+            render_full_width_element(ui, state, el, accent, actions);
+        }
+
+        // Integrated Bio sub-card (matches Big Menu user_detail.rs)
+        ui.col(|ui| {
+            ui.row(|ui| {
+                ui.txt("Bio")
+                    .sz(crate::theme::fs(10.5))
+                    .bold()
+                    .fg(TEXT_MUTED)
+                    .grow(1.0);
+                if is_local_player
+                    && ui
+                        .btn_with("uilib_player_edit_profile", |ui| {
+                            ui.txt("Edit")
+                                .sz(crate::theme::fs(10.0))
+                                .semibold()
+                                .fg(TEXT_PRIMARY);
+                        })
+                        .px(8.0)
+                        .py(2.5)
+                        .bg(tint_alpha(accent, 38))
+                        .hover_bg(tint_alpha(accent, 78))
+                        .bd(1.0, tint_alpha(accent, 150))
+                        .bevel_rounded(5.0, 1.2)
+                        .clicked()
+                {
+                    push_click(actions);
+                    state.main_menu.user_detail_tab = 0;
+                    state.main_menu.profile_editing = true;
+                    actions.push(UiAction::OpenPlayerInMainMenu);
+                }
+            })
+            .align_center()
+            .gap(6.0);
+
+            let bio_trimmed = page.player_bio.trim();
+            if bio_trimmed.is_empty() {
+                ui.txt("No bio set.")
+                    .sz(crate::theme::fs(10.5))
+                    .fg(TEXT_DIM);
+            } else {
+                ui.txt(bio_trimmed)
+                    .sz(crate::theme::fs(11.0))
+                    .fg(TEXT_PRIMARY)
+                    .wrap();
+            }
+        })
+        .p(8.0)
+        .gap(4.0)
+        .bg(card_inner_bg())
+        .bd(1.0, border_subtle())
+        .bevel_rounded(7.0, 1.3);
+    })
+    .p(10.0)
+    .gap(8.0)
+    .bg(card_bg())
+    .bd(1.0, border_subtle())
+    .bevel_rounded(10.5, 2.0)
+    .shadow(14.0, SHADOW_CARD);
+    ui.pop_id();
 }
 
 /// Renders Category 1 ("Quick Actions": Avatar button + Player Voice Volume slider) on Player Details
