@@ -1472,19 +1472,19 @@ pub fn render_user_detail_view(
                                     *last_vol = host_vol;
                                 }
                                 let mut slider_v = *vol_f;
-                                ui.push_id(&vol_key);
-                                if ui
-                                    .slider(
-                                        &format!("Voice {}%", slider_v.round() as i32),
-                                        &mut slider_v,
-                                        0.0..=200.0,
-                                    )
-                                    .fill(accent)
-                                    .bg(card_inner_bg())
-                                    .bd(1.0, border_subtle())
-                                    .bevel_rounded(5.5, 1.3)
-                                    .grow(1.0)
-                                    .changed()
+                                let vol_txt = format!("{}%", slider_v.round() as i32);
+                                if crate::widgets::styled_slider(
+                                    ui,
+                                    &vol_key,
+                                    "Voice",
+                                    &vol_txt,
+                                    &mut slider_v,
+                                    0.0..=200.0,
+                                    accent,
+                                    true,
+                                    false,
+                                )
+                                .changed
                                 {
                                     let next = (slider_v.round() as i32).clamp(0, 200);
                                     *vol_f = next as f32;
@@ -1496,7 +1496,6 @@ pub fn render_user_detail_view(
                                         });
                                     }
                                 }
-                                ui.pop_id();
                             })
                             .align_center()
                             .gap(6.0);

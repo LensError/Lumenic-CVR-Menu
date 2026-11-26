@@ -103,6 +103,18 @@ pub struct HostStateSnapshot {
     pub system_alert: Option<SystemAlertDto>,
     pub desktop_scroll_multiplier: f32,
     pub vr_scroll_multiplier: f32,
+    pub hud_spread_desktop: f32,
+    pub hud_spread_y_desktop: f32,
+    pub hud_spread_vr: f32,
+    pub hud_spread_y_vr: f32,
+    pub hud_alerts_scale_desktop: f32,
+    pub hud_mic_scale_desktop: f32,
+    pub hud_notifications_scale_desktop: f32,
+    pub hud_chatbox_scale_desktop: f32,
+    pub hud_alerts_scale_vr: f32,
+    pub hud_mic_scale_vr: f32,
+    pub hud_notifications_scale_vr: f32,
+    pub hud_chatbox_scale_vr: f32,
 
     // Diagnostics & surface info
     pub mm_width: u32,
@@ -217,6 +229,18 @@ pub struct CoreStatePatch {
     pub system_alert: Option<SystemAlertDto>,
     pub desktop_scroll_multiplier: f32,
     pub vr_scroll_multiplier: f32,
+    pub hud_spread_desktop: f32,
+    pub hud_spread_y_desktop: f32,
+    pub hud_spread_vr: f32,
+    pub hud_spread_y_vr: f32,
+    pub hud_alerts_scale_desktop: f32,
+    pub hud_mic_scale_desktop: f32,
+    pub hud_notifications_scale_desktop: f32,
+    pub hud_chatbox_scale_desktop: f32,
+    pub hud_alerts_scale_vr: f32,
+    pub hud_mic_scale_vr: f32,
+    pub hud_notifications_scale_vr: f32,
+    pub hud_chatbox_scale_vr: f32,
 
     pub mm_width: u32,
     pub mm_height: u32,
@@ -301,6 +325,18 @@ impl HostStateSnapshot {
         self.system_alert = patch.system_alert;
         self.desktop_scroll_multiplier = patch.desktop_scroll_multiplier;
         self.vr_scroll_multiplier = patch.vr_scroll_multiplier;
+        self.hud_spread_desktop = patch.hud_spread_desktop;
+        self.hud_spread_y_desktop = patch.hud_spread_y_desktop;
+        self.hud_spread_vr = patch.hud_spread_vr;
+        self.hud_spread_y_vr = patch.hud_spread_y_vr;
+        self.hud_alerts_scale_desktop = patch.hud_alerts_scale_desktop;
+        self.hud_mic_scale_desktop = patch.hud_mic_scale_desktop;
+        self.hud_notifications_scale_desktop = patch.hud_notifications_scale_desktop;
+        self.hud_chatbox_scale_desktop = patch.hud_chatbox_scale_desktop;
+        self.hud_alerts_scale_vr = patch.hud_alerts_scale_vr;
+        self.hud_mic_scale_vr = patch.hud_mic_scale_vr;
+        self.hud_notifications_scale_vr = patch.hud_notifications_scale_vr;
+        self.hud_chatbox_scale_vr = patch.hud_chatbox_scale_vr;
 
         self.mm_width = patch.mm_width;
         self.mm_height = patch.mm_height;
@@ -439,6 +475,18 @@ impl Default for HostStateSnapshot {
             system_alert: None,
             desktop_scroll_multiplier: 24.0,
             vr_scroll_multiplier: 3.0,
+            hud_spread_desktop: 1.0,
+            hud_spread_y_desktop: 1.0,
+            hud_spread_vr: 0.85,
+            hud_spread_y_vr: 0.85,
+            hud_alerts_scale_desktop: 1.0,
+            hud_mic_scale_desktop: 1.0,
+            hud_notifications_scale_desktop: 1.0,
+            hud_chatbox_scale_desktop: 1.0,
+            hud_alerts_scale_vr: 1.0,
+            hud_mic_scale_vr: 1.0,
+            hud_notifications_scale_vr: 1.0,
+            hud_chatbox_scale_vr: 1.0,
             mm_width: 2560,
             mm_height: 1440,
             qm_width: 2048,

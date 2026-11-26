@@ -173,6 +173,18 @@ internal sealed class HostStateBuilder
         public SystemAlertDto system_alert;
         public float desktop_scroll_multiplier;
         public float vr_scroll_multiplier;
+        public float hud_spread_desktop;
+        public float hud_spread_y_desktop;
+        public float hud_spread_vr;
+        public float hud_spread_y_vr;
+        public float hud_alerts_scale_desktop;
+        public float hud_mic_scale_desktop;
+        public float hud_notifications_scale_desktop;
+        public float hud_chatbox_scale_desktop;
+        public float hud_alerts_scale_vr;
+        public float hud_mic_scale_vr;
+        public float hud_notifications_scale_vr;
+        public float hud_chatbox_scale_vr;
 
         public uint mm_width;
         public uint mm_height;
@@ -570,6 +582,18 @@ internal sealed class HostStateBuilder
             system_alert = mod.SystemAlerts?.PeekActive(),
             desktop_scroll_multiplier = Settings.DesktopScrollMultiplier,
             vr_scroll_multiplier = Settings.VrScrollMultiplier,
+            hud_spread_desktop = Settings.HudSpreadDesktop,
+            hud_spread_y_desktop = Settings.HudSpreadYDesktop,
+            hud_spread_vr = Settings.HudSpreadVr,
+            hud_spread_y_vr = Settings.HudSpreadYVr,
+            hud_alerts_scale_desktop = Settings.HudAlertsScaleDesktop,
+            hud_mic_scale_desktop = Settings.HudMicScaleDesktop,
+            hud_notifications_scale_desktop = Settings.HudNotificationsScaleDesktop,
+            hud_chatbox_scale_desktop = Settings.HudChatboxScaleDesktop,
+            hud_alerts_scale_vr = Settings.HudAlertsScaleVr,
+            hud_mic_scale_vr = Settings.HudMicScaleVr,
+            hud_notifications_scale_vr = Settings.HudNotificationsScaleVr,
+            hud_chatbox_scale_vr = Settings.HudChatboxScaleVr,
 
             mm_width = mmW,
             mm_height = mmH,

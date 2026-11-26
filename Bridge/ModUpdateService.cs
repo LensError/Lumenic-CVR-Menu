@@ -23,9 +23,11 @@ internal sealed class ModUpdateService
 {
     public const string BundledChangelog =
         "What's New in LumenicMenu v" + LumenicMenuMod.ModVersion + ":\n\n" +
-        "- Unified Lumenic HUD: replaced the default in-game HUD, ChatBox HUD, and Portal indicator with a unified, compact dark-glass HUD matching LumenicMenu (toggleable anytime in the Quick Menu LumenicMenu mod tab or MelonPreferences).\n" +
-        "- Cleaner Status & Notifications: mic, flight, lock, and comms indicators, notification badges (Friends, Invites, Votes, Alerts, Info), toast popups, prop spawn cards, and player join/leave updates now appear in the new HUD.\n" +
-        "- Linux / Proton Friends Fix: fixed an issue on Linux/Proton where friend names on the Friends page were getting cut off with '...' way too early.";
+        "- HUD Layout & Size Settings: customize your HUD's horizontal and vertical spread plus individual sizes for Alerts & Icons, Mic Icon, Notifications, and ChatBox. Desktop and VR settings save separately and switch automatically when changing modes live, with a live preview of all HUD elements while adjusting and per-slider + Reset All buttons.\n" +
+        "- Settings Page Overhaul: every subcategory is now grouped in its own card with larger, easier-to-read headings. Added the missing Cache tab, restored Video Decoder & Video Player settings, and fixed dynamic dropdowns like Microphone selection, World Transitions, TTS, and Face Tracking so they can be clicked and changed directly.\n" +
+        "- Overhauled Sliders: sliders across the entire menu are now taller, use your player accent colors, no longer show a click outline, and slide smoothly instead of stopping on the first move.\n" +
+        "- Smoother Scrolling & Hover: hover and scroll wheel now work immediately when opening menus without having to click the menu first, and click-drag scrolling keeps working even if your mouse or VR laser moves outside the menu bounds.\n" +
+        "- Large Text Size Fixes: fixed button clipping and overlapping tiles in Quick Menu Quick Actions and the Main Menu profile card when Text Size is set to 150%.";
 
     private const string LatestReleaseApiUrl = "https://api.github.com/repos/LensError/Lumenic-CVR-Menu/releases/latest";
     private const string DefaultReleasePageUrl = "https://github.com/LensError/Lumenic-CVR-Menu/releases/latest";

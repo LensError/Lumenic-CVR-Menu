@@ -1150,19 +1150,21 @@ fn render_slider_element(
         &el.label
     };
 
-    ui.push_id(&el.id);
+    let val_txt = format!("{:.*}", el.decimals.clamp(0, 4) as usize, cur_val);
     ui.row(|ui| {
-        let resp = ui
-            .slider(static_label, &mut cur_val, min_v..=max_v)
-            .fill(accent)
-            .bg(card_inner_bg())
-            .bd(1.0, border_subtle())
-            .bevel_rounded(7.8, 1.3)
-            .enabled(!el.disabled)
-            .opacity(if el.disabled { 0.48 } else { 1.0 })
-            .grow(1.0);
+        let res = crate::widgets::styled_slider(
+            ui,
+            &el.id,
+            static_label,
+            &val_txt,
+            &mut cur_val,
+            min_v..=max_v,
+            accent,
+            !el.disabled,
+            false,
+        );
 
-        if !el.disabled && resp.changed() {
+        if !el.disabled && res.changed {
             let factor = 10f32.powi(el.decimals.clamp(0, 4));
             let rounded = (cur_val * factor).round() / factor;
             let e = state
@@ -1208,7 +1210,6 @@ fn render_slider_element(
     })
     .align_center()
     .gap(6.0);
-    ui.pop_id();
 }
 
 fn render_full_width_element(

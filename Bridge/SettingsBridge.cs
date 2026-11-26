@@ -6,9 +6,12 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
+using ABI_RC.Core.InteractionSystem;
 using ABI_RC.Core.Savior;
+using ABI_RC.Systems.UI;
 using HarmonyLib;
 using MelonLoader;
+using UnityEngine;
 
 namespace LumenicMenu.Bridge;
 
@@ -38,6 +41,8 @@ internal static class SettingsBridge
     private static bool _ogLoaded;
     private static readonly Dictionary<string, OgSettingMeta> OgMeta =
         new Dictionary<string, OgSettingMeta>(StringComparer.Ordinal);
+    private static readonly Dictionary<string, (string Val, string Label)[]> DynamicDropdowns =
+        new Dictionary<string, (string Val, string Label)[]>(StringComparer.Ordinal);
 
     private static readonly Regex HtmlCommentRegex = new Regex(
         @"<!--.*?-->",
@@ -46,7 +51,7 @@ internal static class SettingsBridge
     private static readonly Regex TokenRegex = new Regex(
         @"<div\s+id=""settings-(?<cat>[a-zA-Z0-9_-]+)""\s+class=""settings-categorie""|" +
         @"<div\s+class=""subcategory-name""[^>]*>(?<subcat>[^<]*)</div>|" +
-        @"<div\s+class=""option-caption""(?<capAttrs>[^>]*)>(?<capText>[^<]*)</div>\s*<div\s+class=""option-input""[^>]*>\s*<div\s+(?<inpAttrs>[^>]+)>",
+        @"<div\s+class=""option-caption""(?<capAttrs>(?:""[^""]*""|'[^']*'|[^>""'])*)>(?<capText>[^<]*)</div>\s*<div\s+class=""option-input""[^>]*>\s*<div\s+(?<inpAttrs>(?:""[^""]*""|'[^']*'|[^>""'])*)>",
         RegexOptions.Singleline | RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly Regex WhitespaceRegex = new Regex(@"\s+", RegexOptions.Compiled);
@@ -67,9 +72,77 @@ internal static class SettingsBridge
             "interaction" => "interactions",
             "implementation" => "implementation",
             "ik" => "ik",
+            "cache" => "cache",
             "experimental" => "experimental",
             _ => "general"
         };
+    }
+
+    public static void UpdateDynamicDropdown(string key, List<UiKeyValue> items)
+    {
+        if (string.IsNullOrWhiteSpace(key) || items == null)
+            return;
+
+        var list = new List<(string, string)>(items.Count);
+        foreach (var kv in items)
+        {
+            string v = kv.key ?? string.Empty;
+            string l = string.IsNullOrWhiteSpace(kv.value) ? (string.IsNullOrEmpty(v) ? "Default" : v) : kv.value;
+            list.Add((v, l));
+        }
+        if (list.Count > 0)
+        {
+            DynamicDropdowns[key] = list.ToArray();
+            InvalidateCache();
+            LumenicMenuMod.Instance?.MarkStateDirty(StateDomain.Settings);
+        }
+    }
+
+    private static (string Val, string Label)[] GetDynamicChoices(string key)
+    {
+        if (DynamicDropdowns.TryGetValue(key, out var cached) && cached != null && cached.Length > 0)
+            return cached;
+
+        if (key == "AudioInputDevice")
+        {
+            var list = new List<(string, string)> { (string.Empty, "Default System Device") };
+            try
+            {
+                string[] devs = Microphone.devices;
+                if (devs != null)
+                {
+                    foreach (string d in devs)
+                    {
+                        if (!string.IsNullOrWhiteSpace(d))
+                            list.Add((d, d));
+                    }
+                }
+            }
+            catch { }
+            return list.ToArray();
+        }
+
+        if (key == "GraphicsTransition")
+        {
+            try
+            {
+                var transitions = WorldTransitionSystem.Instance?.transitions;
+                if (transitions != null && transitions.Count > 0)
+                {
+                    var list = new List<(string, string)>(transitions.Count);
+                    foreach (var t in transitions)
+                    {
+                        if (t != null && !string.IsNullOrEmpty(t.id))
+                            list.Add((t.id, string.IsNullOrWhiteSpace(t.name) ? t.id : t.name));
+                    }
+                    if (list.Count > 0)
+                        return list.ToArray();
+                }
+            }
+            catch { }
+        }
+
+        return null;
     }
 
     private static void EnsureOgMetadataLoaded()
@@ -185,6 +258,14 @@ internal static class SettingsBridge
     {
         if (string.IsNullOrEmpty(s)) return string.Empty;
         return s
+            .Replace("<br />", "\n")
+            .Replace("<br/>", "\n")
+            .Replace("<br>", "\n")
+            .Replace("<BR>", "\n")
+            .Replace("<b>", "")
+            .Replace("</b>", "")
+            .Replace("<i>", "")
+            .Replace("</i>", "")
             .Replace("&#10;", "\n")
             .Replace("&#13;", "")
             .Replace("&quot;", "\"")
@@ -305,12 +386,11 @@ internal static class SettingsBridge
             if (string.IsNullOrEmpty(key) || valObj == null)
                 continue;
 
-            if (IsHiddenInternalSetting(key))
+            OgMeta.TryGetValue(key, out OgSettingMeta og);
+            if (HiddenExactKeys.Contains(key) || (og == null && IsHiddenInternalSetting(key)))
             {
                 continue;
             }
-
-            OgMeta.TryGetValue(key, out OgSettingMeta og);
             string category = (og != null && !string.IsNullOrEmpty(og.Category)) ? og.Category : CategorizeKey(key);
             string group = og != null ? (string.IsNullOrEmpty(og.Group) ? "General" : og.Group) : "Other";
             string label = (og != null && !string.IsNullOrWhiteSpace(og.Label)) ? og.Label : FormatLabel(key);
@@ -459,11 +539,11 @@ internal static class SettingsBridge
             else if (valObj is CVRSettingsString)
             {
                 string curStr = settings.GetSettingsString(key) ?? string.Empty;
-                (string Val, string Label)[] choices = og?.Choices;
+                (string Val, string Label)[] choices = GetDynamicChoices(key) ?? og?.Choices;
                 if (choices == null && ChoiceSpecs.TryGetValue(key, out var fallbackChoices))
                     choices = fallbackChoices;
 
-                if (choices != null)
+                if (choices != null && choices.Length > 0)
                 {
                     items.Add(new
                     {
@@ -568,9 +648,6 @@ internal static class SettingsBridge
         "PenThickness",
         "PenSmoothness",
         "PenAnalogThickness",
-        "CVRVideoPlayerDefaultResolution",
-        "CVRVideoPlayerDefaultAudioOnly",
-        "CVRVideoPlayerUseLowLatency",
         "ExperimentalConceptMirror"
     };
 
@@ -614,6 +691,7 @@ internal static class SettingsBridge
         if (key.StartsWith("Interaction", StringComparison.Ordinal) || key.StartsWith("Haptic", StringComparison.Ordinal)) return "interactions";
         if (key.StartsWith("Implementation", StringComparison.Ordinal)) return "implementation";
         if (key.StartsWith("ContentFilter", StringComparison.Ordinal) || key.StartsWith("FilterUser", StringComparison.Ordinal) || key.Contains("NSFW")) return "safety";
+        if (key.Contains("Cache")) return "cache";
         if (key.StartsWith("Experimental", StringComparison.Ordinal)) return "experimental";
         return "general";
     }

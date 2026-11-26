@@ -7,7 +7,7 @@ use crate::theme::{
     TEXT_MUTED, TEXT_PRIMARY, tile_idle_bg, tile_idle_hover,
 };
 
-const SETTINGS_TABS: [(&str, &str, &str); 13] = [
+const SETTINGS_TABS: [(&str, &str, &str); 14] = [
     ("lumenic", icons::BOLT, "LumenicMenu"),
     ("colors", icons::STAR, "Player Colors"),
     ("general", icons::HOME, "General"),
@@ -19,9 +19,58 @@ const SETTINGS_TABS: [(&str, &str, &str); 13] = [
     ("interactions", icons::CURSOR, "Interactions"),
     ("implementation", icons::PUZZLE, "Implementation"),
     ("safety", icons::CHECK, "Safety & Filter"),
+    ("cache", icons::TRASH, "Cache"),
     ("experimental", icons::TOOLBOX, "Experimental"),
     ("support", icons::MAIL, "Support"),
 ];
+
+fn render_subcat_card(
+    ui: &mut UiContext,
+    title: &str,
+    count: Option<usize>,
+    accent: Color,
+    header_extra: impl FnOnce(&mut UiContext),
+    body: impl FnOnce(&mut UiContext),
+) {
+    ui.col(|ui| {
+        if !title.is_empty() {
+            ui.row(|ui| {
+                ui.txt("")
+                    .w(3.5)
+                    .h(crate::theme::text_box(16.0))
+                    .bg(accent)
+                    .r(2.0);
+                ui.txt(title)
+                    .sz(crate::theme::fs(13.5))
+                    .bold()
+                    .fg(TEXT_PRIMARY)
+                    .ellipsis()
+                    .grow(1.0);
+                if let Some(c) = count {
+                    ui.txt(&format!("{c}"))
+                        .sz(crate::theme::fs(10.0))
+                        .semibold()
+                        .fg(TEXT_DIM)
+                        .px(6.0)
+                        .py(2.0)
+                        .bg(Color::rgba(10, 14, 22, 130))
+                        .r(4.0);
+                }
+                header_extra(ui);
+            })
+            .align_center()
+            .gap(8.0)
+            .pb(2.0);
+        }
+        body(ui);
+    })
+    .w_frac(1.0)
+    .p(10.0)
+    .gap(7.0)
+    .bg(Color::rgba(18, 22, 32, 145))
+    .bd(1.0, tint_alpha(accent, 55))
+    .bevel_rounded(9.0, 1.5);
+}
 
 fn compact_toggle_cell(
     ui: &mut UiContext,
@@ -120,21 +169,23 @@ fn render_cvr_item(
                 *last_host = host_val;
             }
             let mut v = *cur_f;
-            let display_lbl = if item.unit.is_empty() {
-                item.label.clone()
+            let val_txt = if item.unit.is_empty() {
+                format!("{}", v.round() as i32)
             } else {
-                format!("{} ({})", item.label, item.unit)
+                format!("{} {}", v.round() as i32, item.unit)
             };
-
-            ui.push_id(&item.key);
-            let mut resp = ui
-                .slider(&display_lbl, &mut v, (min_v as f32)..=(max_v as f32))
-                .fill(accent)
-                .bg(card_inner_bg())
-                .bd(1.0, border_subtle())
-                .bevel_rounded(6.0, 1.3)
-                .grow(1.0);
-            if resp.changed() {
+            let res = crate::widgets::styled_slider(
+                ui,
+                &item.key,
+                &item.label,
+                &val_txt,
+                &mut v,
+                (min_v as f32)..=(max_v as f32),
+                accent,
+                true,
+                false,
+            );
+            if res.changed {
                 let next_i = (v.round() as i32).clamp(min_v, max_v);
                 *cur_f = next_i as f32;
                 if next_i != *last_host {
@@ -145,17 +196,18 @@ fn render_cvr_item(
                     });
                 }
             }
-            is_hovered = resp.hovered();
-            ui.pop_id();
+            is_hovered = res.hovered;
         }
         "int_choice" | "str_choice" => {
             let is_int = item.kind == "int_choice";
             let total_label_chars: usize = item.choice_labels.iter().map(|s| s.len()).sum();
-            let use_dropdown = item.choice_vals.len() > 3 || total_label_chars > 30;
+            let use_dropdown = item.choice_vals.len() <= 1
+                || item.choice_vals.len() > 3
+                || total_label_chars > 30;
             let mut resp = ui
                 .col(|ui| {
                     ui.txt(&item.label)
-                        .sz(crate::theme::fs(10.5))
+                        .sz(crate::theme::fs(11.0))
                         .semibold()
                         .fg(TEXT_PRIMARY)
                         .ellipsis();
@@ -696,7 +748,7 @@ pub fn render_settings_page(
 
                         total_hits += filtered.len();
 
-                        // Group consecutive items by their official OG sub-group heading
+                        // Group consecutive items into dedicated subcategory cards with larger headings
                         let mut cur_group = String::new();
                         let mut bucket: Vec<&CvrSettingItem> = Vec::new();
                         let mut flush_bucket =
@@ -707,26 +759,31 @@ pub fn render_settings_page(
                                 if items.is_empty() {
                                     return;
                                 }
-                                if !grp.is_empty() {
-                                    ui.txt(grp)
-                                        .sz(crate::theme::fs(11.0))
-                                        .bold()
-                                        .fg(Color::rgb(196, 210, 230))
-                                        .pt(6.0)
-                                        .px(3.0);
-                                }
-                                for pair in items.chunks(2) {
-                                    ui.row(|ui| {
-                                        render_cvr_item(ui, state, pair[0], accent, actions);
-                                        if pair.len() > 1 {
-                                            render_cvr_item(ui, state, pair[1], accent, actions);
-                                        } else {
-                                            ui.col(|_| {}).grow(1.0);
+                                let title = if grp.is_empty() { "General" } else { grp };
+                                let count = items.len();
+                                render_subcat_card(
+                                    ui,
+                                    title,
+                                    Some(count),
+                                    accent,
+                                    |_| {},
+                                    |ui| {
+                                        for pair in items.chunks(2) {
+                                            ui.row(|ui| {
+                                                render_cvr_item(ui, state, pair[0], accent, actions);
+                                                if pair.len() > 1 {
+                                                    render_cvr_item(
+                                                        ui, state, pair[1], accent, actions,
+                                                    );
+                                                } else {
+                                                    ui.col(|_| {}).grow(1.0);
+                                                }
+                                            })
+                                            .align_center()
+                                            .gap(7.0);
                                         }
-                                    })
-                                    .align_center()
-                                    .gap(6.0);
-                                }
+                                    },
+                                );
                                 items.clear();
                             };
 
@@ -754,7 +811,7 @@ pub fn render_settings_page(
                     }
                 })
                 .grow(1.0)
-                .gap(5.5)
+                .gap(9.0)
                 .no_scrollbar();
             })
             .grow(1.0)
@@ -792,15 +849,8 @@ fn render_lumenic_settings(
     // --- APPEARANCE & TYPOGRAPHY ---
     let show_text_size = m("Text Size", "font text size typography scale readability");
     if show_text_size {
-        if q.is_empty() {
-            ui.txt("Appearance & Typography")
-                .sz(crate::theme::fs(11.0))
-                .bold()
-                .fg(crate::theme::text_muted())
-                .pt(2.0)
-                .px(3.0);
-        }
         hits += 1;
+        render_subcat_card(ui, "Appearance & Typography", None, accent, |_| {}, |ui| {
         let cur_pct = (state.host.font_scale.clamp(0.5, 2.5) * 100.0).round() as i32;
         ui.row(|ui| {
             ui.txt("Text Size")
@@ -852,20 +902,14 @@ fn render_lumenic_settings(
         .bg(card_inner_bg())
         .bd(1.0, border_subtle())
         .bevel_rounded(6.0, 1.3);
+        });
     }
 
     // --- AUDIO ---
     let show_sound_pack = m("UI Sound Pack", "softsub glass vanilla audio");
     let show_click_sounds = m("UI Click & Hover Sounds", "sound audio feedback");
     if show_sound_pack || show_click_sounds {
-        if q.is_empty() {
-            ui.txt("Audio")
-                .sz(crate::theme::fs(11.0))
-                .bold()
-                .fg(TEXT_MUTED)
-                .pt(2.0)
-                .px(3.0);
-        }
+        render_subcat_card(ui, "Audio", None, accent, |_| {}, |ui| {
         if show_sound_pack {
             hits += 1;
             ui.row(|ui| {
@@ -942,6 +986,7 @@ fn render_lumenic_settings(
                 actions.push(UiAction::ToggleUiClickSounds);
             }
         }
+        });
     }
 
     // --- PERFORMANCE & INPUT ---
@@ -949,14 +994,7 @@ fn render_lumenic_settings(
     let show_desk_scroll = m("Desktop Scroll Speed", "mouse wheel scroll multiplier");
     let show_vr_scroll = m("VR Scroll Speed", "thumbstick stick scroll multiplier");
     if show_hz || show_desk_scroll || show_vr_scroll {
-        if q.is_empty() {
-            ui.txt("Performance & Input")
-                .sz(crate::theme::fs(11.0))
-                .bold()
-                .fg(TEXT_MUTED)
-                .pt(6.0)
-                .px(3.0);
-        }
+        render_subcat_card(ui, "Performance & Input", None, accent, |_| {}, |ui| {
 
         if show_hz {
             hits += 1;
@@ -971,19 +1009,19 @@ fn render_lumenic_settings(
                 *last_hz = hz_host;
             }
             let mut hz_v = *hz_f;
-            ui.push_id("mm_set_lm_hz");
-            if ui
-                .slider(
-                    &format!("Max Redraw Rate ({} Hz)", hz_v.round() as i32),
-                    &mut hz_v,
-                    15.0..=144.0,
-                )
-                .fill(accent)
-                .bg(card_inner_bg())
-                .bd(1.0, border_subtle())
-                .bevel_rounded(6.0, 1.3)
-                .w_frac(1.0)
-                .changed()
+            let hz_txt = format!("{} Hz", hz_v.round() as i32);
+            if crate::widgets::styled_slider(
+                ui,
+                "mm_set_lm_hz",
+                "Max Redraw Rate",
+                &hz_txt,
+                &mut hz_v,
+                15.0..=144.0,
+                accent,
+                true,
+                false,
+            )
+            .changed
             {
                 let next = (hz_v.round() as i32).clamp(15, 144);
                 *hz_f = next as f32;
@@ -992,7 +1030,6 @@ fn render_lumenic_settings(
                     actions.push(UiAction::SetMaxRefreshHz { hz: next });
                 }
             }
-            ui.pop_id();
         }
 
         if show_desk_scroll || show_vr_scroll {
@@ -1011,19 +1048,19 @@ fn render_lumenic_settings(
                         *last_i = host_v;
                     }
                     let mut v = *cur_f;
-                    ui.push_id("mm_set_lm_dscroll");
-                    if ui
-                        .slider(
-                            &format!("Desktop Scroll ({:.0})", v.round()),
-                            &mut v,
-                            4.0..=64.0,
-                        )
-                        .fill(accent)
-                        .bg(card_inner_bg())
-                        .bd(1.0, border_subtle())
-                        .bevel_rounded(6.0, 1.3)
-                        .grow(1.0)
-                        .changed()
+                    let val_txt = format!("{:.0}", v.round());
+                    if crate::widgets::styled_slider(
+                        ui,
+                        "mm_set_lm_dscroll",
+                        "Desktop Scroll",
+                        &val_txt,
+                        &mut v,
+                        4.0..=64.0,
+                        accent,
+                        true,
+                        false,
+                    )
+                    .changed
                     {
                         let next_i = (v.round() as i32 * 10).clamp(40, 640);
                         *cur_f = next_i as f32 / 10.0;
@@ -1032,7 +1069,6 @@ fn render_lumenic_settings(
                             actions.push(UiAction::SetDesktopScrollMultiplier { value: *cur_f });
                         }
                     }
-                    ui.pop_id();
                 }
 
                 if show_vr_scroll {
@@ -1049,15 +1085,19 @@ fn render_lumenic_settings(
                         *last_i = host_v;
                     }
                     let mut v = *cur_f;
-                    ui.push_id("mm_set_lm_vscroll");
-                    if ui
-                        .slider(&format!("VR Scroll ({:.1})", v), &mut v, 0.5..=12.0)
-                        .fill(accent)
-                        .bg(card_inner_bg())
-                        .bd(1.0, border_subtle())
-                        .bevel_rounded(6.0, 1.3)
-                        .grow(1.0)
-                        .changed()
+                    let val_txt = format!("{v:.1}");
+                    if crate::widgets::styled_slider(
+                        ui,
+                        "mm_set_lm_vscroll",
+                        "VR Scroll",
+                        &val_txt,
+                        &mut v,
+                        0.5..=12.0,
+                        accent,
+                        true,
+                        false,
+                    )
+                    .changed
                     {
                         let next_i = (v * 10.0).round().clamp(5.0, 120.0) as i32;
                         *cur_f = next_i as f32 / 10.0;
@@ -1066,10 +1106,162 @@ fn render_lumenic_settings(
                             actions.push(UiAction::SetVrScrollMultiplier { value: *cur_f });
                         }
                     }
-                    ui.pop_id();
                 }
             })
             .gap(6.0);
+        }
+        });
+    }
+
+    // --- HUD LAYOUT (DESKTOP / VR AWARE) ---
+    let is_vr = state.host.is_vr;
+    let show_hud_spread = m("HUD Horizontal Spread", "hud horizontal spread width inward outward vr desktop");
+    let show_hud_spread_y = m("HUD Vertical Spread", "hud vertical spread height inward outward vr desktop");
+    let show_hud_alerts = m("HUD Alerts & Icons Size", "hud alerts small icons badges status size vr desktop");
+    let show_hud_mic = m("HUD Mic Icon Size", "hud mic microphone icon size vr desktop");
+    let show_hud_notifs = m("HUD Notifications Size", "hud notifications toasts join feed size vr desktop");
+    let show_hud_chat = m("HUD ChatBox Size", "hud chatbox portal size vr desktop");
+    if show_hud_spread
+        || show_hud_spread_y
+        || show_hud_alerts
+        || show_hud_mic
+        || show_hud_notifs
+        || show_hud_chat
+    {
+        let mode_label = if is_vr { "VR" } else { "Desktop" };
+        let hud_title = format!("HUD Layout ({mode_label})");
+        let mut reset_all_clicked = false;
+        render_subcat_card(
+            ui,
+            &hud_title,
+            None,
+            accent,
+            |ui| {
+                ui.push_id("mm_set_lm_hud_reset_all");
+                if ui
+                    .btn("Reset All")
+                    .sz(crate::theme::fs(10.0))
+                    .px(8.0)
+                    .py(3.0)
+                    .bg(card_inner_bg())
+                    .bd(1.0, border_subtle())
+                    .bevel_rounded(5.0, 1.2)
+                    .clicked()
+                {
+                    reset_all_clicked = true;
+                }
+                ui.pop_id();
+            },
+            |ui| {
+
+            let (raw_spread, raw_spread_y, raw_alerts, raw_mic, raw_notifs, raw_chat) = if is_vr {
+                (
+                    state.host.hud_spread_vr.clamp(0.5, 1.35),
+                    state.host.hud_spread_y_vr.clamp(0.5, 1.35),
+                    state.host.hud_alerts_scale_vr.clamp(0.5, 2.0),
+                    state.host.hud_mic_scale_vr.clamp(0.5, 2.0),
+                    state.host.hud_notifications_scale_vr.clamp(0.5, 2.0),
+                    state.host.hud_chatbox_scale_vr.clamp(0.5, 2.0),
+                )
+            } else {
+                (
+                    state.host.hud_spread_desktop.clamp(0.5, 1.35),
+                    state.host.hud_spread_y_desktop.clamp(0.5, 1.35),
+                    state.host.hud_alerts_scale_desktop.clamp(0.5, 2.0),
+                    state.host.hud_mic_scale_desktop.clamp(0.5, 2.0),
+                    state.host.hud_notifications_scale_desktop.clamp(0.5, 2.0),
+                    state.host.hud_chatbox_scale_desktop.clamp(0.5, 2.0),
+                )
+            };
+
+            let def_spread = if is_vr { 0.85f32 } else { 1.0f32 };
+            let hud_specs = [
+                (show_hud_spread, "mm_set_lm_hud_spread", format!("_lumenic_hud_spread_{is_vr}"), "Horizontal Spread", raw_spread, def_spread, 0.50f32, 1.35f32, 1u8),
+                (show_hud_spread_y, "mm_set_lm_hud_spready", format!("_lumenic_hud_spready_{is_vr}"), "Vertical Spread", raw_spread_y, def_spread, 0.50f32, 1.35f32, 2u8),
+                (show_hud_alerts, "mm_set_lm_hud_alerts", format!("_lumenic_hud_alerts_{is_vr}"), "Alerts & Icons Size", raw_alerts, 1.0f32, 0.50f32, 2.00f32, 3u8),
+                (show_hud_mic, "mm_set_lm_hud_mic", format!("_lumenic_hud_mic_{is_vr}"), "Mic Icon Size", raw_mic, 1.0f32, 0.50f32, 2.00f32, 4u8),
+                (show_hud_notifs, "mm_set_lm_hud_notifs", format!("_lumenic_hud_notifs_{is_vr}"), "Notifications Size", raw_notifs, 1.0f32, 0.50f32, 2.00f32, 5u8),
+                (show_hud_chat, "mm_set_lm_hud_chat", format!("_lumenic_hud_chat_{is_vr}"), "ChatBox Size", raw_chat, 1.0f32, 0.50f32, 2.00f32, 6u8),
+            ];
+
+            for (visible, push_id, state_key, title, host_val, def_val, min_v, max_v, kind) in hud_specs {
+                if !visible {
+                    continue;
+                }
+                hits += 1;
+                let host_pct = (host_val * 100.0).round() as i32;
+                let def_pct = (def_val * 100.0).round() as i32;
+                let (cur_f, last_i) = state
+                    .main_menu
+                    .settings_sliders
+                    .entry(state_key)
+                    .or_insert((host_pct as f32, host_pct));
+                if *last_i != host_pct {
+                    *cur_f = host_pct as f32;
+                    *last_i = host_pct;
+                }
+                let mut v = *cur_f;
+                let min_pct = (min_v * 100.0).round();
+                let max_pct = (max_v * 100.0).round();
+                let val_txt = format!("{}%", v.round() as i32);
+                let mut emit_val: Option<f32> = None;
+                ui.row(|ui| {
+                    if crate::widgets::styled_slider(
+                        ui,
+                        push_id,
+                        title,
+                        &val_txt,
+                        &mut v,
+                        min_pct..=max_pct,
+                        accent,
+                        true,
+                        false,
+                    )
+                    .changed
+                    {
+                        let next_pct = (v.round() as i32).clamp(min_pct as i32, max_pct as i32);
+                        *cur_f = next_pct as f32;
+                        if next_pct != *last_i {
+                            *last_i = next_pct;
+                            emit_val = Some(next_pct as f32 / 100.0);
+                        }
+                    }
+
+                    ui.push_id(&format!("{push_id}_rst"));
+                    if ui
+                        .btn("Reset")
+                        .sz(crate::theme::fs(9.5).min(12.5))
+                        .px(7.0)
+                        .py(4.0)
+                        .bg(card_inner_bg())
+                        .bd(1.0, border_subtle())
+                        .bevel_rounded(5.0, 1.2)
+                        .clicked()
+                    {
+                        *cur_f = def_pct as f32;
+                        *last_i = def_pct;
+                        emit_val = Some(def_val);
+                    }
+                    ui.pop_id();
+                })
+                .align_center()
+                .gap(5.0);
+
+                if let Some(next_val) = emit_val {
+                    match kind {
+                        1 => actions.push(UiAction::SetHudSpread { is_vr, value: next_val }),
+                        2 => actions.push(UiAction::SetHudSpreadY { is_vr, value: next_val }),
+                        3 => actions.push(UiAction::SetHudElementScale { is_vr, element: String::from("alerts"), value: next_val }),
+                        4 => actions.push(UiAction::SetHudElementScale { is_vr, element: String::from("mic"), value: next_val }),
+                        5 => actions.push(UiAction::SetHudElementScale { is_vr, element: String::from("notifications"), value: next_val }),
+                        _ => actions.push(UiAction::SetHudElementScale { is_vr, element: String::from("chatbox"), value: next_val }),
+                    }
+                }
+            }
+            },
+        );
+        if reset_all_clicked {
+            actions.push(UiAction::ResetHudLayout { is_vr });
         }
     }
 
@@ -1084,14 +1276,7 @@ fn render_lumenic_settings(
     );
     let show_clear = m("Clear User Data", "clear reset history pinned pins userdata layouts");
     if show_qm_icon_tabs || show_recent || show_clear {
-        if q.is_empty() {
-            ui.txt("Quick Menu & User Data")
-                .sz(crate::theme::fs(11.0))
-                .bold()
-                .fg(TEXT_MUTED)
-                .pt(6.0)
-                .px(3.0);
-        }
+        render_subcat_card(ui, "Quick Menu & User Data", None, accent, |_| {}, |ui| {
 
         if show_qm_icon_tabs {
             hits += 1;
@@ -1255,6 +1440,7 @@ fn render_lumenic_settings(
             })
             .gap(6.0);
         }
+        });
     }
 
     if q.is_empty() {

@@ -1,4 +1,4 @@
-﻿use serde::Serialize;
+use serde::Serialize;
 
 /// Typed actions emitted by Rust UI and executed by C# on Unity's main thread.
 #[derive(Clone, Debug, Serialize)]
@@ -317,6 +317,22 @@ pub enum UiAction {
     },
     SetVrScrollMultiplier {
         value: f32,
+    },
+    SetHudSpread {
+        is_vr: bool,
+        value: f32,
+    },
+    SetHudSpreadY {
+        is_vr: bool,
+        value: f32,
+    },
+    SetHudElementScale {
+        is_vr: bool,
+        element: String,
+        value: f32,
+    },
+    ResetHudLayout {
+        is_vr: bool,
     },
     ClearRecentHistory,
     ClearPinnedItems,

@@ -16,6 +16,18 @@ internal static class Settings
     private static MelonPreferences_Entry<float> _fontScale;
     private static MelonPreferences_Entry<float> _desktopScrollMultiplier;
     private static MelonPreferences_Entry<float> _vrScrollMultiplier;
+    private static MelonPreferences_Entry<float> _hudSpreadDesktop;
+    private static MelonPreferences_Entry<float> _hudSpreadYDesktop;
+    private static MelonPreferences_Entry<float> _hudSpreadVr;
+    private static MelonPreferences_Entry<float> _hudSpreadYVr;
+    private static MelonPreferences_Entry<float> _hudAlertsScaleDesktop;
+    private static MelonPreferences_Entry<float> _hudMicScaleDesktop;
+    private static MelonPreferences_Entry<float> _hudNotificationsScaleDesktop;
+    private static MelonPreferences_Entry<float> _hudChatboxScaleDesktop;
+    private static MelonPreferences_Entry<float> _hudAlertsScaleVr;
+    private static MelonPreferences_Entry<float> _hudMicScaleVr;
+    private static MelonPreferences_Entry<float> _hudNotificationsScaleVr;
+    private static MelonPreferences_Entry<float> _hudChatboxScaleVr;
     private static MelonPreferences_Entry<bool> _linearTextureMode;
     private static MelonPreferences_Entry<bool> _perfLogging;
     private static MelonPreferences_Entry<bool> _uiClickSounds;
@@ -42,6 +54,18 @@ internal static class Settings
     public static float FontScale => Mathf.Clamp(_fontScale?.Value ?? 1.0f, 0.5f, 2.5f);
     public static float DesktopScrollMultiplier => Mathf.Clamp(_desktopScrollMultiplier?.Value ?? 24.0f, 4.0f, 64.0f);
     public static float VrScrollMultiplier => Mathf.Clamp(_vrScrollMultiplier?.Value ?? 3.0f, 0.5f, 12.0f);
+    public static float HudSpreadDesktop => Mathf.Clamp(_hudSpreadDesktop?.Value ?? 1.0f, 0.5f, 1.35f);
+    public static float HudSpreadYDesktop => Mathf.Clamp(_hudSpreadYDesktop?.Value ?? 1.0f, 0.5f, 1.35f);
+    public static float HudSpreadVr => Mathf.Clamp(_hudSpreadVr?.Value ?? 0.85f, 0.5f, 1.35f);
+    public static float HudSpreadYVr => Mathf.Clamp(_hudSpreadYVr?.Value ?? 0.85f, 0.5f, 1.35f);
+    public static float HudAlertsScaleDesktop => Mathf.Clamp(_hudAlertsScaleDesktop?.Value ?? 1.0f, 0.5f, 2.0f);
+    public static float HudMicScaleDesktop => Mathf.Clamp(_hudMicScaleDesktop?.Value ?? 1.0f, 0.5f, 2.0f);
+    public static float HudNotificationsScaleDesktop => Mathf.Clamp(_hudNotificationsScaleDesktop?.Value ?? 1.0f, 0.5f, 2.0f);
+    public static float HudChatboxScaleDesktop => Mathf.Clamp(_hudChatboxScaleDesktop?.Value ?? 1.0f, 0.5f, 2.0f);
+    public static float HudAlertsScaleVr => Mathf.Clamp(_hudAlertsScaleVr?.Value ?? 1.0f, 0.5f, 2.0f);
+    public static float HudMicScaleVr => Mathf.Clamp(_hudMicScaleVr?.Value ?? 1.0f, 0.5f, 2.0f);
+    public static float HudNotificationsScaleVr => Mathf.Clamp(_hudNotificationsScaleVr?.Value ?? 1.0f, 0.5f, 2.0f);
+    public static float HudChatboxScaleVr => Mathf.Clamp(_hudChatboxScaleVr?.Value ?? 1.0f, 0.5f, 2.0f);
     public static bool LinearTextureMode => _linearTextureMode?.Value ?? false;
     public static bool PerfLogging => _perfLogging?.Value ?? false;
     public static bool UiClickSounds => _uiClickSounds?.Value ?? true;
@@ -105,6 +129,39 @@ internal static class Settings
             3.0f,
             "VR Stick Scroll Multiplier",
             "Multiplier converting CVR VR thumbstick per-frame scrollValue into Lumenic scroll lines.");
+
+        _hudSpreadDesktop = _category.CreateEntry(
+            "HudSpreadDesktop",
+            1.0f,
+            "HUD Horizontal Spread (Desktop)",
+            "Horizontal spread factor for edge-anchored HUD elements in Desktop mode (0.5-1.35).");
+
+        _hudSpreadYDesktop = _category.CreateEntry(
+            "HudSpreadYDesktop",
+            1.0f,
+            "HUD Vertical Spread (Desktop)",
+            "Vertical spread factor for top/bottom HUD elements in Desktop mode (0.5-1.35).");
+
+        _hudSpreadVr = _category.CreateEntry(
+            "HudSpreadVr",
+            0.85f,
+            "HUD Horizontal Spread (VR)",
+            "Horizontal spread factor for edge-anchored HUD elements in VR mode (0.5-1.35).");
+
+        _hudSpreadYVr = _category.CreateEntry(
+            "HudSpreadYVr",
+            0.85f,
+            "HUD Vertical Spread (VR)",
+            "Vertical spread factor for top/bottom HUD elements in VR mode (0.5-1.35).");
+
+        _hudAlertsScaleDesktop = _category.CreateEntry("HudAlertsScaleDesktop", 1.0f, "HUD Alerts & Icons Scale (Desktop)", "Scale for alert badges and status icons in Desktop mode (0.5-2.0).");
+        _hudMicScaleDesktop = _category.CreateEntry("HudMicScaleDesktop", 1.0f, "HUD Mic Icon Scale (Desktop)", "Scale for the mic pill in Desktop mode (0.5-2.0).");
+        _hudNotificationsScaleDesktop = _category.CreateEntry("HudNotificationsScaleDesktop", 1.0f, "HUD Notifications Scale (Desktop)", "Scale for notification toasts and join feed in Desktop mode (0.5-2.0).");
+        _hudChatboxScaleDesktop = _category.CreateEntry("HudChatboxScaleDesktop", 1.0f, "HUD ChatBox Scale (Desktop)", "Scale for the ChatBox / Portal card in Desktop mode (0.5-2.0).");
+        _hudAlertsScaleVr = _category.CreateEntry("HudAlertsScaleVr", 1.0f, "HUD Alerts & Icons Scale (VR)", "Scale for alert badges and status icons in VR mode (0.5-2.0).");
+        _hudMicScaleVr = _category.CreateEntry("HudMicScaleVr", 1.0f, "HUD Mic Icon Scale (VR)", "Scale for the mic pill in VR mode (0.5-2.0).");
+        _hudNotificationsScaleVr = _category.CreateEntry("HudNotificationsScaleVr", 1.0f, "HUD Notifications Scale (VR)", "Scale for notification toasts and join feed in VR mode (0.5-2.0).");
+        _hudChatboxScaleVr = _category.CreateEntry("HudChatboxScaleVr", 1.0f, "HUD ChatBox Scale (VR)", "Scale for the ChatBox / Portal card in VR mode (0.5-2.0).");
 
         _linearTextureMode = _category.CreateEntry(
             "LinearTextureMode",
@@ -180,6 +237,18 @@ internal static class Settings
         _fontScale.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
         _desktopScrollMultiplier.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
         _vrScrollMultiplier.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
+        _hudSpreadDesktop.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
+        _hudSpreadYDesktop.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
+        _hudSpreadVr.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
+        _hudSpreadYVr.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
+        _hudAlertsScaleDesktop.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
+        _hudMicScaleDesktop.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
+        _hudNotificationsScaleDesktop.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
+        _hudChatboxScaleDesktop.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
+        _hudAlertsScaleVr.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
+        _hudMicScaleVr.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
+        _hudNotificationsScaleVr.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
+        _hudChatboxScaleVr.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
         _linearTextureMode.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
         _perfLogging.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
         _uiClickSounds.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
@@ -350,6 +419,56 @@ internal static class Settings
         if (_vrScrollMultiplier != null && Math.Abs(_vrScrollMultiplier.Value - clamped) > 0.01f)
         {
             _vrScrollMultiplier.Value = clamped;
+            ScheduleSave();
+        }
+    }
+
+    public static void SetHudSpread(bool isVr, float value)
+    {
+        var entry = isVr ? _hudSpreadVr : _hudSpreadDesktop;
+        float clamped = Mathf.Clamp(value, 0.5f, 1.35f);
+        if (entry != null && Math.Abs(entry.Value - clamped) > 0.005f)
+        {
+            entry.Value = clamped;
+            ScheduleSave();
+        }
+    }
+
+    public static void SetHudSpreadY(bool isVr, float value)
+    {
+        var entry = isVr ? _hudSpreadYVr : _hudSpreadYDesktop;
+        float clamped = Mathf.Clamp(value, 0.5f, 1.35f);
+        if (entry != null && Math.Abs(entry.Value - clamped) > 0.005f)
+        {
+            entry.Value = clamped;
+            ScheduleSave();
+        }
+    }
+
+    public static void ResetHudLayout(bool isVr)
+    {
+        SetHudSpread(isVr, isVr ? 0.85f : 1.0f);
+        SetHudSpreadY(isVr, isVr ? 0.85f : 1.0f);
+        SetHudElementScale(isVr, "alerts", 1.0f);
+        SetHudElementScale(isVr, "mic", 1.0f);
+        SetHudElementScale(isVr, "notifications", 1.0f);
+        SetHudElementScale(isVr, "chatbox", 1.0f);
+    }
+
+    public static void SetHudElementScale(bool isVr, string element, float value)
+    {
+        MelonPreferences_Entry<float> entry = element switch
+        {
+            "alerts" => isVr ? _hudAlertsScaleVr : _hudAlertsScaleDesktop,
+            "mic" => isVr ? _hudMicScaleVr : _hudMicScaleDesktop,
+            "notifications" => isVr ? _hudNotificationsScaleVr : _hudNotificationsScaleDesktop,
+            "chatbox" => isVr ? _hudChatboxScaleVr : _hudChatboxScaleDesktop,
+            _ => null
+        };
+        float clamped = Mathf.Clamp(value, 0.5f, 2.0f);
+        if (entry != null && Math.Abs(entry.Value - clamped) > 0.005f)
+        {
+            entry.Value = clamped;
             ScheduleSave();
         }
     }

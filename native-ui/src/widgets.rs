@@ -1,9 +1,82 @@
 use lumenic::{Color, Rect, UiContext};
 
 use crate::theme::{
-    border_subtle, glow_intensity, tile_idle_bg, tile_idle_hover, tint_alpha, BG_GLOW_FRAG,
-    TEXT_DIM, TEXT_MUTED, TEXT_PRIMARY, TILE_DISABLED_BG,
+    border_subtle, card_inner_bg, glow_intensity, tile_idle_bg, tile_idle_hover, tint_alpha,
+    BG_GLOW_FRAG, TEXT_DIM, TEXT_MUTED, TEXT_PRIMARY, TILE_DISABLED_BG,
 };
+
+pub struct SliderResult {
+    pub changed: bool,
+    pub hovered: bool,
+}
+
+/// Unified LumenicMenu slider: static WidgetId (never drops drag mid-slide),
+/// taller 14px track, stretched-hexagon chamfered container, and no focus outline on click.
+#[allow(clippy::too_many_arguments)]
+pub fn styled_slider(
+    ui: &mut UiContext,
+    id: &str,
+    label: &str,
+    value_text: &str,
+    value: &mut f32,
+    range: std::ops::RangeInclusive<f32>,
+    accent: Color,
+    enabled: bool,
+    flat: bool,
+) -> SliderResult {
+    let mut changed = false;
+    let mut hovered = false;
+    ui.push_id(id);
+    let col = ui.col(|ui| {
+        ui.row(|ui| {
+            ui.txt(label)
+                .sz(crate::theme::fs(11.0))
+                .semibold()
+                .fg(if enabled { TEXT_PRIMARY } else { TEXT_DIM })
+                .ellipsis()
+                .grow(1.0);
+            if !value_text.is_empty() {
+                ui.txt(value_text)
+                    .sz(crate::theme::fs(10.5))
+                    .medium()
+                    .fg(if enabled { accent } else { TEXT_DIM });
+            }
+        })
+        .align_center()
+        .gap(6.0);
+
+        let mut resp = ui
+            .slider("__track", value, range)
+            .compact()
+            .no_bg()
+            .borderless()
+            .no_focus_ring()
+            .track_h(14.0)
+            .track_bg(tint_alpha(accent, 34))
+            .track_bd(1.0, tint_alpha(accent, 150))
+            .fill(accent)
+            .enabled(enabled)
+            .w_frac(1.0);
+        changed = resp.changed();
+        hovered = resp.hovered();
+    });
+    let mut col_resp = if flat {
+        col.px(2.0).py(3.0).gap(4.0).w_frac(1.0)
+    } else {
+        col.px(10.0)
+            .py(7.0)
+            .gap(5.0)
+            .bg(card_inner_bg())
+            .hover_bg(tile_idle_hover())
+            .bd(1.0, tint_alpha(accent, 95))
+            .bevel(8.0)
+            .opacity(if enabled { 1.0 } else { 0.48 })
+            .grow(1.0)
+    };
+    hovered |= col_resp.hovered();
+    ui.pop_id();
+    SliderResult { changed, hovered }
+}
 
 pub struct TileColors {
     pub bg: Color,

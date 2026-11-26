@@ -505,7 +505,9 @@ pub unsafe extern "C" fn lumenic_cvr_pointer_move(
             let glow_moved = glow_enabled
                 && (lx - updated_drag.last_glow_pos[0]).hypot(ly - updated_drag.last_glow_pos[1])
                     > glow_threshold;
-            surf.ui_mut().on_pointer_move(lx, ly);
+            if !updated_drag.is_dragging_scroll {
+                surf.ui_mut().on_pointer_move(lx, ly);
+            }
             if glow_moved {
                 updated_drag.last_glow_pos = [lx, ly];
                 surf.mark_dirty();
@@ -527,9 +529,11 @@ pub unsafe extern "C" fn lumenic_cvr_pointer_move(
 
                 if !updated_drag.is_dragging_scroll && wants_scroll {
                     updated_drag.is_dragging_scroll = true;
-                    // Cancel the underlying button press so releasing after a drag-scroll does not trigger a click.
+                    // Cancel the underlying button press so releasing after a drag-scroll does not trigger a click,
+                    // and anchor pointer_pos at press_pos so out-of-bounds drags still target the scroll container.
                     surf.ui_mut().on_pointer_cancel();
-                    surf.ui_mut().on_pointer_move(lx, ly);
+                    surf.ui_mut()
+                        .on_pointer_move(updated_drag.press_pos[0], updated_drag.press_pos[1]);
                     surf.mark_dirty();
                 }
 
@@ -2062,6 +2066,308 @@ mod tests {
                     .any(|a| matches!(a, state::UiAction::UiLibSelectTab { .. })),
                 "drag-scroll should cancel underlying tab click, got actions: {actions_snapshot:?}"
             );
+
+            lumenic_cvr_destroy(handle);
+        }
+    }
+
+    #[test]
+    fn ffi_quick_menu_drag_scroll_outside_bounds() {
+        let handle = lumenic_cvr_create(1280, 720, 800, 800, 1.0);
+        assert!(!handle.is_null());
+
+        unsafe {
+            {
+                let hnd = &mut *handle;
+                hnd.state.host.notifications = (0..12)
+                    .map(|i| state::NotificationItem {
+                        id: format!("notif_{i}"),
+                        title: format!("Notification {i}"),
+                        body: format!("Body {i}"),
+                        category: String::from("info"),
+                        buttons: Vec::new(),
+                    })
+                    .collect();
+            }
+
+            let _ = lumenic_cvr_step(handle, SURFACE_QUICK, 0.016, true);
+            let _ = lumenic_cvr_step(handle, SURFACE_QUICK, 0.016, true);
+
+            let (scroll_rect, max_y) = {
+                let hnd = &*handle;
+                let surf = hnd.host.surface(hnd.quick_surface).unwrap();
+                let rect = surf
+                    .ui()
+                    .semantics()
+                    .iter()
+                    .find(|n| n.label.contains("Notification 0"))
+                    .map(|n| n.bounds)
+                    .expect("expected Notification 0 semantic node");
+                (rect, surf.ui().scroll_max_y("qm_notifications_scroll"))
+            };
+            assert!(max_y > 10.0, "expected vertical overflow, got max_y={max_y}");
+
+            let start_x = scroll_rect.x + scroll_rect.w * 0.5;
+            let start_y = scroll_rect.y + scroll_rect.h * 0.5;
+            lumenic_cvr_pointer_move(handle, SURFACE_QUICK, start_x, start_y);
+            lumenic_cvr_pointer_down(handle, SURFACE_QUICK, 0);
+            // Drag outside surface bounds (x = -120, y = -80)
+            for step in 1..=6 {
+                lumenic_cvr_pointer_move(
+                    handle,
+                    SURFACE_QUICK,
+                    start_x - (step as f32) * 80.0,
+                    start_y - (step as f32) * 90.0,
+                );
+            }
+            lumenic_cvr_pointer_up(handle, SURFACE_QUICK, 0);
+
+            let _ = lumenic_cvr_step(handle, SURFACE_QUICK, 0.016, true);
+            let _ = lumenic_cvr_step(handle, SURFACE_QUICK, 0.016, true);
+
+            let offset_y = {
+                let hnd = &*handle;
+                let surf = hnd.host.surface(hnd.quick_surface).unwrap();
+                surf.ui().scroll_offset("qm_notifications_scroll")
+            };
+            assert!(
+                offset_y > 10.0,
+                "expected out-of-bounds drag to scroll qm_notifications_scroll, got offset_y={offset_y}"
+            );
+
+            lumenic_cvr_destroy(handle);
+        }
+    }
+
+    #[test]
+    fn ffi_audit_max_font_scale_bounds() {
+        let handle = lumenic_cvr_create(1280, 720, 800, 800, 1.0);
+        assert!(!handle.is_null());
+
+        unsafe {
+            {
+                let hnd = &mut *handle;
+                hnd.state.host.font_scale = 1.5;
+                hnd.state.host.username = String::from("LensErrorLongName");
+                hnd.state.host.user_rank = String::from("Community Guide");
+                hnd.state.host.featured_badge = String::from("Founder Badge");
+                hnd.state.host.featured_group = String::from("Lumenic Builders");
+                hnd.state.host.world_name = String::from("ChilloutVR Home World");
+                hnd.state.host.notifications = (0..5)
+                    .map(|i| state::NotificationItem {
+                        id: format!("n_{i}"),
+                        title: format!("Notification Title {i}"),
+                        body: format!("Notification body text {i}"),
+                        category: String::from("info"),
+                        buttons: Vec::new(),
+                    })
+                    .collect();
+            }
+
+            // Audit Quick Menu (800x800) & Main Menu (1280x720) for Button-vs-Label overflow at font_scale=1.5
+            let check_surface = |name: &str, surf: &lumenic::OffscreenSurface, vw: f32| {
+                let nodes = surf.ui().semantics();
+                let mut issues = Vec::new();
+                let buttons: Vec<_> = nodes
+                    .iter()
+                    .filter(|n| n.role == lumenic::Role::Button)
+                    .collect();
+                for n in nodes {
+                    let b = n.bounds;
+                    if n.role == lumenic::Role::Label
+                        && !n.label.is_empty()
+                        && !n.label.starts_with("Notification ")
+                        && !(name == "MM[settings]" && b.y >= 615.0)
+                    {
+                        let mut best_btn: Option<&&lumenic::SemanticNode> = None;
+                        for btn in &buttons {
+                            let bb = btn.bounds;
+                            let cx = b.x + b.w * 0.5;
+                            let cy = b.y + b.h * 0.5;
+                            if cx >= bb.x - 4.0 && cx <= bb.x + bb.w + 4.0 && cy >= bb.y - 4.0 && cy <= bb.y + bb.h + 4.0 {
+                                if best_btn.is_none_or(|prev| bb.w * bb.h < prev.bounds.w * prev.bounds.h) {
+                                    best_btn = Some(btn);
+                                }
+                            }
+                        }
+                        if let Some(btn) = best_btn {
+                            let bb = btn.bounds;
+                            let ov_x = (b.x < bb.x - 1.5) || (b.x + b.w > bb.x + bb.w + 1.5);
+                            let ov_y = (b.y < bb.y - 1.5) || (b.y + b.h > bb.y + bb.h + 1.5);
+                            if ov_x || ov_y {
+                                issues.push(format!(
+                                    "{name} BTN-CLIP '{}' lbl=[{:.0},{:.0},{:.0}x{:.0}] btn=[{:.0},{:.0},{:.0}x{:.0}]",
+                                    n.label, b.x, b.y, b.w, b.h, bb.x, bb.y, bb.w, bb.h
+                                ));
+                            }
+                        }
+                    }
+                    if b.x < -1.0 || b.x + b.w > vw + 1.0 {
+                        issues.push(format!(
+                            "{name} X-OVF {:?} '{}' [{:.0},{:.0},{:.0}x{:.0}]",
+                            n.role, n.label, b.x, b.y, b.w, b.h
+                        ));
+                    }
+                }
+                assert!(
+                    issues.is_empty(),
+                    "{name} has max font_scale (1.5) layout issues:\n{}",
+                    issues.join("\n")
+                );
+            };
+
+            let _ = lumenic_cvr_step(handle, SURFACE_QUICK, 0.016, true);
+            let _ = lumenic_cvr_step(handle, SURFACE_QUICK, 0.016, true);
+            check_surface("QM", (&*handle).host.surface((&*handle).quick_surface).unwrap(), 800.0);
+
+            for tab in ["home", "friends", "worlds", "avatars", "props", "settings"] {
+                (&mut *handle).state.main_menu.active_tab = String::from(tab);
+                let _ = lumenic_cvr_step(handle, SURFACE_MAIN, 0.016, true);
+                let _ = lumenic_cvr_step(handle, SURFACE_MAIN, 0.016, true);
+                check_surface(
+                    &format!("MM[{tab}]"),
+                    (&*handle).host.surface((&*handle).main_surface).unwrap(),
+                    1280.0,
+                );
+            }
+
+            lumenic_cvr_destroy(handle);
+        }
+    }
+
+    #[test]
+    fn ffi_slider_drag_updates_value() {
+        let handle = lumenic_cvr_create(1280, 720, 800, 800, 1.0);
+        assert!(!handle.is_null());
+
+        unsafe {
+            {
+                let hnd = &mut *handle;
+                hnd.state.host.audio_master = 50;
+                hnd.state.quick.master_slider = 50.0;
+                hnd.state.quick.last_host_master = 50;
+            }
+            let _ = lumenic_cvr_step(handle, SURFACE_QUICK, 0.016, true);
+            let _ = lumenic_cvr_step(handle, SURFACE_QUICK, 0.016, true);
+
+            let slider_rect = {
+                let hnd = &*handle;
+                let surf = hnd.host.surface(hnd.quick_surface).unwrap();
+                surf.ui()
+                    .semantics()
+                    .iter()
+                    .find(|n| n.role == lumenic::Role::Slider)
+                    .map(|n| n.bounds)
+                    .expect("expected Master Volume slider")
+            };
+
+            let start_x = slider_rect.x + slider_rect.w * 0.5;
+            let cy = slider_rect.y + slider_rect.h * 0.5;
+            lumenic_cvr_pointer_move(handle, SURFACE_QUICK, start_x, cy);
+            let _ = lumenic_cvr_step(handle, SURFACE_QUICK, 0.016, false);
+            lumenic_cvr_pointer_down(handle, SURFACE_QUICK, 0);
+            let _ = lumenic_cvr_step(handle, SURFACE_QUICK, 0.016, false);
+
+            for i in 1..=5 {
+                lumenic_cvr_pointer_move(handle, SURFACE_QUICK, start_x + (i as f32) * 16.0, cy);
+                let _ = lumenic_cvr_step(handle, SURFACE_QUICK, 0.016, false);
+            }
+            let val_after = (&*handle).state.quick.master_slider;
+            lumenic_cvr_pointer_up(handle, SURFACE_QUICK, 0);
+
+            assert!(val_after > 65.0, "dragging QM slider right should increase value past 65, got {val_after}");
+
+            // Also verify MM Settings slider (previously broke drag due to dynamic label WidgetId)
+            (&mut *handle).state.main_menu.active_tab = String::from("settings");
+            let _ = lumenic_cvr_step(handle, SURFACE_MAIN, 0.016, true);
+            let _ = lumenic_cvr_step(handle, SURFACE_MAIN, 0.016, true);
+            let mm_slider_rect = {
+                let hnd = &*handle;
+                let surf = hnd.host.surface(hnd.main_surface).unwrap();
+                surf.ui()
+                    .semantics()
+                    .iter()
+                    .find(|n| n.role == lumenic::Role::Slider)
+                    .map(|n| n.bounds)
+                    .expect("expected Settings slider")
+            };
+            let mm_sx = mm_slider_rect.x + mm_slider_rect.w * 0.35;
+            let mm_cy = mm_slider_rect.y + mm_slider_rect.h * 0.5;
+            (&mut *handle).actions.clear();
+            lumenic_cvr_pointer_move(handle, SURFACE_MAIN, mm_sx, mm_cy);
+            let _ = lumenic_cvr_step(handle, SURFACE_MAIN, 0.016, false);
+            lumenic_cvr_pointer_down(handle, SURFACE_MAIN, 0);
+            let _ = lumenic_cvr_step(handle, SURFACE_MAIN, 0.016, false);
+            for i in 1..=5 {
+                lumenic_cvr_pointer_move(handle, SURFACE_MAIN, mm_sx + (i as f32) * 40.0, mm_cy);
+                let _ = lumenic_cvr_step(handle, SURFACE_MAIN, 0.016, false);
+            }
+            lumenic_cvr_pointer_up(handle, SURFACE_MAIN, 0);
+            let hz_actions: Vec<i32> = (&*handle)
+                .actions
+                .iter()
+                .filter_map(|a| match a {
+                    state::UiAction::SetMaxRefreshHz { hz } => Some(*hz),
+                    _ => None,
+                })
+                .collect();
+            assert!(
+                hz_actions.len() >= 3,
+                "dragging MM Settings slider should continuously emit updates across frames, got {hz_actions:?}"
+            );
+            lumenic_cvr_destroy(handle);
+        }
+    }
+
+    #[test]
+    fn ffi_quick_menu_wheel_scroll_without_click() {
+        let handle = lumenic_cvr_create(1280, 720, 800, 800, 1.0);
+        assert!(!handle.is_null());
+
+        unsafe {
+            {
+                let hnd = &mut *handle;
+                hnd.state.host.notifications = (0..12)
+                    .map(|i| state::NotificationItem {
+                        id: format!("notif_{i}"),
+                        title: format!("Notification {i}"),
+                        body: format!("Body {i}"),
+                        category: String::from("info"),
+                        buttons: Vec::new(),
+                    })
+                    .collect();
+            }
+
+            let _ = lumenic_cvr_step(handle, SURFACE_QUICK, 0.016, true);
+            let _ = lumenic_cvr_step(handle, SURFACE_QUICK, 0.016, true);
+
+            let (scroll_rect, max_y) = {
+                let hnd = &*handle;
+                let surf = hnd.host.surface(hnd.quick_surface).unwrap();
+                let rect = surf
+                    .ui()
+                    .semantics()
+                    .iter()
+                    .find(|n| n.label.contains("Notification 0"))
+                    .map(|n| n.bounds)
+                    .expect("expected Notification 0 semantic node");
+                (rect, surf.ui().scroll_max_y("qm_notifications_scroll"))
+            };
+            assert!(max_y > 10.0, "expected vertical overflow on qm_notifications_scroll, got max_y={max_y}");
+
+            let cx = scroll_rect.x + scroll_rect.w * 0.5;
+            let cy = scroll_rect.y + scroll_rect.h * 0.5;
+            lumenic_cvr_pointer_move(handle, SURFACE_QUICK, cx, cy);
+            lumenic_cvr_pointer_scroll(handle, SURFACE_QUICK, 0.0, -3.0);
+
+            let flags = lumenic_cvr_step(handle, SURFACE_QUICK, 0.016, false);
+            let offset_y = {
+                let hnd = &*handle;
+                let surf = hnd.host.surface(hnd.quick_surface).unwrap();
+                surf.ui().scroll_offset("qm_notifications_scroll")
+            };
+            assert_ne!(flags & STEP_FLAG_RENDERED, 0, "scroll without click should render a frame");
+            assert!(offset_y > 1.0, "scroll without click should scroll qm_notifications_scroll, got offset_y={offset_y}");
 
             lumenic_cvr_destroy(handle);
         }

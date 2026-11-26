@@ -357,15 +357,19 @@ pub fn render_uix_mod_settings(
                                         let min_f = entry.min_val as f32;
                                         let max_f = entry.max_val.max(entry.min_val + 0.001) as f32;
 
-                                        ui.push_id(&full_key);
-                                        let mut resp = ui
-                                            .slider(&entry.display_name, &mut slider_v, min_f..=max_f)
-                                            .fill(accent)
-                                            .bg(card_inner_bg())
-                                            .bd(1.0, border_subtle())
-                                            .bevel_rounded(7.0, 1.3)
-                                            .w_frac(1.0);
-                                        if resp.changed() {
+                                        let val_txt = format!("{slider_v:.2}");
+                                        let res = crate::widgets::styled_slider(
+                                            ui,
+                                            &full_key,
+                                            &entry.display_name,
+                                            &val_txt,
+                                            &mut slider_v,
+                                            min_f..=max_f,
+                                            accent,
+                                            true,
+                                            false,
+                                        );
+                                        if res.changed {
                                             let mut snapped = slider_v as f64;
                                             if entry.snap_val > 0.0 {
                                                 snapped = (snapped / entry.snap_val).round()
@@ -380,10 +384,9 @@ pub fn render_uix_mod_settings(
                                                 save: false,
                                             });
                                         }
-                                        if !entry.description.is_empty() && resp.hovered() {
+                                        if !entry.description.is_empty() && res.hovered {
                                             state.main_menu.hovered_tooltip = entry.description.clone();
                                         }
-                                        ui.pop_id();
                                     }
 
                                     "number" => {

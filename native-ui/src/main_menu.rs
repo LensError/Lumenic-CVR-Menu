@@ -790,14 +790,19 @@ fn render_home_dashboard(
                         if ui
                             .btn_with(btn_id, |ui| {
                                 ui.row(|ui| {
-                                    icons::icon(ui, ic, 12.5).fg(accent);
-                                    ui.txt(lbl).sz(crate::theme::fs(10.5)).semibold().fg(TEXT_PRIMARY);
+                                    icons::icon(ui, ic, 11.5).fg(accent);
+                                    ui.txt(lbl)
+                                        .sz(crate::theme::fs(10.5).min(13.5))
+                                        .semibold()
+                                        .fg(TEXT_PRIMARY)
+                                        .ellipsis();
                                 })
                                 .center()
                                 .grow(1.0)
-                                .gap(4.0);
+                                .gap(3.0);
                             })
                             .grow(1.0)
+                            .px(4.0)
                             .py(5.5)
                             .bg(tile_idle_bg())
                             .hover_bg(tile_idle_hover())
@@ -840,18 +845,20 @@ fn render_home_dashboard(
                         if ui
                             .btn_with(&id, |ui| {
                                 ui.row(|ui| {
-                                    icons::icon(ui, ic, 12.0)
+                                    icons::icon(ui, ic, 11.5)
                                         .fg(if active { accent } else { TEXT_DIM });
                                     ui.txt(lbl)
-                                        .sz(crate::theme::fs(10.5))
+                                        .sz(crate::theme::fs(10.5).min(13.5))
                                         .semibold()
-                                        .fg(if active { TEXT_PRIMARY } else { TEXT_MUTED });
+                                        .fg(if active { TEXT_PRIMARY } else { TEXT_MUTED })
+                                        .ellipsis();
                                 })
                                 .center()
-                                .gap(4.0)
+                                .gap(3.0)
                                 .grow(1.0);
                             })
                             .grow(1.0)
+                            .px(4.0)
                             .py(4.5)
                             .bg(if active {
                                 tint_alpha(accent, 45)
@@ -1261,7 +1268,7 @@ fn render_home_dashboard(
             .bevel_rounded(10.5, 2.0)
             .shadow(14.0, SHADOW_CARD);
         })
-        .w(268.0)
+        .w(crate::theme::text_box(268.0).min(308.0))
         .h_frac(1.0)
         .gap(9.0);
 
@@ -1495,9 +1502,10 @@ fn render_home_dashboard(
                                 icons::icon(ui, icons::AVATAR, 14.0)
                                     .fg(Color::rgb(203, 213, 225));
                                 ui.txt("Remove All Avatars")
-                                    .sz(crate::theme::fs(10.5))
+                                    .sz(crate::theme::fs(10.5).min(13.0))
                                     .semibold()
-                                    .fg(TEXT_PRIMARY);
+                                    .fg(TEXT_PRIMARY)
+                                    .ellipsis();
                             })
                             .center()
                             .gap(5.0)
@@ -1522,9 +1530,10 @@ fn render_home_dashboard(
                             ui.row(|ui| {
                                 icons::icon(ui, icons::TRASH, 14.0).fg(RED);
                                 ui.txt("Remove All Props")
-                                    .sz(crate::theme::fs(10.5))
+                                    .sz(crate::theme::fs(10.5).min(13.0))
                                     .semibold()
-                                    .fg(TEXT_PRIMARY);
+                                    .fg(TEXT_PRIMARY)
+                                    .ellipsis();
                             })
                             .center()
                             .gap(5.0)
@@ -1555,9 +1564,10 @@ fn render_home_dashboard(
                             ui.row(|ui| {
                                 icons::icon(ui, icons::CUBE, 14.0).fg(accent);
                                 ui.txt("Delete My Props")
-                                    .sz(crate::theme::fs(10.5))
+                                    .sz(crate::theme::fs(10.5).min(13.0))
                                     .semibold()
-                                    .fg(TEXT_PRIMARY);
+                                    .fg(TEXT_PRIMARY)
+                                    .ellipsis();
                             })
                             .center()
                             .gap(5.0)
@@ -1582,9 +1592,10 @@ fn render_home_dashboard(
                             ui.row(|ui| {
                                 icons::icon(ui, icons::TRASH, 14.0).fg(AMBER);
                                 ui.txt("Delete Mode")
-                                    .sz(crate::theme::fs(10.5))
+                                    .sz(crate::theme::fs(10.5).min(13.0))
                                     .semibold()
-                                    .fg(TEXT_PRIMARY);
+                                    .fg(TEXT_PRIMARY)
+                                    .ellipsis();
                             })
                             .center()
                             .gap(5.0)
@@ -1614,10 +1625,11 @@ fn render_home_dashboard(
                         ui.col(|ui| {
                             icons::icon(ui, icons::FBT, 20.0).fg(Color::rgb(203, 213, 225));
                             ui.txt("Recalibrate")
-                                .sz(crate::theme::fs(11.0))
+                                .sz(crate::theme::fs(11.0).min(14.0))
                                 .semibold()
                                 .align(TextAlign::Center)
-                                .fg(TEXT_PRIMARY);
+                                .fg(TEXT_PRIMARY)
+                                .ellipsis();
                         })
                         .center()
                         .gap(5.0)
@@ -1636,7 +1648,7 @@ fn render_home_dashboard(
                     actions.push(UiAction::RecalibrateAvatar);
                 }
             })
-            .h(78.0)
+            .h(crate::theme::text_box(78.0).min(94.0))
             .p(8.0)
             .gap(7.0)
             .bg(card_bg())

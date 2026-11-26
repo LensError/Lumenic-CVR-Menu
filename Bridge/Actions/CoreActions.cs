@@ -75,6 +75,14 @@ internal static class CoreActions
         map["SetQmModTabsIconOnly"] = (obj, mod) => { Settings.SetQmModTabsIconOnly(obj.Value<bool>("enabled")); mod.MarkStateDirty(StateDomain.Core); };
         map["SetDesktopScrollMultiplier"] = (obj, mod) => { Settings.SetDesktopScrollMultiplier(obj.Value<float>("value")); mod.MarkStateDirty(StateDomain.Core); };
         map["SetVrScrollMultiplier"] = (obj, mod) => { Settings.SetVrScrollMultiplier(obj.Value<float>("value")); mod.MarkStateDirty(StateDomain.Core); };
+        map["SetHudSpread"] = (obj, mod) => { Settings.SetHudSpread(obj.Value<bool>("is_vr"), obj.Value<float>("value")); mod.Hud?.TriggerLayoutPreview(); mod.MarkStateDirty(StateDomain.Core); };
+        map["SetHudSpreadY"] = (obj, mod) => { Settings.SetHudSpreadY(obj.Value<bool>("is_vr"), obj.Value<float>("value")); mod.Hud?.TriggerLayoutPreview(); mod.MarkStateDirty(StateDomain.Core); };
+        map["SetHudElementScale"] = (obj, mod) => { Settings.SetHudElementScale(obj.Value<bool>("is_vr"), obj.Value<string>("element") ?? string.Empty, obj.Value<float>("value")); mod.Hud?.TriggerLayoutPreview(); mod.MarkStateDirty(StateDomain.Core); };
+        map["ResetHudLayout"] = (obj, mod) => { Settings.ResetHudLayout(obj.Value<bool>("is_vr")); mod.Hud?.TriggerLayoutPreview(); mod.MarkStateDirty(StateDomain.Core); };
+        map["SetHudSpread"] = (obj, mod) => { Settings.SetHudSpread(obj.Value<bool>("is_vr"), obj.Value<float>("value")); mod.Hud?.TriggerLayoutPreview(); mod.MarkStateDirty(StateDomain.Core); };
+        map["SetHudSpreadY"] = (obj, mod) => { Settings.SetHudSpreadY(obj.Value<bool>("is_vr"), obj.Value<float>("value")); mod.Hud?.TriggerLayoutPreview(); mod.MarkStateDirty(StateDomain.Core); };
+        map["SetHudElementScale"] = (obj, mod) => { Settings.SetHudElementScale(obj.Value<bool>("is_vr"), obj.Value<string>("element") ?? string.Empty, obj.Value<float>("value")); mod.Hud?.TriggerLayoutPreview(); mod.MarkStateDirty(StateDomain.Core); };
+        map["ResetHudLayout"] = (obj, mod) => { Settings.ResetHudLayout(obj.Value<bool>("is_vr")); mod.Hud?.TriggerLayoutPreview(); mod.MarkStateDirty(StateDomain.Core); };
         map["SetFontScale"] = (obj, mod) => { Settings.SetFontScale(obj.Value<float>("scale")); mod.MarkStateDirty(StateDomain.Core); };
         map["ToggleUiClickSounds"] = (_, mod) => { Settings.SetUiClickSounds(!Settings.UiClickSounds); mod.MarkStateDirty(StateDomain.Core); };
         map["SetUiSoundPack"] = (obj, mod) => { Settings.SetUiSoundPack(obj.Value<string>("pack") ?? "Glass"); mod.MarkStateDirty(StateDomain.Core); };

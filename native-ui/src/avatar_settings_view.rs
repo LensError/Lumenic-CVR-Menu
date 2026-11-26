@@ -817,21 +817,24 @@ pub fn render_avatar_settings_page(
                             *last_s = cur_h;
                         }
                         let mut h_val = cur_s.clamp(min_h, max_h);
-                        ui.push_id("__universal_height");
-                        if ui
-                            .slider("Height (m)", &mut h_val, min_h..=max_h)
-                            .fill(accent)
-                            .bg(card_bg())
-                            .bd(1.0, border_subtle())
-                            .bevel_rounded(5.5, 1.3)
-                            .w_frac(1.0)
-                            .changed()
+                        let h_txt = format!("{h_val:.2} m");
+                        if crate::widgets::styled_slider(
+                            ui,
+                            "__universal_height",
+                            "Height",
+                            &h_txt,
+                            &mut h_val,
+                            min_h..=max_h,
+                            accent,
+                            true,
+                            false,
+                        )
+                        .changed
                         {
                             *cur_s = h_val;
                             *last_s = h_val;
                             actions.push(UiAction::AvatarSetHeight { height: h_val });
                         }
-                        ui.pop_id();
                     }
                 })
                 .w_frac(1.0)
@@ -914,15 +917,19 @@ fn render_slider_axis(
         *last_host = host_val;
     }
     let mut v = cur.clamp(min_v, safe_max);
-    ui.push_id(key);
-    if ui
-        .slider(label, &mut v, min_v..=safe_max)
-        .fill(accent)
-        .bg(card_inner_bg())
-        .bd(1.0, border_subtle())
-        .bevel_rounded(6.0, 1.3)
-        .w_frac(1.0)
-        .changed()
+    let val_txt = format!("{v:.2}");
+    if crate::widgets::styled_slider(
+        ui,
+        key,
+        label,
+        &val_txt,
+        &mut v,
+        min_v..=safe_max,
+        accent,
+        true,
+        false,
+    )
+    .changed
     {
         *cur = v;
         *last_host = v;
@@ -931,7 +938,6 @@ fn render_slider_axis(
             value: v,
         });
     }
-    ui.pop_id();
 }
 
 fn render_param_card(

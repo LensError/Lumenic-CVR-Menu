@@ -1,6 +1,8 @@
 using System;
 using System.Threading;
+using ABI_RC.Core;
 using ABI_RC.Core.InteractionSystem;
+using ABI_RC.Core.Player;
 using ABI_RC.Core.Savior;
 using ABI_RC.Core.UI;
 using ABI_RC.Core.UI.UIRework;
@@ -18,7 +20,7 @@ namespace LumenicMenu;
 
 public sealed class LumenicMenuMod : MelonMod
 {
-    public const string ModVersion = "0.3.5";
+    public const string ModVersion = "0.3.6";
     private const string InputLockReason = "LumenicMenu";
 
     public static LumenicMenuMod Instance { get; private set; }
@@ -239,6 +241,7 @@ public sealed class LumenicMenuMod : MelonMod
 
         if (anyVisible)
         {
+            EnsureUiRayActive(onOpen: false);
             PushStateIfNeeded();
         }
 
@@ -505,8 +508,45 @@ public sealed class LumenicMenuMod : MelonMod
         {
             MarkStateDirty(StateDomain.Core | StateDomain.UiLib);
         }
+        EnsureUiRayActive(onOpen: true);
         GetSurface(surfaceId)?.RequestForceRedraw();
         AvatarSettingsBridge.RefreshPreviewRendering();
+    }
+
+    private static void EnsureUiRayActive(bool onOpen)
+    {
+        PlayerSetup ps = PlayerSetup.Instance;
+        if (ps == null)
+            return;
+
+        bool isVr = MetaPort.Instance != null && MetaPort.Instance.isUsingVr;
+        if (!isVr)
+        {
+            if (ps.desktopRay != null && !ps.desktopRay.uiActive)
+            {
+                ps.desktopRay.uiActive = true;
+            }
+            return;
+        }
+
+        if (!onOpen)
+            return;
+
+        bool leftActive = ps.vrRayLeft != null && ps.vrRayLeft.uiActive;
+        bool rightActive = ps.vrRayRight != null && ps.vrRayRight.uiActive;
+        if (leftActive || rightActive)
+            return;
+
+        CVRHand preferred = CVR_MenuManager.Instance != null
+            ? CVR_MenuManager.Instance.lastInteractedHand
+            : CVRHand.Right;
+        ControllerRay target = preferred == CVRHand.Left
+            ? (ps.vrRayLeft ?? ps.vrRayRight)
+            : (ps.vrRayRight ?? ps.vrRayLeft);
+        if (target != null)
+        {
+            target.uiActive = true;
+        }
     }
 
     internal void OnMenuClosedOrReloaded(uint surfaceId)

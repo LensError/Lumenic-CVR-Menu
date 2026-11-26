@@ -102,6 +102,7 @@ internal sealed class LumenicHudManager : IDisposable
     }
 
     private GameObject _rootGo;
+    private RectTransform _rootRt;
     private Canvas _canvas;
     private CanvasGroup _rootGroup;
     private Sprite _roundedSprite;
@@ -113,7 +114,11 @@ internal sealed class LumenicHudManager : IDisposable
     private bool _prevEnabled;
 
     // Status & Mic
+    private RectTransform _statusClusterRt;
+    private RectTransform _statusRowRt;
     private GameObject _micCard;
+    private float _lastAppliedAlertsScale = -1f;
+    private float _lastAppliedMicScale = -1f;
     private Image _micIcon;
     private Image _micFillIcon;
     private Image _micTile;
@@ -138,11 +143,13 @@ internal sealed class LumenicHudManager : IDisposable
     private GameObject _badgeInfo;
 
     // Toasts
+    private RectTransform _toastStackRt;
     private readonly List<ToastEntry> _toasts = new List<ToastEntry>();
     private readonly List<ToastCardRefs> _toastCards = new List<ToastCardRefs>();
     private bool _toastsDirty = true;
 
     // Join / leave feed (lower left)
+    private RectTransform _joinFeedRt;
     private readonly List<FeedEntry> _joinFeed = new List<FeedEntry>();
     private readonly List<FeedRowRefs> _feedRows = new List<FeedRowRefs>();
     private bool _feedDirty = true;
@@ -196,6 +203,14 @@ internal sealed class LumenicHudManager : IDisposable
     private bool _chatOrPortalActive;
     private bool _isTestPortalActive;
     private float _portalPulsePhase;
+    private float _previewAllUntil;
+
+    public void TriggerLayoutPreview(float seconds = 3.5f)
+    {
+        float now = Time.unscaledTime;
+        _previewAllUntil = now + seconds;
+        _lastActivityTime = now;
+    }
 
     public static bool IsVanillaHudView(CohtmlControlledView view)
     {
@@ -237,12 +252,13 @@ internal sealed class LumenicHudManager : IDisposable
         }
 
         SuppressVanillaRenderers();
-        UpdateCanvasTransformAndVisibility();
-        UpdateToastLifecycle();
-        UpdateMicAndStatusWidgets();
-        UpdateJoinFeed();
-        UpdateNotificationBadges();
-        UpdateBottomCenterCard();
+        bool previewAll = Time.unscaledTime < _previewAllUntil;
+        UpdateCanvasTransformAndVisibility(previewAll);
+        UpdateToastLifecycle(previewAll);
+        UpdateMicAndStatusWidgets(previewAll);
+        UpdateJoinFeed(previewAll);
+        UpdateNotificationBadges(previewAll);
+        UpdateBottomCenterCard(previewAll);
     }
 
     private void OnEnableChanged(bool enabled)
@@ -637,6 +653,7 @@ internal sealed class LumenicHudManager : IDisposable
         _rootGroup.blocksRaycasts = false;
 
         var rootRt = _rootGo.GetComponent<RectTransform>();
+        _rootRt = rootRt;
         rootRt.sizeDelta = new Vector2(ReferenceWidth, ReferenceHeight);
         rootRt.pivot = new Vector2(0.5f, 0.5f);
 
@@ -656,6 +673,7 @@ internal sealed class LumenicHudManager : IDisposable
     private void BuildToastContainer(RectTransform parent)
     {
         var container = CreateRect("ToastStack", parent, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -18f), new Vector2(340f, 240f));
+        _toastStackRt = container;
         var layout = container.gameObject.AddComponent<VerticalLayoutGroup>();
         layout.spacing = 6f;
         layout.childAlignment = TextAnchor.UpperCenter;
@@ -756,6 +774,7 @@ internal sealed class LumenicHudManager : IDisposable
     {
         float feedH = MaxFeedRows * 20f + (MaxFeedRows - 1) * 3f;
         var col = CreateRect("StatusCluster", parent, Vector2.zero, Vector2.zero, Vector2.zero, new Vector2(16f, 16f), new Vector2(320f, feedH + 6f + 34f));
+        _statusClusterRt = col;
         var vlg = col.gameObject.AddComponent<VerticalLayoutGroup>();
         vlg.spacing = 6f;
         vlg.childAlignment = TextAnchor.LowerLeft;
@@ -765,6 +784,7 @@ internal sealed class LumenicHudManager : IDisposable
         vlg.childForceExpandHeight = false;
 
         var feed = CreateRect("JoinFeed", col, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero, new Vector2(240f, feedH));
+        _joinFeedRt = feed;
         var feedVlg = feed.gameObject.AddComponent<VerticalLayoutGroup>();
         feedVlg.spacing = 3f;
         feedVlg.childAlignment = TextAnchor.LowerLeft;
@@ -776,6 +796,7 @@ internal sealed class LumenicHudManager : IDisposable
             BuildFeedRow(feed, i);
 
         var row = CreateRect("StatusRow", col, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero, new Vector2(320f, 34f));
+        _statusRowRt = row;
         var hlg = row.gameObject.AddComponent<HorizontalLayoutGroup>();
         hlg.spacing = 6f;
         hlg.childAlignment = TextAnchor.MiddleLeft;
@@ -912,7 +933,7 @@ internal sealed class LumenicHudManager : IDisposable
 
     // --- Per-Frame Updates ---
 
-    private void UpdateCanvasTransformAndVisibility()
+    private void UpdateCanvasTransformAndVisibility(bool previewAll)
     {
         if (_rootGo == null || _rootGroup == null)
             return;
@@ -934,13 +955,79 @@ internal sealed class LumenicHudManager : IDisposable
         float dist = isVr ? 1.25f : 1.30f;
         float fovRad = uiCam.fieldOfView * 0.5f * Mathf.Deg2Rad;
         float frustumH = 2f * dist * Mathf.Tan(fovRad);
-        float fill = isVr ? 0.62f : 0.90f;
-        float scale = frustumH * fill / ReferenceHeight / parentScale;
+        float baseFill = isVr ? 0.54f : 0.90f;
+        float hudSpreadX = isVr ? Settings.HudSpreadVr : Settings.HudSpreadDesktop;
+        float hudSpreadY = isVr ? Settings.HudSpreadYVr : Settings.HudSpreadYDesktop;
+        float scale = frustumH * baseFill / ReferenceHeight / parentScale;
+
+        if (_rootRt != null)
+        {
+            float targetW = ReferenceWidth * hudSpreadX;
+            float targetH = ReferenceHeight * hudSpreadY;
+            if (Mathf.Abs(_rootRt.sizeDelta.x - targetW) > 0.5f || Mathf.Abs(_rootRt.sizeDelta.y - targetH) > 0.5f)
+            {
+                _rootRt.sizeDelta = new Vector2(targetW, targetH);
+            }
+        }
 
         float offsetY = isVr ? -0.08f * frustumH : 0f;
         _rootGo.transform.localPosition = new Vector3(0f, offsetY, dist) / parentScale;
         _rootGo.transform.localRotation = Quaternion.identity;
         _rootGo.transform.localScale = new Vector3(scale, scale, scale);
+
+        float alertsScale = isVr ? Settings.HudAlertsScaleVr : Settings.HudAlertsScaleDesktop;
+        float micScale = isVr ? Settings.HudMicScaleVr : Settings.HudMicScaleDesktop;
+        bool statusLayoutDirty = false;
+        if (Mathf.Abs(_lastAppliedAlertsScale - alertsScale) > 0.002f)
+        {
+            _lastAppliedAlertsScale = alertsScale;
+            ApplySizedChip(_badgeFriends, 24f, 13f, alertsScale);
+            ApplySizedChip(_badgeInvites, 24f, 13f, alertsScale);
+            ApplySizedChip(_badgeVotes, 24f, 13f, alertsScale);
+            ApplySizedChip(_badgeAlerts, 24f, 13f, alertsScale);
+            ApplySizedChip(_badgeInfo, 24f, 13f, alertsScale);
+            if (_badgesRow != null)
+            {
+                var brt = _badgesRow.GetComponent<RectTransform>();
+                if (brt != null)
+                {
+                    brt.sizeDelta = new Vector2(Mathf.Max(200f, 5f * (24f * alertsScale + 6f)), Mathf.Max(28f, 24f * alertsScale + 4f));
+                    LayoutRebuilder.MarkLayoutForRebuild(brt);
+                }
+            }
+            ApplySizedChip(_flightChip, 24f, 13f, alertsScale);
+            ApplySizedChip(_gestureChip, 24f, 13f, alertsScale);
+            ApplySizedChip(_skeletalChip, 24f, 13f, alertsScale);
+            ApplySizedChip(_moveChip, 24f, 13f, alertsScale);
+            ApplySizedChip(_commsChip, 24f, 13f, alertsScale);
+            ApplySizedChip(_netChip, 24f, 13f, alertsScale);
+            statusLayoutDirty = true;
+        }
+        if (Mathf.Abs(_lastAppliedMicScale - micScale) > 0.002f)
+        {
+            _lastAppliedMicScale = micScale;
+            ApplyMicScale(micScale);
+            statusLayoutDirty = true;
+        }
+        if (statusLayoutDirty && _statusRowRt != null)
+        {
+            float rowH = Mathf.Max(34f * micScale, 24f * alertsScale);
+            float rowW = Mathf.Max(320f, 34f * micScale + 6f * (24f * alertsScale + 6f) + 40f);
+            _statusRowRt.sizeDelta = new Vector2(rowW, rowH);
+            if (_statusClusterRt != null)
+            {
+                float feedH = MaxFeedRows * 20f + (MaxFeedRows - 1) * 3f;
+                _statusClusterRt.sizeDelta = new Vector2(rowW, feedH + 6f + rowH);
+                LayoutRebuilder.MarkLayoutForRebuild(_statusClusterRt);
+            }
+            LayoutRebuilder.MarkLayoutForRebuild(_statusRowRt);
+        }
+
+        float notifScale = isVr ? Settings.HudNotificationsScaleVr : Settings.HudNotificationsScaleDesktop;
+        ApplyElementScale(_toastStackRt, notifScale);
+        ApplyElementScale(_joinFeedRt, notifScale);
+        ApplyElementScale(_propCard != null ? _propCard.transform : null, notifScale);
+        ApplyElementScale(_bottomCenterCard != null ? _bottomCenterCard.transform : null, isVr ? Settings.HudChatboxScaleVr : Settings.HudChatboxScaleDesktop);
 
         if (!_loggedState && Time.unscaledTime - _builtTime > 2f)
         {
@@ -951,6 +1038,12 @@ internal sealed class LumenicHudManager : IDisposable
                 $"camOn={uiCam.enabled && uiCam.gameObject.activeInHierarchy} rel={rel} lossy={_rootGo.transform.lossyScale.x:F5} " +
                 $"active={_rootGo.activeInHierarchy} vr={isVr} showHud={MetaPort.Instance?.settings?.GetSettingsBool("GeneralShowHud")} " +
                 $"behaviour={CohtmlHud.GetCurrentDisplayBehaviour()} mic={_micVisible} opacity={_hudOpacity:F2}");
+        }
+
+        if (previewAll)
+        {
+            _rootGroup.alpha = Mathf.Max(_hudOpacity, 0.75f);
+            return;
         }
 
         bool showGeneral = MetaPort.Instance?.settings == null || MetaPort.Instance.settings.GetSettingsBool("GeneralShowHud");
@@ -975,7 +1068,68 @@ internal sealed class LumenicHudManager : IDisposable
         _rootGroup.alpha = Mathf.MoveTowards(_rootGroup.alpha, targetAlpha, Time.unscaledDeltaTime * 3.5f);
     }
 
-    private void UpdateToastLifecycle()
+    private static void ApplyElementScale(Transform target, float scale)
+    {
+        if (target == null)
+            return;
+        if (Mathf.Abs(target.localScale.x - scale) > 0.002f)
+            target.localScale = new Vector3(scale, scale, 1f);
+    }
+
+    private static void ApplySizedChip(GameObject chip, float baseBox, float baseIcon, float scale)
+    {
+        if (chip == null)
+            return;
+        float box = baseBox * scale;
+        var rt = chip.GetComponent<RectTransform>();
+        if (rt != null)
+            rt.sizeDelta = new Vector2(box, box);
+        var glyph = chip.transform.Find("Glyph") as RectTransform;
+        if (glyph != null)
+        {
+            float ic = baseIcon * scale;
+            glyph.sizeDelta = new Vector2(ic, ic);
+            var le = glyph.GetComponent<LayoutElement>();
+            if (le != null)
+            {
+                le.preferredWidth = ic;
+                le.preferredHeight = ic;
+            }
+        }
+    }
+
+    private void ApplyMicScale(float scale)
+    {
+        float tileSz = 34f * scale;
+        float iconSz = 20f * scale;
+        if (_micTile != null)
+        {
+            _micTile.rectTransform.sizeDelta = new Vector2(tileSz, tileSz);
+            AddLayout(_micTile.gameObject, tileSz, tileSz);
+        }
+        if (_micIcon != null)
+            _micIcon.rectTransform.sizeDelta = new Vector2(iconSz, iconSz);
+        if (_micFillIcon != null)
+            _micFillIcon.rectTransform.sizeDelta = new Vector2(iconSz, iconSz);
+        if (_ttsChip != null)
+        {
+            var ttsRt = _ttsChip.GetComponent<RectTransform>();
+            if (ttsRt != null)
+                ttsRt.sizeDelta = new Vector2(26f * scale, 18f * scale);
+            AddLayout(_ttsChip, 26f * scale, 18f * scale);
+        }
+        if (_micCard != null)
+        {
+            var pillRt = _micCard.GetComponent<RectTransform>();
+            if (pillRt != null)
+            {
+                pillRt.sizeDelta = new Vector2(pillRt.sizeDelta.x, tileSz);
+                LayoutRebuilder.MarkLayoutForRebuild(pillRt);
+            }
+        }
+    }
+
+    private void UpdateToastLifecycle(bool previewAll)
     {
         float now = Time.unscaledTime;
         for (int i = _toasts.Count - 1; i >= 0; i--)
@@ -985,6 +1139,26 @@ internal sealed class LumenicHudManager : IDisposable
                 _toasts.RemoveAt(i);
                 _toastsDirty = true;
             }
+        }
+
+        if (previewAll && _toasts.Count == 0 && _toastCards.Count > 0)
+        {
+            ToastCardRefs card = _toastCards[0];
+            card.Root.SetActive(true);
+            card.CategoryText.text = "Preview";
+            card.HeadlineText.text = "Notification Toast";
+            card.BodyText.text = "Adjusting HUD layout & scale";
+            card.BodyText.gameObject.SetActive(true);
+            card.Icon.sprite = _icons[HudIcon.Info];
+            card.Icon.color = AccentSky;
+            card.Group.alpha = 1f;
+            for (int i = 1; i < _toastCards.Count; i++)
+            {
+                if (_toastCards[i].Root.activeSelf)
+                    _toastCards[i].Root.SetActive(false);
+            }
+            _toastsDirty = true;
+            return;
         }
 
         for (int i = 0; i < _toastCards.Count; i++)
@@ -1021,7 +1195,7 @@ internal sealed class LumenicHudManager : IDisposable
         _toastsDirty = false;
     }
 
-    private void UpdateMicAndStatusWidgets()
+    private void UpdateMicAndStatusWidgets(bool previewAll)
     {
         bool liveMicActive = !Comms_Manager.IsMicMuted;
         if (_micActive != liveMicActive)
@@ -1032,9 +1206,10 @@ internal sealed class LumenicHudManager : IDisposable
 
         if (_micCard != null)
         {
-            if (_micCard.activeSelf != _micVisible)
-                _micCard.SetActive(_micVisible);
-            if (_micVisible)
+            bool showMic = _micVisible || previewAll;
+            if (_micCard.activeSelf != showMic)
+                _micCard.SetActive(showMic);
+            if (showMic)
                 UpdateMicPill();
         }
 
@@ -1043,7 +1218,7 @@ internal sealed class LumenicHudManager : IDisposable
 
         if (_netChip != null)
         {
-            bool showNet = _netChainState > 0;
+            bool showNet = _netChainState > 0 || previewAll;
             if (_netChip.activeSelf != showNet)
                 _netChip.SetActive(showNet);
             if (showNet && _netIcon != null)
@@ -1052,14 +1227,16 @@ internal sealed class LumenicHudManager : IDisposable
 
         if (_flightChip != null)
         {
-            if (_flightChip.activeSelf != _isFlying)
-                _flightChip.SetActive(_isFlying);
-            if (_isFlying && _flightIcon != null)
+            bool showFlight = _isFlying || previewAll;
+            if (_flightChip.activeSelf != showFlight)
+                _flightChip.SetActive(showFlight);
+            if (showFlight && _flightIcon != null)
                 _flightIcon.color = _isNoClip ? AccentAmber : AccentSky;
         }
 
-        if (_gestureChip != null && _gestureChip.activeSelf != _gestureLocked)
-            _gestureChip.SetActive(_gestureLocked);
+        bool showGesture = _gestureLocked || previewAll;
+        if (_gestureChip != null && _gestureChip.activeSelf != showGesture)
+            _gestureChip.SetActive(showGesture);
         if (_skeletalChip != null && _skeletalChip.activeSelf != _skeletalLocked)
             _skeletalChip.SetActive(_skeletalLocked);
         if (_moveChip != null && _moveChip.activeSelf != _movementLocked)
@@ -1109,7 +1286,7 @@ internal sealed class LumenicHudManager : IDisposable
             _ttsChip.SetActive(_ttsActive);
     }
 
-    private void UpdateJoinFeed()
+    private void UpdateJoinFeed(bool previewAll)
     {
         float now = Time.unscaledTime;
         for (int i = _joinFeed.Count - 1; i >= 0; i--)
@@ -1119,6 +1296,24 @@ internal sealed class LumenicHudManager : IDisposable
                 _joinFeed.RemoveAt(i);
                 _feedDirty = true;
             }
+        }
+
+        if (previewAll && _joinFeed.Count == 0 && _feedRows.Count > 0)
+        {
+            FeedRowRefs row = _feedRows[0];
+            row.Root.SetActive(true);
+            row.NameText.text = "PlayerJoined";
+            row.Icon.sprite = _icons[HudIcon.Join];
+            row.Icon.color = AccentGreen;
+            row.NameText.color = TextPrimary;
+            row.Group.alpha = 1f;
+            for (int i = 1; i < _feedRows.Count; i++)
+            {
+                if (_feedRows[i].Root.activeSelf)
+                    _feedRows[i].Root.SetActive(false);
+            }
+            _feedDirty = true;
+            return;
         }
 
         int start = Mathf.Max(0, _joinFeed.Count - _feedRows.Count);
@@ -1151,13 +1346,13 @@ internal sealed class LumenicHudManager : IDisposable
         _feedDirty = false;
     }
 
-    private void UpdateNotificationBadges()
+    private void UpdateNotificationBadges(bool previewAll)
     {
-        bool f = _hasFriends || _testFriends;
-        bool inv = _hasInvites || _testInvites;
-        bool v = _hasVotes || _testVotes;
-        bool a = _hasAlerts || _testAlerts;
-        bool info = _hasInfo || _testInfo;
+        bool f = _hasFriends || _testFriends || previewAll;
+        bool inv = _hasInvites || _testInvites || previewAll;
+        bool v = _hasVotes || _testVotes || previewAll;
+        bool a = _hasAlerts || _testAlerts || previewAll;
+        bool info = _hasInfo || _testInfo || previewAll;
 
         if (_badgeFriends != null && _badgeFriends.activeSelf != f) _badgeFriends.SetActive(f);
         if (_badgeInvites != null && _badgeInvites.activeSelf != inv) _badgeInvites.SetActive(inv);
@@ -1173,24 +1368,26 @@ internal sealed class LumenicHudManager : IDisposable
         }
     }
 
-    private void UpdateBottomCenterCard()
+    private void UpdateBottomCenterCard(bool previewAll)
     {
         if (_bottomCenterCard == null)
             return;
 
-        bool shouldShow = _chatOrPortalActive && !string.IsNullOrEmpty(_chatOrPortalText);
+        bool hasLive = _chatOrPortalActive && !string.IsNullOrEmpty(_chatOrPortalText);
+        bool shouldShow = hasLive || previewAll;
         if (_bottomCenterCard.activeSelf != shouldShow)
             _bottomCenterCard.SetActive(shouldShow);
 
         if (!shouldShow)
             return;
 
-        if (!string.Equals(_bottomCenterText.text, _chatOrPortalText, StringComparison.Ordinal))
+        string displayText = hasLive ? _chatOrPortalText : "ChatBox / Portal Preview";
+        if (!string.Equals(_bottomCenterText.text, displayText, StringComparison.Ordinal))
         {
-            _bottomCenterText.text = _chatOrPortalText;
+            _bottomCenterText.text = displayText;
             if (_bottomCenterTextLayout != null)
             {
-                float natW = _bottomCenterText.GetPreferredValues(_chatOrPortalText).x;
+                float natW = _bottomCenterText.GetPreferredValues(displayText).x;
                 _bottomCenterTextLayout.preferredWidth = Mathf.Clamp(natW, 40f, 400f);
             }
             LayoutRebuilder.ForceRebuildLayoutImmediate(_bottomCenterCard.GetComponent<RectTransform>());

@@ -21,29 +21,38 @@ fn action_tile(
 ) -> bool {
     let c = crate::widgets::resolve_tile_colors(active, enabled, active_color);
 
+    let compact = crate::theme::fs(10.0) > 12.0;
+    let icon_sz = if compact { 15.0 } else { 19.0 };
+    let inner_gap = if compact { 1.0 } else { 2.5 };
+    let tile_pad = if compact { 3.5 } else { crate::theme::pad(5.0) };
+
     let resp = ui
         .btn_with(id, |ui| {
             ui.col(|ui| {
-                icons::icon(ui, icon_path, 19.0).fg(c.icon);
+                icons::icon(ui, icon_path, icon_sz).fg(c.icon);
                 ui.txt(label)
-                    .sz(crate::theme::fs(12.0))
+                    .sz(crate::theme::fs(12.0).min(15.0))
                     .semibold()
                     .align(TextAlign::Center)
-                    .fg(c.title);
+                    .fg(c.title)
+                    .ellipsis()
+                    .w_frac(1.0);
                 ui.txt(status)
-                    .sz(crate::theme::fs(9.5))
+                    .sz(crate::theme::fs(9.5).min(12.0))
                     .medium()
                     .align(TextAlign::Center)
-                    .fg(c.status);
+                    .fg(c.status)
+                    .ellipsis()
+                    .w_frac(1.0);
             })
             .center()
-            .gap(2.5)
+            .gap(inner_gap)
             .grow(1.0);
         })
         .grow(1.0)
         .h_frac(1.0)
-        .min_h(crate::theme::tile_min_h())
-        .p(crate::theme::pad(5.0))
+        .min_h(if compact { 58.0 } else { crate::theme::tile_min_h() })
+        .p(tile_pad)
         .bg(c.bg)
         .hover_bg(c.hover_bg)
         .bd(if active { 1.5 } else { 1.0 }, c.border)
@@ -927,7 +936,7 @@ fn render_home_center(
                             .bevel_rounded(6.2, 1.3);
                         }
                     })
-                    .h(crate::theme::text_box(88.0))
+                    .h(crate::theme::text_box(88.0).min(100.0))
                     .gap(5.0)
                     .p(3.0)
                     .bg(Color::rgba(10, 14, 22, 115))
@@ -940,7 +949,7 @@ fn render_home_center(
                             .fg(TEXT_DIM);
                     })
                     .center()
-                    .h(crate::theme::text_box(88.0))
+                    .h(crate::theme::text_box(88.0).min(100.0))
                     .w_frac(1.0)
                     .bg(Color::rgba(10, 14, 22, 90))
                     .bevel_rounded(7.0, 1.3);
@@ -1316,7 +1325,8 @@ fn render_home_center(
                                     ui.txt(label)
                                         .sz(crate::theme::fs(11.0))
                                         .semibold()
-                                        .fg(TEXT_PRIMARY);
+                                        .fg(TEXT_PRIMARY)
+                                        .ellipsis();
                                 })
                                 .center()
                                 .gap(5.0)
@@ -1356,7 +1366,8 @@ fn render_home_center(
                                     ui.txt(label)
                                         .sz(crate::theme::fs(11.0))
                                         .semibold()
-                                        .fg(TEXT_PRIMARY);
+                                        .fg(TEXT_PRIMARY)
+                                        .ellipsis();
                                 })
                                 .center()
                                 .gap(5.0)
@@ -1763,13 +1774,20 @@ fn render_home_center(
                 .gap(6.0);
 
                 let master_before = state.quick.master_slider.round() as i32;
-                let m_resp = ui
-                    .slider("Master Volume", &mut state.quick.master_slider, 0.0..=100.0)
-                    .fill(accent)
-                    .no_bg()
-                    .borderless()
-                    .p(2.0);
-                if m_resp.changed() {
+                let master_txt = format!("{}%", master_before.clamp(0, 100));
+                if crate::widgets::styled_slider(
+                    ui,
+                    "qm_vol_master",
+                    "Master Volume",
+                    &master_txt,
+                    &mut state.quick.master_slider,
+                    0.0..=100.0,
+                    accent,
+                    true,
+                    true,
+                )
+                .changed
+                {
                     let next = (state.quick.master_slider.round() as i32).clamp(0, 100);
                     if next != master_before {
                         state.quick.last_host_master = next;
@@ -1782,13 +1800,20 @@ fn render_home_center(
                 }
 
                 let voice_before = state.quick.voice_slider.round() as i32;
-                let v_resp = ui
-                    .slider("Player Voices", &mut state.quick.voice_slider, 0.0..=100.0)
-                    .fill(accent)
-                    .no_bg()
-                    .borderless()
-                    .p(2.0);
-                if v_resp.changed() {
+                let voice_txt = format!("{}%", voice_before.clamp(0, 100));
+                if crate::widgets::styled_slider(
+                    ui,
+                    "qm_vol_voice",
+                    "Player Voices",
+                    &voice_txt,
+                    &mut state.quick.voice_slider,
+                    0.0..=100.0,
+                    accent,
+                    true,
+                    true,
+                )
+                .changed
+                {
                     let next = (state.quick.voice_slider.round() as i32).clamp(0, 100);
                     if next != voice_before {
                         state.quick.last_host_voice = next;
@@ -1801,13 +1826,20 @@ fn render_home_center(
                 }
 
                 let video_before = state.quick.video_slider.round() as i32;
-                let vp_resp = ui
-                    .slider("Video Player", &mut state.quick.video_slider, 0.0..=100.0)
-                    .fill(accent)
-                    .no_bg()
-                    .borderless()
-                    .p(2.0);
-                if vp_resp.changed() {
+                let video_txt = format!("{}%", video_before.clamp(0, 100));
+                if crate::widgets::styled_slider(
+                    ui,
+                    "qm_vol_video",
+                    "Video Player",
+                    &video_txt,
+                    &mut state.quick.video_slider,
+                    0.0..=100.0,
+                    accent,
+                    true,
+                    true,
+                )
+                .changed
+                {
                     let next = (state.quick.video_slider.round() as i32).clamp(0, 100);
                     if next != video_before {
                         state.quick.last_host_video = next;

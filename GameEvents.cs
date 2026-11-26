@@ -38,6 +38,10 @@ internal static class GameEvents
     private static FieldInfo _previewIsDraggingField;
     private static FieldInfo _previewIsPageOpenField;
     private static MethodInfo _previewOnRenderingChangedMethod;
+    private static FieldInfo _crLastViewField;
+    private static FieldInfo _crLastUiCoordsField;
+    private static FieldInfo _crInteractField;
+    private static FieldInfo _crInteractUpField;
 
     public static void ApplyPatches(HarmonyLib.Harmony harmony)
     {
@@ -46,6 +50,10 @@ internal static class GameEvents
         _previewIsDraggingField = AccessTools.Field(typeof(MenuPreviewRig), "IsDragging");
         _previewIsPageOpenField = AccessTools.Field(typeof(MenuPreviewRig), "_isPageOpen");
         _previewOnRenderingChangedMethod = AccessTools.Method(typeof(MenuPreviewRig), "OnRenderingChanged", new[] { typeof(bool) });
+        _crLastViewField = AccessTools.Field(typeof(ControllerRay), "_lastView");
+        _crLastUiCoordsField = AccessTools.Field(typeof(ControllerRay), "_lastUiCoords");
+        _crInteractField = AccessTools.Field(typeof(ControllerRay), "_interact");
+        _crInteractUpField = AccessTools.Field(typeof(ControllerRay), "_interactUp");
 
         PatchSafe(
             harmony,
@@ -66,6 +74,11 @@ internal static class GameEvents
             harmony,
             AccessTools.Method(typeof(CohtmlViewInputHandler), nameof(CohtmlViewInputHandler.ReleaseViewInput)),
             prefix: nameof(Prefix_CohtmlViewInputHandler_ReleaseViewInput));
+
+        PatchSafe(
+            harmony,
+            AccessTools.Method(typeof(ControllerRay), "HandleMenuUIInteraction", new[] { typeof(Ray?) }),
+            postfix: nameof(Postfix_ControllerRay_HandleMenuUIInteraction));
 
         PatchSafe(
             harmony,
@@ -193,6 +206,13 @@ internal static class GameEvents
             harmony,
             AccessTools.Method(typeof(ViewManager), "BufferMenuPopup", new[] { typeof(string) }),
             postfix: nameof(Postfix_ViewManager_BufferMenuPopup));
+
+        // Capture dynamic CVR settings dropdown options (Mic, TTS, Face Tracking)
+        PatchSafe(harmony, AccessTools.Method(typeof(ViewManager), nameof(ViewManager.SendMicrophoneList), new[] { typeof(System.Collections.Generic.List<UiKeyValue>) }), postfix: nameof(Postfix_ViewManager_SendMicrophoneList));
+        PatchSafe(harmony, AccessTools.Method(typeof(ViewManager), nameof(ViewManager.SendTTSModuleList), new[] { typeof(System.Collections.Generic.List<UiKeyValue>) }), postfix: nameof(Postfix_ViewManager_SendTTSModuleList));
+        PatchSafe(harmony, AccessTools.Method(typeof(ViewManager), nameof(ViewManager.SendTTSVoiceList), new[] { typeof(System.Collections.Generic.List<UiKeyValue>) }), postfix: nameof(Postfix_ViewManager_SendTTSVoiceList));
+        PatchSafe(harmony, AccessTools.Method(typeof(ViewManager), nameof(ViewManager.SendEyeTrackingModuleList), new[] { typeof(System.Collections.Generic.List<UiKeyValue>) }), postfix: nameof(Postfix_ViewManager_SendEyeTrackingModuleList));
+        PatchSafe(harmony, AccessTools.Method(typeof(ViewManager), nameof(ViewManager.SendMouthTrackingModuleList), new[] { typeof(System.Collections.Generic.List<UiKeyValue>) }), postfix: nameof(Postfix_ViewManager_SendMouthTrackingModuleList));
 
         // Unified Lumenic UGUI HUD hooks (CohtmlHud + PortalHudIndicator / ChatBoxHud)
         PatchSafe(harmony, AccessTools.Method(typeof(CohtmlHud), nameof(CohtmlHud.ViewDropText), new[] { typeof(string), typeof(string), typeof(string), typeof(bool) }), postfix: nameof(Postfix_CohtmlHud_ViewDropText4));
@@ -449,6 +469,62 @@ internal static class GameEvents
         {
             MelonLogger.Error($"[LumenicMenu] ReleaseViewInput patch error: {ex.Message}");
             return true;
+        }
+    }
+
+    private static void Postfix_ControllerRay_HandleMenuUIInteraction(
+        ControllerRay __instance,
+        Ray? screenTouchRay,
+        ref bool __result)
+    {
+        if (__result || __instance == null || !__instance.uiActive)
+            return;
+
+        try
+        {
+            if (_crInteractField == null || _crLastViewField == null || _crLastUiCoordsField == null || _crInteractUpField == null)
+                return;
+
+            bool isHolding = (bool)_crInteractField.GetValue(__instance);
+            if (!isHolding)
+                return;
+
+            if (!(_crLastViewField.GetValue(__instance) is CohtmlControlledView lastView) || !lastView.AllowInput || !lastView.Enabled)
+                return;
+
+            var mod = LumenicMenuMod.Instance;
+            if (mod == null || !mod.IsLumenicActiveFor(lastView, out uint surfaceId))
+                return;
+
+            Transform rayTransform = __instance.rayDirectionTransform;
+            if (rayTransform == null)
+                return;
+
+            Ray ray = screenTouchRay ?? new Ray(rayTransform.position, rayTransform.TransformDirection(__instance.RayDirection));
+            if (!CohtmlViewInputHandler.RaycastCohtmlPlane(lastView.transform, lastView, ray, out float distance, out Vector2 viewCoords, ignoreOutOfBounds: true))
+                return;
+
+            if (!float.IsFinite(viewCoords.x) || !float.IsFinite(viewCoords.y))
+                return;
+
+            mod.HandlePointerInput(surfaceId, viewCoords.x, viewCoords.y, false, false, 0f);
+            _crLastUiCoordsField.SetValue(__instance, viewCoords);
+
+            bool isUp = (bool)_crInteractUpField.GetValue(__instance);
+            if (!isUp)
+            {
+                if (__instance.lineRenderer != null)
+                {
+                    __instance.lineRenderer.enabled = true;
+                    __instance.lineRenderer.SetPosition(0, __instance.lineRenderer.transform.InverseTransformPoint(rayTransform.position));
+                    __instance.lineRenderer.SetPosition(1, __instance.lineRenderer.transform.InverseTransformPoint(rayTransform.position + rayTransform.TransformDirection(__instance.RayDirection) * distance));
+                }
+                __result = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            MelonLogger.Error($"[LumenicMenu] HandleMenuUIInteraction postfix error: {ex.Message}");
         }
     }
 
@@ -983,6 +1059,21 @@ internal static class GameEvents
             MelonLogger.Warning($"[LumenicMenu] BufferMenuPopup hook error: {ex.Message}");
         }
     }
+
+    private static void Postfix_ViewManager_SendMicrophoneList(System.Collections.Generic.List<UiKeyValue> microphones)
+        => Bridge.SettingsBridge.UpdateDynamicDropdown("AudioInputDevice", microphones);
+
+    private static void Postfix_ViewManager_SendTTSModuleList(System.Collections.Generic.List<UiKeyValue> modules)
+        => Bridge.SettingsBridge.UpdateDynamicDropdown("AudioTTSModule", modules);
+
+    private static void Postfix_ViewManager_SendTTSVoiceList(System.Collections.Generic.List<UiKeyValue> voices)
+        => Bridge.SettingsBridge.UpdateDynamicDropdown("AudioTTSVoice", voices);
+
+    private static void Postfix_ViewManager_SendEyeTrackingModuleList(System.Collections.Generic.List<UiKeyValue> modules)
+        => Bridge.SettingsBridge.UpdateDynamicDropdown("ImplementationFaceTrackingEyeModule", modules);
+
+    private static void Postfix_ViewManager_SendMouthTrackingModuleList(System.Collections.Generic.List<UiKeyValue> modules)
+        => Bridge.SettingsBridge.UpdateDynamicDropdown("ImplementationFaceTrackingMouthModule", modules);
 
     // --- Unified Lumenic UGUI HUD Postfixes ---
 

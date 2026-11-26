@@ -1049,9 +1049,13 @@ pub fn render_ext_node(
             let sb = ui
                 .slider(&node.text, &mut v, min_v..=max_v)
                 .fill(fill_col)
+                .no_focus_ring()
+                .track_h(14.0)
+                .track_bg(tint_alpha(fill_col, 34))
+                .track_bd(1.0, tint_alpha(fill_col, 150))
                 .bg(card_inner_bg())
-                .bd(1.0, border_subtle())
-                .bevel_rounded(rad(6.0), bev(1.3));
+                .bd(1.0, tint_alpha(fill_col, 95))
+                .bevel(rad(8.0));
             let mut resp = apply_style(sb, &node.style, accent);
             let hovered = resp.hovered();
             if !node.disabled && resp.changed() {
