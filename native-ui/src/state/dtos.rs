@@ -51,13 +51,23 @@ pub struct ActivityFeedItem {
 // UIExpansionKit (Mod Settings) Snapshot Types
 // ============================================================================
 
+fn default_neg_one() -> i32 {
+    -1
+}
+
 #[derive(Clone, Debug, Default, Deserialize)]
 #[serde(default)]
 pub struct UixEntrySnapshot {
     pub id: String,
+    #[serde(default = "default_neg_one")]
+    pub node_id: i32,
+    #[serde(default = "default_neg_one")]
+    pub section_id: i32,
+    pub section_name: String,
+    pub section_desc: String,
     pub display_name: String,
     pub description: String,
-    pub kind: String, // "bool" | "slider" | "number" | "string" | "enum"
+    pub kind: String, // "bool" | "slider" | "number" | "string" | "enum" | "button"
     pub bool_val: bool,
     pub num_val: f64,
     pub min_val: f64,
@@ -67,6 +77,12 @@ pub struct UixEntrySnapshot {
     pub string_val: String,
     pub enum_options: Vec<String>,
     pub enum_index: i32,
+    #[serde(default = "default_true")]
+    pub use_buttons: bool,
+    pub button_label: String,
+    #[serde(default = "default_true")]
+    pub is_default: bool,
+    pub can_reset: bool,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
@@ -83,6 +99,11 @@ pub struct UixCustomControlSnapshot {
 pub struct UixCategorySnapshot {
     pub id: String,
     pub display_name: String,
+    #[serde(default = "default_neg_one")]
+    pub node_id: i32,
+    pub info: String,
+    pub colors: Vec<String>,
+    pub has_link: bool,
     pub entries: Vec<UixEntrySnapshot>,
     pub custom_controls: Vec<UixCustomControlSnapshot>,
 }

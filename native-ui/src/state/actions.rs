@@ -93,6 +93,15 @@ pub enum UiAction {
         global_id: i32,
         value: bool,
     },
+    MowodsResetNode {
+        node_id: i32,
+    },
+    MowodsOpenLink {
+        page_id: i32,
+    },
+    SetModSettingsSource {
+        source: String,
+    },
 
     // Phase 3B Content Browser actions
     ContentLoadList {

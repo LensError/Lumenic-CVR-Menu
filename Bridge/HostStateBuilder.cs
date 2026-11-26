@@ -106,6 +106,8 @@ internal sealed class HostStateBuilder
     private sealed class UixDomainDto
     {
         public bool uix_available;
+        public string mod_settings_source;
+        public bool mod_settings_both_available;
         public object uix_categories;
     }
 
@@ -346,11 +348,21 @@ internal sealed class HostStateBuilder
 
         if (mainVisible && ((dirty & StateDomain.Uix) != 0 || string.IsNullOrEmpty(_lastUixJson)))
         {
+            bool mowodsAvailable = mod.Mowods != null && mod.Mowods.IsAvailable;
             bool uixAvailable = mod.Uix != null && mod.Uix.IsAvailable;
+            bool bothAvailable = mowodsAvailable && uixAvailable;
+            string source = bothAvailable
+                ? (mod.PreferredModSettingsSource == "uix" ? "uix" : "mowods")
+                : (mowodsAvailable ? "mowods" : (uixAvailable ? "uix" : string.Empty));
+            object categories = source == "mowods"
+                ? mod.Mowods.BuildCategoriesSnapshot()
+                : (source == "uix" ? mod.Uix.BuildCategoriesSnapshot() : Array.Empty<object>());
             var uixDom = new UixDomainDto
             {
-                uix_available = uixAvailable,
-                uix_categories = uixAvailable ? mod.Uix.BuildCategoriesSnapshot() : Array.Empty<object>()
+                uix_available = mowodsAvailable || uixAvailable,
+                mod_settings_source = source,
+                mod_settings_both_available = bothAvailable,
+                uix_categories = categories
             };
             string uixJson = JsonConvert.SerializeObject(uixDom);
             PushIfChanged(bridge, NativeBridge.DomainUix, "Uix", uixJson, ref _lastUixJson);

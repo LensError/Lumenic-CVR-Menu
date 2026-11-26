@@ -76,8 +76,10 @@ pub struct HostStateSnapshot {
     // Native CVR UILib mod tabs, active page, modals, and toasts
     pub uilib: UiLibSnapshot,
 
-    // UIExpansionKit Mod Settings bridge
+    // Mod Settings bridge (Mowods / UIExpansionKit)
     pub uix_available: bool,
+    pub mod_settings_source: String,
+    pub mod_settings_both_available: bool,
     pub uix_categories: Vec<UixCategorySnapshot>,
 
     // Phase 3B Content Browser (Worlds, Avatars, Props, Global Search)
@@ -158,6 +160,8 @@ pub struct SocialDomainSnapshot {
 #[serde(default)]
 pub struct UixDomainSnapshot {
     pub uix_available: bool,
+    pub mod_settings_source: String,
+    pub mod_settings_both_available: bool,
     pub uix_categories: Vec<UixCategorySnapshot>,
 }
 
@@ -457,6 +461,8 @@ impl Default for HostStateSnapshot {
             activity_feed: Vec::new(),
             uilib: UiLibSnapshot::default(),
             uix_available: false,
+            mod_settings_source: String::new(),
+            mod_settings_both_available: false,
             uix_categories: Vec::new(),
             content: ContentBrowserSnapshot::default(),
             social: SocialSnapshot::default(),

@@ -23,11 +23,9 @@ internal sealed class ModUpdateService
 {
     public const string BundledChangelog =
         "What's New in LumenicMenu v" + LumenicMenuMod.ModVersion + ":\n\n" +
-        "- HUD Layout & Size Settings: customize your HUD's horizontal and vertical spread plus individual sizes for Alerts & Icons, Mic Icon, Notifications, and ChatBox. Desktop and VR settings save separately and switch automatically when changing modes live, with a live preview of all HUD elements while adjusting and per-slider + Reset All buttons.\n" +
-        "- Settings Page Overhaul: every subcategory is now grouped in its own card with larger, easier-to-read headings. Added the missing Cache tab, restored Video Decoder & Video Player settings, and fixed dynamic dropdowns like Microphone selection, World Transitions, TTS, and Face Tracking so they can be clicked and changed directly.\n" +
-        "- Overhauled Sliders: sliders across the entire menu are now taller, use your player accent colors, no longer show a click outline, and slide smoothly instead of stopping on the first move.\n" +
-        "- Smoother Scrolling & Hover: hover and scroll wheel now work immediately when opening menus without having to click the menu first, and click-drag scrolling keeps working even if your mouse or VR laser moves outside the menu bounds.\n" +
-        "- Large Text Size Fixes: fixed button clipping and overlapping tiles in Quick Menu Quick Actions and the Main Menu profile card when Text Size is set to 150%.";
+        "- Mowods Support: added full support for Mowods by NotAKidoS in the Main Menu Mod Settings screen, including mod and setting search, author/version/assembly info, source links, color-coded mod categories, grouped sections, tooltips, custom Mowods mod pages/buttons, and per-setting, per-section, and per-mod Reset buttons.\n" +
+        "- Dropdown & Modal Softlock Fixes: fixed settings dropdown popups (like TTS Voice and Chatbox Preferred Display Mode), Quick Menu world instance popups, and system alerts so selecting an option or closing them always dismisses cleanly instead of softlocking the menu.\n" +
+        "- Slider Colors: sliders now use your secondary player color for the fill bar and your primary player color for the track background.";
 
     private const string LatestReleaseApiUrl = "https://api.github.com/repos/LensError/Lumenic-CVR-Menu/releases/latest";
     private const string DefaultReleasePageUrl = "https://github.com/LensError/Lumenic-CVR-Menu/releases/latest";

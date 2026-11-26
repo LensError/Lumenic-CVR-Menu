@@ -61,40 +61,85 @@ internal static class UiLibUixExtActions
         map["UiLibModalNumberSubmit"] = (obj, mod) => { mod.UiLib.ModalNumberSubmit(obj.Value<float>("value")); mod.MarkStateDirty(StateDomain.UiLib); };
         map["UiLibModalDismiss"] = (_, mod) => { mod.UiLib.ModalDismiss(); mod.MarkStateDirty(StateDomain.UiLib); };
 
-        // UIExpansionKit Mod Settings
-        map["RefreshUixSettings"] = (_, mod) => { mod.Uix?.EnsureProbed(); mod.MarkStateDirty(StateDomain.Uix); };
+        // Mod Settings (Mowods / UIExpansionKit)
+        map["RefreshUixSettings"] = (_, mod) =>
+        {
+            mod.Mowods?.EnsureProbed();
+            mod.Uix?.EnsureProbed();
+            mod.MarkStateDirty(StateDomain.Uix);
+        };
         map["UixSetBool"] = (obj, mod) =>
         {
-            mod.Uix?.SetBool(obj.Value<string>("category"), obj.Value<string>("entry"), obj.Value<bool>("value"));
+            string cat = obj.Value<string>("category") ?? string.Empty;
+            string entry = obj.Value<string>("entry") ?? string.Empty;
+            bool val = obj.Value<bool>("value");
+            if (cat.StartsWith("mowods:", StringComparison.Ordinal))
+                mod.Mowods?.SetBool(entry, val);
+            else
+                mod.Uix?.SetBool(cat, entry, val);
             mod.MarkStateDirty(StateDomain.Uix);
         };
         map["UixSetNumber"] = (obj, mod) =>
         {
-            mod.Uix?.SetNumber(
-                obj.Value<string>("category"),
-                obj.Value<string>("entry"),
-                obj.Value<double>("value"),
-                obj.Value<bool>("save"));
+            string cat = obj.Value<string>("category") ?? string.Empty;
+            string entry = obj.Value<string>("entry") ?? string.Empty;
+            double val = obj.Value<double>("value");
+            if (cat.StartsWith("mowods:", StringComparison.Ordinal))
+                mod.Mowods?.SetNumber(entry, val);
+            else
+                mod.Uix?.SetNumber(cat, entry, val, obj.Value<bool>("save"));
             mod.MarkStateDirty(StateDomain.Uix);
         };
         map["UixSetString"] = (obj, mod) =>
         {
-            mod.Uix?.SetString(obj.Value<string>("category"), obj.Value<string>("entry"), obj.Value<string>("value"));
+            string cat = obj.Value<string>("category") ?? string.Empty;
+            string entry = obj.Value<string>("entry") ?? string.Empty;
+            string val = obj.Value<string>("value");
+            if (cat.StartsWith("mowods:", StringComparison.Ordinal))
+                mod.Mowods?.SetString(entry, val);
+            else
+                mod.Uix?.SetString(cat, entry, val);
             mod.MarkStateDirty(StateDomain.Uix);
         };
         map["UixSetEnum"] = (obj, mod) =>
         {
-            mod.Uix?.SetEnum(obj.Value<string>("category"), obj.Value<string>("entry"), obj.Value<int>("index"));
+            string cat = obj.Value<string>("category") ?? string.Empty;
+            string entry = obj.Value<string>("entry") ?? string.Empty;
+            int idx = obj.Value<int>("index");
+            if (cat.StartsWith("mowods:", StringComparison.Ordinal))
+                mod.Mowods?.SetEnum(entry, idx);
+            else
+                mod.Uix?.SetEnum(cat, entry, idx);
             mod.MarkStateDirty(StateDomain.Uix);
         };
         map["UixCustomButton"] = (obj, mod) =>
         {
-            mod.Uix?.ClickCustomButton(obj.Value<string>("category"), obj.Value<int>("global_id"));
+            string cat = obj.Value<string>("category") ?? string.Empty;
+            int id = obj.Value<int>("global_id");
+            if (cat.StartsWith("mowods:", StringComparison.Ordinal))
+                mod.Mowods?.ClickButton(id);
+            else
+                mod.Uix?.ClickCustomButton(cat, id);
             mod.MarkStateDirty(StateDomain.Uix);
         };
         map["UixCustomToggle"] = (obj, mod) =>
         {
             mod.Uix?.ToggleCustomToggle(obj.Value<string>("category"), obj.Value<int>("global_id"), obj.Value<bool>("value"));
+            mod.MarkStateDirty(StateDomain.Uix);
+        };
+        map["MowodsResetNode"] = (obj, mod) =>
+        {
+            mod.Mowods?.ResetNode(obj.Value<int>("node_id"));
+            mod.MarkStateDirty(StateDomain.Uix);
+        };
+        map["MowodsOpenLink"] = (obj, mod) =>
+        {
+            mod.Mowods?.OpenLink(obj.Value<int>("page_id"));
+        };
+        map["SetModSettingsSource"] = (obj, mod) =>
+        {
+            string src = obj.Value<string>("source") ?? "mowods";
+            mod.PreferredModSettingsSource = string.Equals(src, "uix", StringComparison.OrdinalIgnoreCase) ? "uix" : "mowods";
             mod.MarkStateDirty(StateDomain.Uix);
         };
     }

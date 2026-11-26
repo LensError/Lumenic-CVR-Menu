@@ -20,7 +20,7 @@ namespace LumenicMenu;
 
 public sealed class LumenicMenuMod : MelonMod
 {
-    public const string ModVersion = "0.3.6";
+    public const string ModVersion = "0.3.7";
     private const string InputLockReason = "LumenicMenu";
 
     public static LumenicMenuMod Instance { get; private set; }
@@ -35,6 +35,8 @@ public sealed class LumenicMenuMod : MelonMod
 
     internal UiLibBridge UiLib { get; private set; }
     internal UiExpansionKitBridge Uix { get; private set; }
+    internal MowodsBridge Mowods { get; private set; }
+    internal string PreferredModSettingsSource { get; set; } = "mowods";
     internal RecentHistoryService RecentHistory { get; private set; }
     internal PinnedContentService PinnedContent { get; private set; }
     internal ContentBrowserService Content { get; private set; }
@@ -85,6 +87,7 @@ public sealed class LumenicMenuMod : MelonMod
         _liveEvents = new LiveEventWiring(this);
         UiLib = new UiLibBridge();
         Uix = new UiExpansionKitBridge(() => MarkStateDirty(StateDomain.Uix));
+        Mowods = new MowodsBridge();
         RecentHistory = new RecentHistoryService(() => MarkStateDirty(StateDomain.Content | StateDomain.Social));
         PinnedContent = new PinnedContentService(() => MarkStateDirty(StateDomain.Content));
         Content = new ContentBrowserService(() => MarkStateDirty(StateDomain.Content), RecentHistory, PinnedContent);

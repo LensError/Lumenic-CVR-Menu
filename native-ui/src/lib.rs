@@ -1137,6 +1137,8 @@ pub unsafe extern "C" fn lumenic_cvr_push_domain_json(
                 let uix: crate::state::UixDomainSnapshot = serde_json::from_slice(bytes)
                     .map_err(|e| format!("uix JSON parse error: {e}"))?;
                 hnd.state.host.uix_available = uix.uix_available;
+                hnd.state.host.mod_settings_source = uix.mod_settings_source;
+                hnd.state.host.mod_settings_both_available = uix.mod_settings_both_available;
                 hnd.state.host.uix_categories = uix.uix_categories;
                 hnd.mark_surface_dirty(SURFACE_MAIN);
             }
