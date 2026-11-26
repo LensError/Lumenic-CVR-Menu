@@ -2260,12 +2260,24 @@ mod tests {
             let slider_rect = {
                 let hnd = &*handle;
                 let surf = hnd.host.surface(hnd.quick_surface).unwrap();
-                surf.ui()
-                    .semantics()
+                let sems = surf.ui().semantics();
+                assert!(
+                    !sems
+                        .iter()
+                        .any(|n| n.role != lumenic::Role::Slider && n.label == "__track"),
+                    "compact slider must not render internal __track header label"
+                );
+                let rect = sems
                     .iter()
                     .find(|n| n.role == lumenic::Role::Slider)
                     .map(|n| n.bounds)
-                    .expect("expected Master Volume slider")
+                    .expect("expected Master Volume slider");
+                assert!(
+                    rect.h <= 22.0,
+                    "compact slider track height should be ~14px without built-in header, got {}",
+                    rect.h
+                );
+                rect
             };
             {
                 let mut px = vec![0u8; 800 * 800 * 4];

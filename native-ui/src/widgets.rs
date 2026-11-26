@@ -47,8 +47,8 @@ pub fn styled_slider(
 
         let mut resp = ui
             .slider("__track", value, range)
+            .compact()
             .fill(accent)
-            .fg(accent)
             .no_bg()
             .borderless()
             .no_focus_ring()
