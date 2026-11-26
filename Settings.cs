@@ -10,6 +10,7 @@ internal static class Settings
 
     private static MelonPreferences_Entry<bool> _enableMainMenu;
     private static MelonPreferences_Entry<bool> _enableQuickMenu;
+    private static MelonPreferences_Entry<bool> _enableHud;
     private static MelonPreferences_Entry<int> _maxRefreshHz;
     private static MelonPreferences_Entry<float> _uiScale;
     private static MelonPreferences_Entry<float> _fontScale;
@@ -34,6 +35,7 @@ internal static class Settings
 
     public static bool EnableMainMenu => _enableMainMenu?.Value ?? true;
     public static bool EnableQuickMenu => _enableQuickMenu?.Value ?? true;
+    public static bool EnableHud => _enableHud?.Value ?? true;
     public static int MaxRefreshHz => Mathf.Clamp(_maxRefreshHz?.Value ?? 60, 15, 144);
     public static float UiScale => Mathf.Clamp(_uiScale?.Value ?? 1.0f, 0.5f, 2.0f);
     public static float FontScale => Mathf.Clamp(_fontScale?.Value ?? 1.0f, 0.5f, 2.5f);
@@ -65,6 +67,12 @@ internal static class Settings
             true,
             "Enable Lumenic Quick Menu",
             "Replace CVR's Quick Menu with Lumenic UI.");
+
+        _enableHud = _category.CreateEntry(
+            "EnableHud",
+            true,
+            "Enable Lumenic HUD",
+            "Replace CVR's HUD, ChatBox HUD, and Portal indicator with unified Lumenic UGUI HUD.");
 
         _maxRefreshHz = _category.CreateEntry(
             "MaxRefreshHz",
@@ -158,6 +166,7 @@ internal static class Settings
 
         _enableMainMenu.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
         _enableQuickMenu.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
+        _enableHud.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
         _maxRefreshHz.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
         _uiScale.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
         _fontScale.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
@@ -247,6 +256,15 @@ internal static class Settings
         if (_enableQuickMenu != null && _enableQuickMenu.Value != value)
         {
             _enableQuickMenu.Value = value;
+            ScheduleSave();
+        }
+    }
+
+    public static void SetEnableHud(bool value)
+    {
+        if (_enableHud != null && _enableHud.Value != value)
+        {
+            _enableHud.Value = value;
             ScheduleSave();
         }
     }

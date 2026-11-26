@@ -8,6 +8,7 @@ using ABI_RC.Core.Networking.API.Responses;
 using ABI_RC.Core.Player;
 using ABI_RC.Core.Savior;
 using ABI_RC.Core.UI;
+using ABI_RC.Core.UI.Hud;
 using ABI_RC.Core.UI.UIRework;
 using ABI_RC.Core.UI.UIRework.Managers;
 using ABI_RC.Systems.ContentClones;
@@ -192,6 +193,33 @@ internal static class GameEvents
             harmony,
             AccessTools.Method(typeof(ViewManager), "BufferMenuPopup", new[] { typeof(string) }),
             postfix: nameof(Postfix_ViewManager_BufferMenuPopup));
+
+        // Unified Lumenic UGUI HUD hooks (CohtmlHud + PortalHudIndicator / ChatBoxHud)
+        PatchSafe(harmony, AccessTools.Method(typeof(CohtmlHud), nameof(CohtmlHud.ViewDropText), new[] { typeof(string), typeof(string), typeof(string), typeof(bool) }), postfix: nameof(Postfix_CohtmlHud_ViewDropText4));
+        PatchSafe(harmony, AccessTools.Method(typeof(CohtmlHud), nameof(CohtmlHud.ViewDropText), new[] { typeof(string), typeof(string), typeof(string), typeof(string), typeof(bool) }), postfix: nameof(Postfix_CohtmlHud_ViewDropText5));
+        PatchSafe(harmony, AccessTools.Method(typeof(CohtmlHud), nameof(CohtmlHud.ViewDropText), new[] { typeof(string), typeof(string), typeof(string), typeof(int), typeof(bool), typeof(string), typeof(bool) }), postfix: nameof(Postfix_CohtmlHud_ViewDropText7));
+        PatchSafe(harmony, AccessTools.Method(typeof(CohtmlHud), nameof(CohtmlHud.ViewDropTextImmediate), new[] { typeof(string), typeof(string), typeof(string), typeof(string), typeof(bool) }), postfix: nameof(Postfix_CohtmlHud_ViewDropTextImmediate));
+        PatchSafe(harmony, AccessTools.Method(typeof(CohtmlHud), nameof(CohtmlHud.ViewDropTextLonger), new[] { typeof(string), typeof(string), typeof(string), typeof(string), typeof(bool) }), postfix: nameof(Postfix_CohtmlHud_ViewDropTextLonger));
+        PatchSafe(harmony, AccessTools.Method(typeof(CohtmlHud), nameof(CohtmlHud.ViewDropTextLong), new[] { typeof(string), typeof(string), typeof(string), typeof(string), typeof(bool) }), postfix: nameof(Postfix_CohtmlHud_ViewDropTextLong));
+        PatchSafe(harmony, AccessTools.Method(typeof(CohtmlHud), nameof(CohtmlHud.ClearViewDropText)), postfix: nameof(Postfix_CohtmlHud_ClearViewDropText));
+        PatchSafe(harmony, AccessTools.Method(typeof(CohtmlHud), nameof(CohtmlHud.UpdateMicStatus), new[] { typeof(bool) }), postfix: nameof(Postfix_CohtmlHud_UpdateMicStatus));
+        PatchSafe(harmony, AccessTools.Method(typeof(CohtmlHud), "SetMicValue", new[] { typeof(float) }), postfix: nameof(Postfix_CohtmlHud_SetMicValue));
+        PatchSafe(harmony, AccessTools.Method(typeof(CohtmlHud), nameof(CohtmlHud.SetTTSMicIndicator), new[] { typeof(bool) }), postfix: nameof(Postfix_CohtmlHud_SetTTSMicIndicator));
+        PatchSafe(harmony, AccessTools.Method(typeof(CohtmlHud), nameof(CohtmlHud.SetCommsIndicator), new[] { typeof(bool) }), postfix: nameof(Postfix_CohtmlHud_SetCommsIndicator));
+        PatchSafe(harmony, AccessTools.Method(typeof(CohtmlHud), nameof(CohtmlHud.OnMutedSpeechDetected)), postfix: nameof(Postfix_CohtmlHud_OnMutedSpeechDetected));
+        PatchSafe(harmony, AccessTools.Method(typeof(CohtmlHud), nameof(CohtmlHud.NotifyFlightChange), new[] { typeof(bool), typeof(bool) }), postfix: nameof(Postfix_CohtmlHud_NotifyFlightChange));
+        PatchSafe(harmony, AccessTools.Method(typeof(CohtmlHud), nameof(CohtmlHud.OnGestureLockChanged), new[] { typeof(bool) }), postfix: nameof(Postfix_CohtmlHud_OnGestureLockChanged));
+        PatchSafe(harmony, AccessTools.Method(typeof(CohtmlHud), nameof(CohtmlHud.OnSkeletalInputChanged), new[] { typeof(bool) }), postfix: nameof(Postfix_CohtmlHud_OnSkeletalInputChanged));
+        PatchSafe(harmony, AccessTools.Method(typeof(CohtmlHud), nameof(CohtmlHud.OnMovementLockChanged), new[] { typeof(bool) }), postfix: nameof(Postfix_CohtmlHud_OnMovementLockChanged));
+        PatchSafe(harmony, AccessTools.Method(typeof(CohtmlHud), nameof(CohtmlHud.SetDisplayChain), new[] { typeof(int) }), postfix: nameof(Postfix_CohtmlHud_SetDisplayChain));
+        PatchSafe(harmony, AccessTools.Method(typeof(CohtmlHud), nameof(CohtmlHud.OnUiNotificationUpdate), new[] { typeof(UIMessageCategory), typeof(bool) }), postfix: nameof(Postfix_CohtmlHud_OnUiNotificationUpdate));
+        PatchSafe(harmony, AccessTools.Method(typeof(CohtmlHud), nameof(CohtmlHud.SelectPropToSpawn), new[] { typeof(string), typeof(string), typeof(string) }), postfix: nameof(Postfix_CohtmlHud_SelectPropToSpawn));
+        PatchSafe(harmony, AccessTools.Method(typeof(CohtmlHud), nameof(CohtmlHud.ClearPropToSpawn)), postfix: nameof(Postfix_CohtmlHud_ClearPropToSpawn));
+        PatchSafe(harmony, AccessTools.Method(typeof(CohtmlHud), nameof(CohtmlHud.UpdateVisuals)), postfix: nameof(Postfix_CohtmlHud_UpdateVisuals));
+
+        PatchSafe(harmony, AccessTools.Method(typeof(PortalHudIndicator), nameof(PortalHudIndicator.SetText), new[] { typeof(string) }), postfix: nameof(Postfix_PortalHudIndicator_SetText));
+        PatchSafe(harmony, AccessTools.Method(typeof(PortalHudIndicator), nameof(PortalHudIndicator.Activate)), postfix: nameof(Postfix_PortalHudIndicator_Activate));
+        PatchSafe(harmony, AccessTools.Method(typeof(PortalHudIndicator), nameof(PortalHudIndicator.Deactivate)), postfix: nameof(Postfix_PortalHudIndicator_Deactivate));
     }
 
     public static void SubscribeGameEvents()
@@ -327,6 +355,11 @@ internal static class GameEvents
     {
         try
         {
+            if (Settings.EnableHud && Bridge.LumenicHudManager.IsVanillaHudView(__instance))
+            {
+                __result = false;
+                return false;
+            }
             var mod = LumenicMenuMod.Instance;
             if (mod != null && mod.IsLumenicActiveFor(__instance, out _))
             {
@@ -345,6 +378,11 @@ internal static class GameEvents
     {
         try
         {
+            if (Settings.EnableHud && Bridge.LumenicHudManager.IsVanillaHudView(__instance))
+            {
+                __result = false;
+                return false;
+            }
             var mod = LumenicMenuMod.Instance;
             if (mod != null && mod.IsLumenicActiveFor(__instance, out _))
             {
@@ -945,4 +983,78 @@ internal static class GameEvents
             MelonLogger.Warning($"[LumenicMenu] BufferMenuPopup hook error: {ex.Message}");
         }
     }
+
+    // --- Unified Lumenic UGUI HUD Postfixes ---
+
+    private static void Postfix_CohtmlHud_ViewDropText4(string headline, string small, string msgIdToOverride)
+        => LumenicMenuMod.Instance?.Hud?.PushToast(string.Empty, headline, small, 3, false, msgIdToOverride);
+
+    private static void Postfix_CohtmlHud_ViewDropText5(string cat, string headline, string small, string msgIdToOverride)
+        => LumenicMenuMod.Instance?.Hud?.PushToast(cat, headline, small, 3, false, msgIdToOverride);
+
+    private static void Postfix_CohtmlHud_ViewDropText7(string cat, string headline, string small, int seconds, bool immediate, string msgIdToOverride)
+        => LumenicMenuMod.Instance?.Hud?.PushToast(cat, headline, small, seconds, immediate, msgIdToOverride);
+
+    private static void Postfix_CohtmlHud_ViewDropTextImmediate(string cat, string headline, string small, string msgIdToOverride)
+        => LumenicMenuMod.Instance?.Hud?.PushToast(cat, headline, small, 3, true, msgIdToOverride);
+
+    private static void Postfix_CohtmlHud_ViewDropTextLonger(string cat, string headline, string small, string msgIdToOverride)
+        => LumenicMenuMod.Instance?.Hud?.PushToast(cat, headline, small, 6, false, msgIdToOverride);
+
+    private static void Postfix_CohtmlHud_ViewDropTextLong(string cat, string headline, string small, string msgIdToOverride)
+        => LumenicMenuMod.Instance?.Hud?.PushToast(cat, headline, small, 9, false, msgIdToOverride);
+
+    private static void Postfix_CohtmlHud_ClearViewDropText()
+        => LumenicMenuMod.Instance?.Hud?.ClearToasts();
+
+    private static void Postfix_CohtmlHud_UpdateMicStatus(bool active)
+        => LumenicMenuMod.Instance?.Hud?.SetMicActive(active);
+
+    private static void Postfix_CohtmlHud_SetMicValue(float value)
+        => LumenicMenuMod.Instance?.Hud?.SetMicLevel(value);
+
+    private static void Postfix_CohtmlHud_SetTTSMicIndicator(bool active)
+        => LumenicMenuMod.Instance?.Hud?.SetTtsActive(active);
+
+    private static void Postfix_CohtmlHud_SetCommsIndicator(bool shown)
+        => LumenicMenuMod.Instance?.Hud?.SetCommsIndicator(shown);
+
+    private static void Postfix_CohtmlHud_OnMutedSpeechDetected()
+        => LumenicMenuMod.Instance?.Hud?.OnMutedSpeechDetected();
+
+    private static void Postfix_CohtmlHud_NotifyFlightChange(bool isFlying, bool flyingNoClip)
+        => LumenicMenuMod.Instance?.Hud?.SetFlightState(isFlying, flyingNoClip);
+
+    private static void Postfix_CohtmlHud_OnGestureLockChanged(bool isGestureLocked)
+        => LumenicMenuMod.Instance?.Hud?.SetGestureLock(isGestureLocked);
+
+    private static void Postfix_CohtmlHud_OnSkeletalInputChanged(bool isSkeletalInputLocked)
+        => LumenicMenuMod.Instance?.Hud?.SetSkeletalLock(isSkeletalInputLocked);
+
+    private static void Postfix_CohtmlHud_OnMovementLockChanged(bool isMovementLocked)
+        => LumenicMenuMod.Instance?.Hud?.SetMovementLock(isMovementLocked);
+
+    private static void Postfix_CohtmlHud_SetDisplayChain(int state)
+        => LumenicMenuMod.Instance?.Hud?.SetNetworkHealth(state);
+
+    private static void Postfix_CohtmlHud_OnUiNotificationUpdate(UIMessageCategory type)
+        => LumenicMenuMod.Instance?.Hud?.UpdateNotificationCategory(type);
+
+    private static void Postfix_CohtmlHud_SelectPropToSpawn(string propName, string headline)
+        => LumenicMenuMod.Instance?.Hud?.SetPropPreview(true, headline, propName);
+
+    private static void Postfix_CohtmlHud_ClearPropToSpawn()
+        => LumenicMenuMod.Instance?.Hud?.SetPropPreview(false, string.Empty, string.Empty);
+
+    private static void Postfix_CohtmlHud_UpdateVisuals()
+        => LumenicMenuMod.Instance?.Hud?.SyncFromVanillaSettings();
+
+    private static void Postfix_PortalHudIndicator_SetText(PortalHudIndicator __instance, string textContent)
+        => LumenicMenuMod.Instance?.Hud?.SetChatOrPortalText(textContent, __instance);
+
+    private static void Postfix_PortalHudIndicator_Activate(PortalHudIndicator __instance)
+        => LumenicMenuMod.Instance?.Hud?.SetChatOrPortalActive(true, __instance);
+
+    private static void Postfix_PortalHudIndicator_Deactivate(PortalHudIndicator __instance)
+        => LumenicMenuMod.Instance?.Hud?.SetChatOrPortalActive(false, __instance);
 }

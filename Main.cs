@@ -18,7 +18,7 @@ namespace LumenicMenu;
 
 public sealed class LumenicMenuMod : MelonMod
 {
-    public const string ModVersion = "0.3.4";
+    public const string ModVersion = "0.3.5";
     private const string InputLockReason = "LumenicMenu";
 
     public static LumenicMenuMod Instance { get; private set; }
@@ -40,6 +40,7 @@ public sealed class LumenicMenuMod : MelonMod
     internal AvatarStageManager AvatarStage { get; private set; }
     internal ModUpdateService Updates { get; private set; }
     internal SystemAlertService SystemAlerts { get; private set; }
+    internal LumenicHudManager Hud { get; private set; }
 
     private bool _keyboardLocked;
     private bool _prevMainEnabled;
@@ -89,6 +90,7 @@ public sealed class LumenicMenuMod : MelonMod
         AvatarStage = new AvatarStageManager();
         Updates = new ModUpdateService(ModVersion, () => MarkStateDirty(StateDomain.Core));
         SystemAlerts = new SystemAlertService(() => MarkStateDirty(StateDomain.Core));
+        Hud = new LumenicHudManager();
         _mainSurface = new MenuSurfaceHost(NativeBridge.SurfaceMain, "MainMenu", referenceLogicalHeight: 720f);
         _quickSurface = new MenuSurfaceHost(NativeBridge.SurfaceQuick, "QuickMenu", referenceLogicalHeight: 860f);
 
@@ -148,6 +150,8 @@ public sealed class LumenicMenuMod : MelonMod
                 }
             }
         }
+
+        Hud?.Tick();
 
         bool anyEnabled = Settings.EnableMainMenu || Settings.EnableQuickMenu;
         if (!anyEnabled)
@@ -774,5 +778,8 @@ public sealed class LumenicMenuMod : MelonMod
 
         _bridge?.Dispose();
         _bridge = null;
+
+        Hud?.Dispose();
+        Hud = null;
     }
 }

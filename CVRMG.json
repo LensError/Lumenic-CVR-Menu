@@ -1,7 +1,7 @@
 {
   "_id": -1,
   "name": "LumenicMenu",
-  "modversion": "0.3.2",
+  "modversion": "0.3.5",
   "gameversion": "2026.3.0",
   "loaderversion": "0.7.2",
   "modtype": "Mod",
@@ -19,6 +19,6 @@
   "requirements": [],
   "downloadlink": "https://github.com/LensError/Lumenic-CVR-Menu/releases/latest/download/LumenicMenu.dll",
   "sourcelink": "https://github.com/LensError/Lumenic-CVR-Menu",
-  "changelog": "Smarter auto-refreshing for Worlds, Avatars, Props, Discover, Home Active Worlds, and live Online Friends, plus performance and stability improvements.",
+  "changelog": "Unified Lumenic HUD (toggleable in the Quick Menu LumenicMenu tab), cleaner status/notification indicators, and Linux/Proton friend name truncation fix.",
   "embedcolor": "#321D71"
 }

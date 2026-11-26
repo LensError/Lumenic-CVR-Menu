@@ -2,7 +2,7 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
     <Platforms>x64</Platforms>
-    <Version>0.3.4</Version>
+    <Version>0.3.5</Version>
     <AssemblyName>LumenicMenu</AssemblyName>
     <RootNamespace>LumenicMenu</RootNamespace>
     <LangVersion>latest</LangVersion>
@@ -74,6 +74,26 @@
     </Reference>
     <Reference Include="UnityEngine.InputLegacyModule">
       <HintPath>$(CVRPath)/ChilloutVR_Data/Managed/UnityEngine.InputLegacyModule.dll</HintPath>
+      <Private>false</Private>
+      <SpecificVersion>false</SpecificVersion>
+    </Reference>
+    <Reference Include="UnityEngine.UI">
+      <HintPath>$(CVRPath)/ChilloutVR_Data/Managed/UnityEngine.UI.dll</HintPath>
+      <Private>false</Private>
+      <SpecificVersion>false</SpecificVersion>
+    </Reference>
+    <Reference Include="UnityEngine.UIModule">
+      <HintPath>$(CVRPath)/ChilloutVR_Data/Managed/UnityEngine.UIModule.dll</HintPath>
+      <Private>false</Private>
+      <SpecificVersion>false</SpecificVersion>
+    </Reference>
+    <Reference Include="UnityEngine.TextRenderingModule">
+      <HintPath>$(CVRPath)/ChilloutVR_Data/Managed/UnityEngine.TextRenderingModule.dll</HintPath>
+      <Private>false</Private>
+      <SpecificVersion>false</SpecificVersion>
+    </Reference>
+    <Reference Include="Unity.TextMeshPro">
+      <HintPath>$(CVRPath)/ChilloutVR_Data/Managed/Unity.TextMeshPro.dll</HintPath>
       <Private>false</Private>
       <SpecificVersion>false</SpecificVersion>
     </Reference>

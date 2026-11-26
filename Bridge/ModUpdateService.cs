@@ -23,10 +23,9 @@ internal sealed class ModUpdateService
 {
     public const string BundledChangelog =
         "What's New in LumenicMenu v" + LumenicMenuMod.ModVersion + ":\n\n" +
-        "- Smoother Menus: reworked how menus draw and update behind the scenes so everything feels snappier with less overhead.\n" +
-        "- No More Image Stutters: profile pictures, thumbnails, and badges now load in the background without freezing or hitching while scrolling.\n" +
-        "- Friendlier Group Pages: group pages now open on an Overview with the description, Owner, Admins & Moderators, and your membership status, with management tools in a separate Manage tab.\n" +
-        "- Quick Menu Tweaks & Fixes: scaled Quick Menu down slightly so it doesn't cut off at max UI scale, updated the Quick Menu Player Details card to match the Big Menu, made user group cards clickable as a whole card, and fixed Back navigation from group pages.";
+        "- Unified Lumenic HUD: replaced the default in-game HUD, ChatBox HUD, and Portal indicator with a unified, compact dark-glass HUD matching LumenicMenu (toggleable anytime in the Quick Menu LumenicMenu mod tab or MelonPreferences).\n" +
+        "- Cleaner Status & Notifications: mic, flight, lock, and comms indicators, notification badges (Friends, Invites, Votes, Alerts, Info), toast popups, prop spawn cards, and player join/leave updates now appear in the new HUD.\n" +
+        "- Linux / Proton Friends Fix: fixed an issue on Linux/Proton where friend names on the Friends page were getting cut off with '...' way too early.";
 
     private const string LatestReleaseApiUrl = "https://api.github.com/repos/LensError/Lumenic-CVR-Menu/releases/latest";
     private const string DefaultReleasePageUrl = "https://github.com/LensError/Lumenic-CVR-Menu/releases/latest";

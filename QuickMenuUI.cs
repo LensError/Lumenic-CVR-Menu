@@ -22,6 +22,7 @@ internal static class QuickMenuUI
     private static Category _modCategory;
     private static ToggleButton _mainMenuToggle;
     private static ToggleButton _quickMenuToggle;
+    private static ToggleButton _hudToggle;
     private static bool _suppressCallbacks;
 
     public static void PrepareSharedIcon()
@@ -84,6 +85,18 @@ internal static class QuickMenuUI
                 if (_suppressCallbacks) return;
                 Settings.SetEnableQuickMenu(val);
             };
+
+            _hudToggle = _modCategory.AddToggle(
+                "Lumenic HUD",
+                "Use unified Lumenic UGUI HUD for notifications, mic, ChatBox, and portals",
+                Settings.EnableHud);
+            _hudToggle.OnValueUpdated += val =>
+            {
+                if (_suppressCallbacks) return;
+                Settings.SetEnableHud(val);
+            };
+
+            BuildHudTestCategory();
         }
         catch (Exception ex)
         {
@@ -103,6 +116,8 @@ internal static class QuickMenuUI
                 _mainMenuToggle.ToggleValue = Settings.EnableMainMenu;
             if (_quickMenuToggle != null)
                 _quickMenuToggle.ToggleValue = Settings.EnableQuickMenu;
+            if (_hudToggle != null)
+                _hudToggle.ToggleValue = Settings.EnableHud;
         }
         catch
         {
@@ -112,5 +127,126 @@ internal static class QuickMenuUI
         {
             _suppressCallbacks = false;
         }
+    }
+
+    private static void BuildHudTestCategory()
+    {
+        Category tests = _page.AddCategory("HUD Tests");
+
+        tests.AddButton(
+            "Toast: Info",
+            string.Empty,
+            "Triggers a compact HUD info toast")
+            .OnPress += () =>
+            {
+                ABI_RC.Core.UI.CohtmlHud.Instance?.ViewDropText(
+                    "Lumenic",
+                    "Info Notification",
+                    "Compact HUD toast message.",
+                    "lumenic-test-info",
+                    false);
+            };
+
+        tests.AddButton(
+            "Toast: Server",
+            string.Empty,
+            "Triggers a long-duration server HUD toast")
+            .OnPress += () =>
+            {
+                ABI_RC.Core.UI.CohtmlHud.Instance?.ViewDropTextLong(
+                    "Server",
+                    "Instance Notice",
+                    "Prop limit changed to 50.",
+                    "lumenic-test-long",
+                    false);
+            };
+
+        tests.AddButton(
+            "Feed: Join",
+            string.Empty,
+            "Adds a join entry to the lower-left feed")
+            .OnPress += () =>
+            {
+                ABI_RC.Core.UI.CohtmlHud.Instance?.ViewDropText(
+                    "(Global) Client",
+                    "TestPlayer joined",
+                    string.Empty,
+                    "userJoinLeftTestPlayer",
+                    false);
+            };
+
+        tests.AddButton(
+            "Feed: Leave",
+            string.Empty,
+            "Adds a leave entry to the lower-left feed")
+            .OnPress += () =>
+            {
+                ABI_RC.Core.UI.CohtmlHud.Instance?.ViewDropText(
+                    "(Global) Client",
+                    "TestPlayer left",
+                    string.Empty,
+                    "userJoinLeftTestPlayer",
+                    false);
+            };
+
+        tests.AddButton(
+            "Badge: Friends",
+            string.Empty,
+            "Toggles the Friends icon chip")
+            .OnPress += () => LumenicMenuMod.Instance?.Hud?.TriggerTestBadge("friends");
+
+        tests.AddButton(
+            "Badge: Invite",
+            string.Empty,
+            "Toggles the Invite icon chip")
+            .OnPress += () => LumenicMenuMod.Instance?.Hud?.TriggerTestBadge("invites");
+
+        tests.AddButton(
+            "Badge: Vote",
+            string.Empty,
+            "Toggles the Vote icon chip")
+            .OnPress += () => LumenicMenuMod.Instance?.Hud?.TriggerTestBadge("votes");
+
+        tests.AddButton(
+            "Badge: Alert",
+            string.Empty,
+            "Toggles the Alert icon chip")
+            .OnPress += () => LumenicMenuMod.Instance?.Hud?.TriggerTestBadge("alerts");
+
+        tests.AddButton(
+            "Badge: Info",
+            string.Empty,
+            "Toggles the Info icon chip")
+            .OnPress += () => LumenicMenuMod.Instance?.Hud?.TriggerTestBadge("info");
+
+        tests.AddButton(
+            "Prop Card",
+            string.Empty,
+            "Shows the petite Prop Spawn chip")
+            .OnPress += () =>
+            {
+                ABI_RC.Core.UI.CohtmlHud.Instance?.SelectPropToSpawn(
+                    string.Empty,
+                    "Lumenic Test Prop",
+                    "Spawning Prop");
+            };
+
+        tests.AddButton(
+            "Portal",
+            string.Empty,
+            "Toggles the Portal HUD indicator")
+            .OnPress += () => LumenicMenuMod.Instance?.Hud?.ToggleTestPortal();
+
+        tests.AddButton(
+            "ChatBox",
+            string.Empty,
+            "Displays a sample ChatBox message")
+            .OnPress += () => LumenicMenuMod.Instance?.Hud?.TriggerTestChatBox();
+
+        tests.AddButton(
+            "Clear Tests",
+            string.Empty,
+            "Clears all test HUD elements")
+            .OnPress += () => LumenicMenuMod.Instance?.Hud?.ClearAllTests();
     }
 }
