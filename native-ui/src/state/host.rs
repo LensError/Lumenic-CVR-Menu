@@ -1,4 +1,4 @@
-﻿use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
 use super::dtos::*;
 
@@ -94,6 +94,8 @@ pub struct HostStateSnapshot {
     pub ui_click_sounds: bool,
     pub ui_sound_pack: String,
     pub enable_recent_history: bool,
+    #[serde(default)]
+    pub qm_mod_tabs_icon_only: bool,
     pub disclaimer_accepted: bool,
     pub show_whats_new: bool,
     pub whats_new_notes: String,
@@ -207,6 +209,8 @@ pub struct CoreStatePatch {
     pub ui_click_sounds: bool,
     pub ui_sound_pack: String,
     pub enable_recent_history: bool,
+    #[serde(default)]
+    pub qm_mod_tabs_icon_only: bool,
     pub disclaimer_accepted: bool,
     pub show_whats_new: bool,
     pub update_status: UpdateStatusDto,
@@ -290,6 +294,7 @@ impl HostStateSnapshot {
         self.ui_click_sounds = patch.ui_click_sounds;
         self.ui_sound_pack = patch.ui_sound_pack;
         self.enable_recent_history = patch.enable_recent_history;
+        self.qm_mod_tabs_icon_only = patch.qm_mod_tabs_icon_only;
         self.disclaimer_accepted = patch.disclaimer_accepted;
         self.show_whats_new = patch.show_whats_new;
         self.update_status = patch.update_status;
@@ -426,6 +431,7 @@ impl Default for HostStateSnapshot {
             ui_click_sounds: true,
             ui_sound_pack: String::from("SoftSub"),
             enable_recent_history: true,
+            qm_mod_tabs_icon_only: false,
             disclaimer_accepted: true,
             show_whats_new: false,
             whats_new_notes: String::new(),

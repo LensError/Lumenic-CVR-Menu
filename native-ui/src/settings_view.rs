@@ -1074,19 +1074,44 @@ fn render_lumenic_settings(
     }
 
     // --- LOCAL HISTORY & USER DATA ---
+    let show_qm_icon_tabs = m(
+        "Quick Menu Mod Tabs Icons Only",
+        "quick menu qm mod tabs icon only compact tooltip",
+    );
     let show_recent = m(
         "Track Recent History",
         "recent categories history userdata visited seen spawned",
     );
     let show_clear = m("Clear User Data", "clear reset history pinned pins userdata layouts");
-    if show_recent || show_clear {
+    if show_qm_icon_tabs || show_recent || show_clear {
         if q.is_empty() {
-            ui.txt("Local History & User Data")
+            ui.txt("Quick Menu & User Data")
                 .sz(crate::theme::fs(11.0))
                 .bold()
                 .fg(TEXT_MUTED)
                 .pt(6.0)
                 .px(3.0);
+        }
+
+        if show_qm_icon_tabs {
+            hits += 1;
+            let (clicked, hov) = compact_toggle_cell(
+                ui,
+                "mm_set_lm_qm_icon_tabs",
+                "Quick Menu Mod Tabs: Icons Only",
+                state.host.qm_mod_tabs_icon_only,
+            );
+            if hov {
+                state.main_menu.hovered_tooltip = String::from(
+                    "Show only icons for added mod tabs in the Quick Menu tab bar, with the mod name shown on hover.",
+                );
+            }
+            if clicked {
+                push_click(actions);
+                actions.push(UiAction::SetQmModTabsIconOnly {
+                    enabled: !state.host.qm_mod_tabs_icon_only,
+                });
+            }
         }
 
         if show_recent {

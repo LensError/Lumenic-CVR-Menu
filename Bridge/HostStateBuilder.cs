@@ -166,6 +166,7 @@ internal sealed class HostStateBuilder
         public bool ui_click_sounds;
         public string ui_sound_pack;
         public bool enable_recent_history;
+        public bool qm_mod_tabs_icon_only;
         public bool disclaimer_accepted;
         public bool show_whats_new;
         public UpdateStatusDto update_status;
@@ -562,6 +563,7 @@ internal sealed class HostStateBuilder
             ui_click_sounds = Settings.UiClickSounds,
             ui_sound_pack = Settings.UiSoundPack,
             enable_recent_history = Settings.EnableRecentHistory,
+            qm_mod_tabs_icon_only = Settings.QmModTabsIconOnly,
             disclaimer_accepted = Settings.DisclaimerAccepted,
             show_whats_new = !string.Equals(Settings.LastSeenVersion, LumenicMenuMod.ModVersion, StringComparison.OrdinalIgnoreCase),
             update_status = mod.Updates?.BuildSnapshot() ?? new UpdateStatusDto { current_version = LumenicMenuMod.ModVersion },

@@ -343,67 +343,92 @@ pub fn render_quick_menu(
                             (tile_idle_bg(), tile_idle_hover(), border_subtle())
                         };
 
-                        let tab_resp = ui
-                            .btn_with(&tab_btn_id, |ui| {
-                                ui.row(|ui| {
-                                    match tab.kind.as_str() {
-                                        "home" => {
-                                            icons::icon(ui, icons::HOME, 17.0)
-                                                .fg(if is_active { accent } else { TEXT_MUTED });
-                                        }
-                                        "players" => {
-                                            icons::icon(ui, icons::PLAYERS, 17.0)
-                                                .fg(if is_active { accent } else { TEXT_MUTED });
-                                        }
-                                        "props" => {
-                                            icons::icon(ui, icons::CUBE, 17.0)
-                                                .fg(if is_active { accent } else { TEXT_MUTED });
-                                        }
-                                        "toolbox" => {
-                                            icons::icon(ui, icons::TOOLBOX, 17.0)
-                                                .fg(if is_active { accent } else { TEXT_MUTED });
-                                        }
-                                        _ => {
-                                            if !tab.icon_key.is_empty() {
-                                                if let Some(tex) =
-                                                    state.quick_textures.get(&tab.icon_key)
-                                                {
-                                                    ui.img(tex)
-                                                        .w(22.0)
-                                                        .h(22.0)
-                                                        .fit(ImageFit::Contain)
-                                                        .bevel_rounded(3.9, 1.3);
-                                                } else {
-                                                    icons::icon(ui, icons::PUZZLE, 17.0).fg(
-                                                        if is_active { accent } else { TEXT_MUTED },
-                                                    );
-                                                }
+                        let icon_only = state.host.qm_mod_tabs_icon_only && !is_official(tab);
+                        let mut tab_btn = ui.btn_with(&tab_btn_id, |ui| {
+                            let mut row = ui.row(|ui| {
+                                match tab.kind.as_str() {
+                                    "home" => {
+                                        icons::icon(ui, icons::HOME, 17.0)
+                                            .fg(if is_active { accent } else { TEXT_MUTED });
+                                    }
+                                    "players" => {
+                                        icons::icon(ui, icons::PLAYERS, 17.0)
+                                            .fg(if is_active { accent } else { TEXT_MUTED });
+                                    }
+                                    "props" => {
+                                        icons::icon(ui, icons::CUBE, 17.0)
+                                            .fg(if is_active { accent } else { TEXT_MUTED });
+                                    }
+                                    "toolbox" => {
+                                        icons::icon(ui, icons::TOOLBOX, 17.0)
+                                            .fg(if is_active { accent } else { TEXT_MUTED });
+                                    }
+                                    _ => {
+                                        if !tab.icon_key.is_empty() {
+                                            if let Some(tex) =
+                                                state.quick_textures.get(&tab.icon_key)
+                                            {
+                                                ui.img(tex)
+                                                    .w(22.0)
+                                                    .h(22.0)
+                                                    .fit(ImageFit::Contain)
+                                                    .bevel_rounded(3.9, 1.3);
                                             } else {
-                                                icons::icon(ui, icons::PUZZLE, 17.0)
-                                                    .fg(if is_active { accent } else { TEXT_MUTED });
+                                                icons::icon(ui, icons::PUZZLE, 17.0).fg(
+                                                    if is_active { accent } else { TEXT_MUTED },
+                                                );
                                             }
+                                        } else {
+                                            icons::icon(ui, icons::PUZZLE, 17.0)
+                                                .fg(if is_active { accent } else { TEXT_MUTED });
                                         }
                                     }
+                                }
+                                if !icon_only {
                                     ui.txt(&tab.label)
                                         .sz(crate::theme::fs(11.5))
                                         .semibold()
                                         .fg(if is_active { TEXT_PRIMARY } else { TEXT_MUTED })
                                         .ellipsis()
                                         .grow(1.0);
-                                })
-                                .align_center()
-                                .gap(7.0)
-                                .grow(1.0);
-                            })
-                            .min_w(crate::theme::text_box(88.0))
-                            .max_w(crate::theme::text_box(136.0))
-                            .h(crate::theme::text_box(44.0))
-                            .px(10.0)
-                            .py(6.0)
+                                }
+                            });
+                            if icon_only {
+                                row = row.center().grow(1.0);
+                            } else {
+                                row = row.align_center().gap(7.0).grow(1.0);
+                            }
+                            let _ = row;
+                        });
+                        if icon_only {
+                            tab_btn = tab_btn
+                                .w(crate::theme::text_box(44.0))
+                                .h(crate::theme::text_box(44.0))
+                                .p(6.0);
+                        } else {
+                            tab_btn = tab_btn
+                                .min_w(crate::theme::text_box(88.0))
+                                .max_w(crate::theme::text_box(136.0))
+                                .h(crate::theme::text_box(44.0))
+                                .px(10.0)
+                                .py(6.0);
+                        }
+                        let tab_resp = tab_btn
                             .bg(bg)
                             .hover_bg(hover_bg)
                             .bd(if is_active { 1.5 } else { 1.0 }, bd)
                             .bevel_rounded(7.8, 1.3);
+
+                        if icon_only && tab_resp.hovered() {
+                            let tip = if !tab.mod_name.is_empty() {
+                                &tab.mod_name
+                            } else {
+                                &tab.label
+                            };
+                            if !tip.is_empty() {
+                                state.quick.hovered_tooltip = tip.clone();
+                            }
+                        }
 
                         if tab.kind == "props" && tab_resp.double_clicked() && !suppress_tab_click {
                             state.quick.go_home_confirm = false;
@@ -442,58 +467,80 @@ pub fn render_quick_menu(
                             (tile_idle_bg(), tile_idle_hover(), border_subtle())
                         };
 
-                        if ui
-                            .btn_with(&tab_btn_id, |ui| {
-                                ui.row(|ui| {
-                                    if !etab.icon_key.is_empty() {
-                                        if let Some(tex) = state.quick_textures.get(&etab.icon_key) {
-                                            ui.img(tex)
-                                                .w(20.0)
-                                                .h(20.0)
-                                                .fit(ImageFit::Contain)
-                                                .bevel_rounded(3.9, 1.3);
-                                        } else {
-                                            let ic = if etab.icon.is_empty() { icons::PUZZLE } else { &etab.icon };
-                                            icons::icon(ui, ic, 17.0)
-                                                .fg(if is_active { accent } else { TEXT_MUTED });
-                                        }
+                        let icon_only = state.host.qm_mod_tabs_icon_only;
+                        let mut ext_btn = ui.btn_with(&tab_btn_id, |ui| {
+                            let mut row = ui.row(|ui| {
+                                if !etab.icon_key.is_empty() {
+                                    if let Some(tex) = state.quick_textures.get(&etab.icon_key) {
+                                        ui.img(tex)
+                                            .w(20.0)
+                                            .h(20.0)
+                                            .fit(ImageFit::Contain)
+                                            .bevel_rounded(3.9, 1.3);
                                     } else {
                                         let ic = if etab.icon.is_empty() { icons::PUZZLE } else { &etab.icon };
                                         icons::icon(ui, ic, 17.0)
                                             .fg(if is_active { accent } else { TEXT_MUTED });
                                     }
+                                } else {
+                                    let ic = if etab.icon.is_empty() { icons::PUZZLE } else { &etab.icon };
+                                    icons::icon(ui, ic, 17.0)
+                                        .fg(if is_active { accent } else { TEXT_MUTED });
+                                }
+                                if !icon_only {
                                     ui.txt(&etab.label)
                                         .sz(crate::theme::fs(11.5))
                                         .semibold()
                                         .fg(if is_active { TEXT_PRIMARY } else { TEXT_MUTED })
                                         .ellipsis()
                                         .grow(1.0);
-                                    if !etab.badge.is_empty() {
-                                        ui.txt(&etab.badge)
-                                            .sz(crate::theme::fs(9.5))
-                                            .bold()
-                                            .fg(Color::rgb(12, 18, 28))
-                                            .bg(accent)
-                                            .px(4.5)
-                                            .py(1.0)
-                                            .bevel_rounded(3.5, 1.0);
-                                    }
-                                })
-                                .align_center()
-                                .gap(6.0)
-                                .grow(1.0);
-                            })
-                            .min_w(crate::theme::text_box(88.0))
-                            .max_w(crate::theme::text_box(148.0))
-                            .h(crate::theme::text_box(44.0))
-                            .px(10.0)
-                            .py(6.0)
+                                }
+                                if !etab.badge.is_empty() {
+                                    ui.txt(&etab.badge)
+                                        .sz(crate::theme::fs(9.5))
+                                        .bold()
+                                        .fg(Color::rgb(12, 18, 28))
+                                        .bg(accent)
+                                        .px(4.5)
+                                        .py(1.0)
+                                        .bevel_rounded(3.5, 1.0);
+                                }
+                            });
+                            if icon_only && etab.badge.is_empty() {
+                                row = row.center().grow(1.0);
+                            } else {
+                                row = row.align_center().gap(6.0).grow(1.0);
+                            }
+                            let _ = row;
+                        });
+                        if icon_only && etab.badge.is_empty() {
+                            ext_btn = ext_btn
+                                .w(crate::theme::text_box(44.0))
+                                .h(crate::theme::text_box(44.0))
+                                .p(6.0);
+                        } else if icon_only {
+                            ext_btn = ext_btn
+                                .min_w(crate::theme::text_box(56.0))
+                                .h(crate::theme::text_box(44.0))
+                                .px(8.0)
+                                .py(6.0);
+                        } else {
+                            ext_btn = ext_btn
+                                .min_w(crate::theme::text_box(88.0))
+                                .max_w(crate::theme::text_box(148.0))
+                                .h(crate::theme::text_box(44.0))
+                                .px(10.0)
+                                .py(6.0);
+                        }
+                        let ext_resp = ext_btn
                             .bg(bg)
                             .hover_bg(hover_bg)
                             .bd(if is_active { 1.5 } else { 1.0 }, bd)
-                            .bevel_rounded(7.8, 1.3)
-                            .clicked()
-                            && !suppress_tab_click
+                            .bevel_rounded(7.8, 1.3);
+                        if icon_only && ext_resp.hovered() && !etab.label.is_empty() {
+                            state.quick.hovered_tooltip = etab.label.clone();
+                        }
+                        if ext_resp.clicked() && !suppress_tab_click
                         {
                             state.quick.go_home_confirm = false;
                             push_click(actions);

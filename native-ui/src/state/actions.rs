@@ -309,6 +309,9 @@ pub enum UiAction {
     SetEnableRecentHistory {
         enabled: bool,
     },
+    SetQmModTabsIconOnly {
+        enabled: bool,
+    },
     SetDesktopScrollMultiplier {
         value: f32,
     },

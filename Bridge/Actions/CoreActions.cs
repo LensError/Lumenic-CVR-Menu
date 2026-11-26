@@ -72,6 +72,7 @@ internal static class CoreActions
         map["TogglePerfLogging"] = (_, _) => Settings.SetPerfLogging(!Settings.PerfLogging);
         map["ToggleLinearTexture"] = (_, _) => Settings.SetLinearTextureMode(!Settings.LinearTextureMode);
         map["SetEnableRecentHistory"] = (obj, mod) => { Settings.SetEnableRecentHistory(obj.Value<bool>("enabled")); mod.MarkStateDirty(StateDomain.Core); };
+        map["SetQmModTabsIconOnly"] = (obj, mod) => { Settings.SetQmModTabsIconOnly(obj.Value<bool>("enabled")); mod.MarkStateDirty(StateDomain.Core); };
         map["SetDesktopScrollMultiplier"] = (obj, mod) => { Settings.SetDesktopScrollMultiplier(obj.Value<float>("value")); mod.MarkStateDirty(StateDomain.Core); };
         map["SetVrScrollMultiplier"] = (obj, mod) => { Settings.SetVrScrollMultiplier(obj.Value<float>("value")); mod.MarkStateDirty(StateDomain.Core); };
         map["SetFontScale"] = (obj, mod) => { Settings.SetFontScale(obj.Value<float>("scale")); mod.MarkStateDirty(StateDomain.Core); };

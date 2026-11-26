@@ -21,6 +21,7 @@ internal static class Settings
     private static MelonPreferences_Entry<bool> _uiClickSounds;
     private static MelonPreferences_Entry<string> _uiSoundPack;
     private static MelonPreferences_Entry<bool> _enableRecentHistory;
+    private static MelonPreferences_Entry<bool> _qmModTabsIconOnly;
     private static MelonPreferences_Entry<bool> _disclaimerAccepted;
     private static MelonPreferences_Entry<string> _lastSeenVersion;
     private static MelonPreferences_Entry<string> _dismissedUpdateVersion;
@@ -46,6 +47,7 @@ internal static class Settings
     public static bool UiClickSounds => _uiClickSounds?.Value ?? true;
     public static string UiSoundPack => _uiSoundPack?.Value ?? "SoftSub";
     public static bool EnableRecentHistory => _enableRecentHistory?.Value ?? true;
+    public static bool QmModTabsIconOnly => _qmModTabsIconOnly?.Value ?? false;
     public static bool DisclaimerAccepted => _disclaimerAccepted?.Value ?? false;
     public static string LastSeenVersion => _lastSeenVersion?.Value ?? string.Empty;
     public static string DismissedUpdateVersion => _dismissedUpdateVersion?.Value ?? string.Empty;
@@ -134,6 +136,12 @@ internal static class Settings
             "Track Local Recent History",
             "Records and shows local Recent categories (Worlds, Avatars, Props, Users) in UserData/LumenicMenu/recent-history.json.");
 
+        _qmModTabsIconOnly = _category.CreateEntry(
+            "QmModTabsIconOnly",
+            false,
+            "Quick Menu Mod Tabs Icons Only",
+            "Show only icons for added mod tabs in the Quick Menu tab bar, with the mod name shown in a hover tooltip.");
+
         _disclaimerAccepted = _category.CreateEntry(
             "DisclaimerAccepted",
             false,
@@ -177,6 +185,7 @@ internal static class Settings
         _uiClickSounds.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
         _uiSoundPack.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
         _enableRecentHistory.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
+        _qmModTabsIconOnly.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
         _disclaimerAccepted.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
         _lastSeenVersion.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
         _dismissedUpdateVersion.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
@@ -283,6 +292,15 @@ internal static class Settings
         if (_enableRecentHistory != null && _enableRecentHistory.Value != value)
         {
             _enableRecentHistory.Value = value;
+            ScheduleSave();
+        }
+    }
+
+    public static void SetQmModTabsIconOnly(bool value)
+    {
+        if (_qmModTabsIconOnly != null && _qmModTabsIconOnly.Value != value)
+        {
+            _qmModTabsIconOnly.Value = value;
             ScheduleSave();
         }
     }
