@@ -1,5 +1,6 @@
 mod detail;
 
+pub(crate) use detail::render_instance_member_strip;
 use detail::{render_detail_view, render_instance_detail_view};
 
 use lumenic::{Color, ImageFit, TextAlign, UiContext};

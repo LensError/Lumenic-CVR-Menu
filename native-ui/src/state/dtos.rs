@@ -366,11 +366,17 @@ pub struct UserDetailSnapshot {
     pub prop_visibility: i32,
     pub instance_id: String,
     pub instance_name: String,
+    pub instance_region: String,
+    pub instance_player_count: i32,
+    pub instance_max_players: i32,
+    pub world_id: String,
     pub world_name: String,
+    pub world_image_key: String,
     pub loading: bool,
     pub error: String,
     pub badges: Vec<UserBadgeItem>,
     pub groups: Vec<UserGroupItem>,
+    pub instance_members: Vec<InstanceMemberItem>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]

@@ -34,7 +34,6 @@ pub const STEP_FLAG_TEXT_FOCUSED: u32 = 1 << 1;
 pub const STEP_FLAG_POINTER_OVER_UI: u32 = 1 << 2;
 pub const STEP_FLAG_HAS_ACTIONS: u32 = 1 << 3;
 pub const STEP_FLAG_PIXELS_READ: u32 = 1 << 4;
-pub const STEP_FLAG_D3D11_BLITTED: u32 = 1 << 5;
 pub const STEP_FLAG_ERROR_OR_PANIC: u32 = 1 << 31;
 
 pub const MOD_SHIFT: u32 = 1 << 0;
@@ -417,231 +416,6 @@ pub unsafe extern "C" fn lumenic_cvr_destroy(handle: *mut HostHandle) {
     })) {
         set_last_error(panic_payload_to_string(payload));
     }
-}
-
-/// Resolves an `ID3D11Texture2D*` and its owning `ID3D11Device*` from a Unity native texture pointer
-/// via COM `IUnknown::QueryInterface` (and `ID3D11View::GetResource` fallback if Unity handed an SRV).
-/// Returns `(device, texture, release_tex_after)` where `device` has an active COM ref that the caller
-/// must release via `com_release`.
-#[cfg(windows)]
-unsafe fn resolve_d3d11_texture_and_device(
-    raw_ptr: *mut std::ffi::c_void,
-) -> Result<(*mut std::ffi::c_void, *mut std::ffi::c_void, bool), String> {
-    #[repr(C)]
-    struct Guid {
-        data1: u32,
-        data2: u16,
-        data3: u16,
-        data4: [u8; 8],
-    }
-
-    // IID_ID3D11Texture2D: {6f15aaf2-d208-4e89-9ab4-489535d34f9c}
-    const IID_ID3D11_TEXTURE2D: Guid = Guid {
-        data1: 0x6f15aaf2,
-        data2: 0xd208,
-        data3: 0x4e89,
-        data4: [0x9a, 0xb4, 0x48, 0x95, 0x35, 0xd3, 0x4f, 0x9c],
-    };
-    // IID_ID3D11View: {839d1216-bb2e-412b-b7f4-a9dbebe08ed1}
-    const IID_ID3D11_VIEW: Guid = Guid {
-        data1: 0x839d1216,
-        data2: 0xbb2e,
-        data3: 0x412b,
-        data4: [0xb7, 0xf4, 0xa9, 0xdb, 0xeb, 0xe0, 0x8e, 0xd1],
-    };
-
-    type QueryInterfaceFn = unsafe extern "system" fn(
-        this: *mut std::ffi::c_void,
-        riid: *const Guid,
-        ppv: *mut *mut std::ffi::c_void,
-    ) -> i32;
-    type GetDeviceFn =
-        unsafe extern "system" fn(this: *mut std::ffi::c_void, pp_device: *mut *mut std::ffi::c_void);
-    type GetResourceFn =
-        unsafe extern "system" fn(this: *mut std::ffi::c_void, pp_res: *mut *mut std::ffi::c_void);
-
-    if raw_ptr.is_null() {
-        return Err(String::from("null D3D11 texture pointer"));
-    }
-
-    let vtbl = *(raw_ptr as *const *const usize);
-    if vtbl.is_null() {
-        return Err(String::from("invalid COM vtable"));
-    }
-    let qi: QueryInterfaceFn = std::mem::transmute(*vtbl.add(0));
-
-    let mut tex2d: *mut std::ffi::c_void = std::ptr::null_mut();
-    let hr_tex = qi(raw_ptr, &IID_ID3D11_TEXTURE2D, &mut tex2d);
-    if hr_tex < 0 || tex2d.is_null() {
-        // Fallback: if Unity handed an ID3D11ShaderResourceView*, unwrap its underlying ID3D11Texture2D*.
-        let mut view: *mut std::ffi::c_void = std::ptr::null_mut();
-        let hr_view = qi(raw_ptr, &IID_ID3D11_VIEW, &mut view);
-        if hr_view < 0 || view.is_null() {
-            return Err(format!(
-                "pointer is neither ID3D11Texture2D nor ID3D11View (hr=0x{:08X})",
-                hr_tex as u32
-            ));
-        }
-        let view_vtbl = *(view as *const *const usize);
-        // ID3D11View::GetResource is vtable slot 7 (IUnknown 0..2, ID3D11DeviceChild 3..6, GetResource 7).
-        let get_resource: GetResourceFn = std::mem::transmute(*view_vtbl.add(7));
-        let mut res: *mut std::ffi::c_void = std::ptr::null_mut();
-        get_resource(view, &mut res);
-        com_release(view);
-        if res.is_null() {
-            return Err(String::from("ID3D11View::GetResource returned null"));
-        }
-        let res_vtbl = *(res as *const *const usize);
-        let res_qi: QueryInterfaceFn = std::mem::transmute(*res_vtbl.add(0));
-        let hr_res_tex = res_qi(res, &IID_ID3D11_TEXTURE2D, &mut tex2d);
-        com_release(res);
-        if hr_res_tex < 0 || tex2d.is_null() {
-            return Err(format!(
-                "view resource is not ID3D11Texture2D (hr=0x{:08X})",
-                hr_res_tex as u32
-            ));
-        }
-    }
-
-    let tex_vtbl = *(tex2d as *const *const usize);
-    // ID3D11DeviceChild::GetDevice is vtable slot 3 (IUnknown 0..2, GetDevice 3).
-    let get_device: GetDeviceFn = std::mem::transmute(*tex_vtbl.add(3));
-    let mut device: *mut std::ffi::c_void = std::ptr::null_mut();
-    get_device(tex2d, &mut device);
-    if device.is_null() {
-        com_release(tex2d);
-        return Err(String::from("ID3D11DeviceChild::GetDevice returned null"));
-    }
-
-    Ok((device, tex2d, true))
-}
-
-#[cfg(windows)]
-unsafe fn describe_d3d11_texture(tex2d: *mut std::ffi::c_void) -> String {
-    #[repr(C)]
-    #[derive(Default)]
-    struct D3d11Texture2dDesc {
-        width: u32,
-        height: u32,
-        mip_levels: u32,
-        array_size: u32,
-        format: u32,
-        sample_count: u32,
-        sample_quality: u32,
-        usage: u32,
-        bind_flags: u32,
-        cpu_access_flags: u32,
-        misc_flags: u32,
-    }
-    type GetDescFn = unsafe extern "system" fn(*mut std::ffi::c_void, *mut D3d11Texture2dDesc);
-    if tex2d.is_null() {
-        return String::from("<null>");
-    }
-    let vtbl = *(tex2d as *const *const usize);
-    if vtbl.is_null() {
-        return String::from("<null-vtbl>");
-    }
-    // ID3D11Texture2D::GetDesc is vtable slot 10.
-    let get_desc: GetDescFn = std::mem::transmute(*vtbl.add(10));
-    let mut d = D3d11Texture2dDesc::default();
-    get_desc(tex2d, &mut d);
-    format!(
-        "{}x{} fmt={} mips={} arr={} samples={} usage={} bind=0x{:X} cpu=0x{:X} misc=0x{:X}",
-        d.width,
-        d.height,
-        d.format,
-        d.mip_levels,
-        d.array_size,
-        d.sample_count,
-        d.usage,
-        d.bind_flags,
-        d.cpu_access_flags,
-        d.misc_flags
-    )
-}
-
-#[cfg(windows)]
-unsafe fn com_release(ptr: *mut std::ffi::c_void) {
-    if ptr.is_null() {
-        return;
-    }
-    type ReleaseFn = unsafe extern "system" fn(this: *mut std::ffi::c_void) -> u32;
-    let vtbl = *(ptr as *const *const usize);
-    if !vtbl.is_null() {
-        let release: ReleaseFn = std::mem::transmute(*vtbl.add(2));
-        let _ = release(ptr);
-    }
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn lumenic_cvr_supports_d3d11_interop(handle: *mut HostHandle) -> bool {
-    let Some(hnd) = (unsafe { handle.as_ref() }) else {
-        return false;
-    };
-    catch_unwind(AssertUnwindSafe(|| hnd.host.supports_d3d11_interop())).unwrap_or(false)
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn lumenic_cvr_attach_d3d11_texture(
-    handle: *mut HostHandle,
-    surface_id: u32,
-    d3d11_tex_ptr: *mut std::ffi::c_void,
-) -> bool {
-    clear_last_error();
-    let Some(hnd) = (unsafe { handle.as_mut() }) else {
-        set_last_error("lumenic_cvr_attach_d3d11_texture: null handle");
-        return false;
-    };
-    ffi_bool(|| {
-        #[cfg(not(windows))]
-        {
-            let _ = (surface_id, d3d11_tex_ptr, hnd);
-            return Err(String::from("D3D11 interop is only supported on Windows"));
-        }
-        #[cfg(windows)]
-        {
-            let Some(sid) = hnd.surface_id(surface_id) else {
-                return Err(format!("invalid surface_id: {surface_id}"));
-            };
-            if !hnd.host.supports_d3d11_interop() {
-                return Err(String::from("WGL_NV_DX_interop2 not supported by GL driver"));
-            }
-            let (device, tex2d, release_tex) =
-                unsafe { resolve_d3d11_texture_and_device(d3d11_tex_ptr)? };
-            let attach_res = {
-                let guard = MakeNotCurrentGuard(&mut hnd.host);
-                unsafe { guard.0.attach_d3d11_texture(sid, device, tex2d) }.map_err(|e| {
-                    let desc = unsafe { describe_d3d11_texture(tex2d) };
-                    format!("attach_d3d11_texture [{desc}]: {e}")
-                })
-            };
-            unsafe {
-                com_release(device);
-                if release_tex {
-                    com_release(tex2d);
-                }
-            }
-            attach_res
-        }
-    })
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn lumenic_cvr_detach_d3d11_texture(
-    handle: *mut HostHandle,
-    surface_id: u32,
-) -> bool {
-    let Some(hnd) = (unsafe { handle.as_mut() }) else {
-        return false;
-    };
-    catch_unwind(AssertUnwindSafe(|| {
-        let Some(sid) = hnd.surface_id(surface_id) else {
-            return false;
-        };
-        let guard = MakeNotCurrentGuard(&mut hnd.host);
-        guard.0.detach_d3d11_texture(sid)
-    }))
-    .unwrap_or(false)
 }
 
 #[no_mangle]
@@ -1831,7 +1605,7 @@ fn step_surface_inner(
         }
     };
 
-    let (rendered, pixels_read, d3d11_blitted) = {
+    let (rendered, pixels_read) = {
         let guard = MakeNotCurrentGuard(host);
         let step_result = if force_redraw {
             guard.0.step_frame_forced(sid, safe_dt, render_fn)
@@ -1840,41 +1614,25 @@ fn step_surface_inner(
         };
         let rendered = step_result.map_err(|e| format!("step_frame: {e}"))?;
         let mut pixels_read = false;
-        let mut d3d11_blitted = false;
-        if rendered || force_redraw {
-            if guard.0.has_d3d11_texture(sid) {
-                match guard.0.blit_to_d3d11_texture(sid, false) {
-                    Ok(()) => {
-                        d3d11_blitted = true;
-                    }
-                    Err(e) => {
-                        // Detach failed interop binding and let the caller fall back cleanly to CPU readback
-                        // (either immediately via dst_ptr or via a follow-up ReadPixels call).
-                        set_last_error(format!("blit_to_d3d11_texture: {e}"));
-                        guard.0.detach_d3d11_texture(sid);
-                    }
-                }
+        if (rendered || force_redraw) && !dst_ptr.is_null() && dst_len > 0 {
+            let expected = guard
+                .0
+                .surface(sid)
+                .map(|s| s.rgba_byte_len())
+                .ok_or_else(|| String::from("surface missing"))?;
+            if dst_len < expected {
+                return Err(format!(
+                    "buffer too small: got {dst_len} bytes, need {expected}"
+                ));
             }
-            if !d3d11_blitted && !dst_ptr.is_null() && dst_len > 0 {
-                let expected = guard
-                    .0
-                    .surface(sid)
-                    .map(|s| s.rgba_byte_len())
-                    .ok_or_else(|| String::from("surface missing"))?;
-                if dst_len < expected {
-                    return Err(format!(
-                        "buffer too small: got {dst_len} bytes, need {expected}"
-                    ));
-                }
-                let dst = unsafe { checked_slice_mut(dst_ptr, expected)? };
-                guard
-                    .0
-                    .read_pixels_rgba_into(sid, dst, true)
-                    .map_err(|e| format!("read_pixels_rgba_into: {e}"))?;
-                pixels_read = true;
-            }
+            let dst = unsafe { checked_slice_mut(dst_ptr, expected)? };
+            guard
+                .0
+                .read_pixels_rgba_into(sid, dst, true)
+                .map_err(|e| format!("read_pixels_rgba_into: {e}"))?;
+            pixels_read = true;
         }
-        (rendered, pixels_read, d3d11_blitted)
+        (rendered, pixels_read)
     };
 
     let mut flags = 0u32;
@@ -1896,9 +1654,6 @@ fn step_surface_inner(
     }
     if pixels_read {
         flags |= STEP_FLAG_PIXELS_READ;
-    }
-    if d3d11_blitted {
-        flags |= STEP_FLAG_D3D11_BLITTED;
     }
     let current_hovered = host.surface(sid).and_then(|s| s.ui().hovered_id());
     let prev_hovered = if surface_id == SURFACE_MAIN {

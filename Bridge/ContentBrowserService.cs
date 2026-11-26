@@ -1948,7 +1948,7 @@ internal sealed class ContentBrowserService
                     if (resp?.Data?.Members == null)
                         return (instId, (List<InstanceMemberDto>)null);
 
-                    var list = new List<InstanceMemberDto>(4);
+                    var list = new List<InstanceMemberDto>(12);
                     foreach (UserDetails m in resp.Data.Members)
                     {
                         if (m == null || string.IsNullOrEmpty(m.Id))
@@ -1959,7 +1959,7 @@ internal sealed class ContentBrowserService
                             Name = m.Name ?? "Player",
                             ImageUrl = m.ImageUrl ?? string.Empty
                         });
-                        if (list.Count >= 4)
+                        if (list.Count >= 12)
                             break;
                     }
                     return (instId, list);

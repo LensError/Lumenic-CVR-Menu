@@ -1426,78 +1426,13 @@ pub(super) fn render_detail_view(
 
                                                         // Bottom player preview strip
                                                         if !inst.members.is_empty() || inst.player_count > 0 {
-                                                            ui.row(|ui| {
-                                                                let shown = inst.members.len().min(3);
-                                                                for m in inst.members.iter().take(shown) {
-                                                                    ui.row(|ui| {
-                                                                        if let Some(tex) =
-                                                                            state.main_textures.get(&m.image_key)
-                                                                        {
-                                                                            ui.img(tex)
-                                                                                .w(18.0)
-                                                                                .h(18.0)
-                                                                                .fit(ImageFit::Cover)
-                                                                                .hexagon_pointy()
-                                                                                .r(2.0);
-                                                                        } else {
-                                                                            let init = m
-                                                                                .name
-                                                                                .chars()
-                                                                                .next()
-                                                                                .unwrap_or('?')
-                                                                                .to_ascii_uppercase()
-                                                                                .to_string();
-                                                                            ui.col(|ui| {
-                                                                                ui.txt(&init)
-                                                                                    .sz(crate::theme::fs(8.5))
-                                                                                    .bold()
-                                                                                    .align(TextAlign::Center)
-                                                                                    .fg(accent);
-                                                                            })
-                                                                            .center()
-                                                                            .w(18.0)
-                                                                            .h(18.0)
-                                                                            .bg(tint_alpha(accent, 30))
-                                                                            .hexagon_pointy()
-                                                                            .r(2.0);
-                                                                        }
-                                                                        ui.txt(&m.name)
-                                                                            .sz(crate::theme::fs(9.5))
-                                                                            .fg(TEXT_MUTED)
-                                                                            .max_w(86.0)
-                                                                            .ellipsis();
-                                                                    })
-                                                                    .align_center()
-                                                                    .gap(4.0)
-                                                                    .px(5.0)
-                                                                    .py(2.0)
-                                                                    .bg(tile_idle_bg())
-                                                                    .bd(1.0, border_subtle())
-                                                                    .bevel_rounded(4.5, 1.0);
-                                                                }
-
-                                                                let remaining =
-                                                                    inst.player_count.saturating_sub(shown as i32);
-                                                                if remaining > 0 {
-                                                                    let more_txt = if shown == 0 {
-                                                                        format!("{} in instance", remaining)
-                                                                    } else {
-                                                                        format!("+{} more", remaining)
-                                                                    };
-                                                                    ui.txt(&more_txt)
-                                                                        .sz(crate::theme::fs(9.5))
-                                                                        .semibold()
-                                                                        .fg(accent)
-                                                                        .px(6.0)
-                                                                        .py(2.0)
-                                                                        .bg(tint_alpha(accent, 24))
-                                                                        .bd(1.0, tint_alpha(accent, 95))
-                                                                        .bevel_rounded(4.5, 1.0);
-                                                                }
-                                                            })
-                                                            .align_center()
-                                                            .gap(4.0)
-                                                            .pt(3.0);
+                                                            render_instance_member_strip(
+                                                                ui,
+                                                                state,
+                                                                &inst.members,
+                                                                inst.player_count,
+                                                                accent,
+                                                            );
                                                         }
                                                     })
                                                     .gap(2.5)
@@ -1600,6 +1535,98 @@ pub(super) fn render_detail_view(
     })
     .grow(1.0)
     .gap(9.0);
+}
+
+fn instance_member_name_max_w(shown_count: usize) -> f32 {
+    if shown_count <= 2 {
+        170.0
+    } else if shown_count <= 4 {
+        128.0
+    } else if shown_count <= 8 {
+        102.0
+    } else {
+        88.0
+    }
+}
+
+pub(crate) fn render_instance_member_strip(
+    ui: &mut UiContext,
+    state: &AppState,
+    members: &[crate::state::InstanceMemberItem],
+    player_count: i32,
+    accent: Color,
+) {
+    let shown = members.len().min(12);
+    let name_max_w = instance_member_name_max_w(shown);
+
+    ui.row_wrap(|ui| {
+        for m in members.iter().take(shown) {
+            ui.row(|ui| {
+                if let Some(tex) = state.main_textures.get(&m.image_key) {
+                    ui.img(tex)
+                        .w(18.0)
+                        .h(18.0)
+                        .fit(ImageFit::Cover)
+                        .hexagon_pointy()
+                        .r(2.0);
+                } else {
+                    let init = m
+                        .name
+                        .chars()
+                        .next()
+                        .unwrap_or('?')
+                        .to_ascii_uppercase()
+                        .to_string();
+                    ui.col(|ui| {
+                        ui.txt(&init)
+                            .sz(crate::theme::fs(8.5))
+                            .bold()
+                            .align(TextAlign::Center)
+                            .fg(accent);
+                    })
+                    .center()
+                    .w(18.0)
+                    .h(18.0)
+                    .bg(tint_alpha(accent, 30))
+                    .hexagon_pointy()
+                    .r(2.0);
+                }
+                ui.txt(&m.name)
+                    .sz(crate::theme::fs(9.5))
+                    .fg(TEXT_MUTED)
+                    .max_w(name_max_w)
+                    .ellipsis();
+            })
+            .align_center()
+            .gap(4.0)
+            .px(5.0)
+            .py(2.0)
+            .bg(tile_idle_bg())
+            .bd(1.0, border_subtle())
+            .bevel_rounded(4.5, 1.0);
+        }
+
+        let remaining = player_count.saturating_sub(shown as i32);
+        if remaining > 0 {
+            let more_txt = if shown == 0 {
+                format!("{} in instance", remaining)
+            } else {
+                format!("+{} more", remaining)
+            };
+            ui.txt(&more_txt)
+                .sz(crate::theme::fs(9.5))
+                .semibold()
+                .fg(accent)
+                .px(6.0)
+                .py(2.0)
+                .bg(tint_alpha(accent, 24))
+                .bd(1.0, tint_alpha(accent, 95))
+                .bevel_rounded(4.5, 1.0);
+        }
+    })
+    .w_frac(1.0)
+    .gap(4.0)
+    .pt(3.0);
 }
 
 fn instance_privacy_color(privacy: &str, accent: Color) -> Color {

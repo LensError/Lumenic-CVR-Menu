@@ -4,14 +4,12 @@ using System.Runtime.InteropServices;
 using ABI_RC.Core.UI;
 using MelonLoader;
 using UnityEngine;
-using UnityEngine.Experimental.Rendering;
-using UnityEngine.Rendering;
 
 namespace LumenicMenu.Native;
 
 /// <summary>
-/// Manages per-menu zero-copy D3D11 interop RenderTexture (with automatic CPU Texture2D readback fallback),
-/// dynamic ViewTextureMips blitting, pointer hover/leave tracking, refresh-rate throttling, and Stopwatch profiling.
+/// Manages per-menu pinned RGBA pixel buffer + Texture2D upload, dynamic ViewTextureMips blitting,
+/// pointer hover/leave tracking, refresh-rate throttling, and Stopwatch profiling.
 /// </summary>
 internal sealed class MenuSurfaceHost : IDisposable
 {
@@ -19,19 +17,12 @@ internal sealed class MenuSurfaceHost : IDisposable
     public readonly string Name;
     private readonly float _referenceLogicalHeight;
 
-    private RenderTexture _interopRt;
-    private Texture2D _interopTex2D;
-    private bool _usingD3D11Interop;
-    private bool _d3d11InteropFailed;
-
     private Texture2D _texture;
     private byte[] _pixelBuffer;
     private GCHandle _pinnedBuffer;
     private bool _hasPinnedBuffer;
 
-    private Texture ActiveSurfaceTexture => _usingD3D11Interop
-        ? (_interopRt != null ? (Texture)_interopRt : _interopTex2D)
-        : _texture;
+    private Texture ActiveSurfaceTexture => _texture;
 
     private int _width;
     private int _height;
@@ -116,8 +107,6 @@ internal sealed class MenuSurfaceHost : IDisposable
     public void InvalidateNativeSurface()
     {
         _scale = 0f;
-        _d3d11InteropFailed = false;
-        _usingD3D11Interop = false;
         _needsFirstBlit = true;
     }
 
@@ -205,8 +194,8 @@ internal sealed class MenuSurfaceHost : IDisposable
             ? Mathf.Clamp(now - _lastRenderUnscaledTime, 0.001f, 0.25f)
             : Mathf.Clamp(dtSecs, 0.001f, 0.25f);
         _sw.Restart();
-        IntPtr readPtr = (!_usingD3D11Interop && _hasPinnedBuffer) ? _pinnedBuffer.AddrOfPinnedObject() : IntPtr.Zero;
-        int readLen = (!_usingD3D11Interop && _pixelBuffer != null) ? _pixelBuffer.Length : 0;
+        IntPtr readPtr = _hasPinnedBuffer ? _pinnedBuffer.AddrOfPinnedObject() : IntPtr.Zero;
+        int readLen = _pixelBuffer != null ? _pixelBuffer.Length : 0;
         uint flags = bridge.StepAndRead(
             SurfaceId,
             effectiveDt,
@@ -250,37 +239,25 @@ internal sealed class MenuSurfaceHost : IDisposable
         }
 
         float readMs = 0f;
-        float uploadMs = 0f;
-        bool d3d11Blitted = (flags & NativeBridge.StepFlagD3D11Blitted) != 0;
-        if (!d3d11Blitted)
+        if ((flags & NativeBridge.StepFlagPixelsRead) == 0)
         {
-            if (_usingD3D11Interop)
-            {
-                MelonLogger.Warning($"[LumenicMenu] {Name} D3D11 interop blit fell back to CPU readback ({bridge.GetLastError()}).");
-                _d3d11InteropFailed = true;
-                ReallocateBuffers(bridge, _width, _height, _linearTexture);
-            }
-
-            if ((flags & NativeBridge.StepFlagPixelsRead) == 0)
-            {
-                _sw.Restart();
-                bool readOk = bridge.ReadPixels(SurfaceId, _pinnedBuffer.AddrOfPinnedObject(), _pixelBuffer.Length);
-                _sw.Stop();
-                readMs = (float)_sw.Elapsed.TotalMilliseconds;
-
-                if (!readOk)
-                {
-                    fatalError = true;
-                    return false;
-                }
-            }
-
             _sw.Restart();
-            _texture.LoadRawTextureData(_pinnedBuffer.AddrOfPinnedObject(), _pixelBuffer.Length);
-            _texture.Apply(updateMipmaps: false, makeNoLongerReadable: false);
+            bool readOk = bridge.ReadPixels(SurfaceId, _pinnedBuffer.AddrOfPinnedObject(), _pixelBuffer.Length);
             _sw.Stop();
-            uploadMs = (float)_sw.Elapsed.TotalMilliseconds;
+            readMs = (float)_sw.Elapsed.TotalMilliseconds;
+
+            if (!readOk)
+            {
+                fatalError = true;
+                return false;
+            }
         }
+
+        _sw.Restart();
+        _texture.LoadRawTextureData(_pinnedBuffer.AddrOfPinnedObject(), _pixelBuffer.Length);
+        _texture.Apply(updateMipmaps: false, makeNoLongerReadable: false);
+        _sw.Stop();
+        float uploadMs = (float)_sw.Elapsed.TotalMilliseconds;
 
         // Always read view.ViewTextureMips dynamically (RecreateViewTexture can replace it at runtime).
         RenderTexture mips = view.ViewTextureMips;
@@ -312,9 +289,8 @@ internal sealed class MenuSurfaceHost : IDisposable
 
         _lastPerfLogUnscaledTime = now;
         float total = LastStepMs + LastReadbackMs + LastUploadMs + LastBlitMs;
-        string mode = _usingD3D11Interop ? "D3D11" : "CPU";
         MelonLogger.Msg(
-            $"[LumenicMenu][Perf][{Name} {_width}x{_height} @{_scale:F2}x {mode}] rendered={_renderedFramesSinceLog} idle={_idleFramesSinceLog} | step={LastStepMs:F2}ms read={LastReadbackMs:F2}ms upload={LastUploadMs:F2}ms blit={LastBlitMs:F2}ms total={total:F2}ms");
+            $"[LumenicMenu][Perf][{Name} {_width}x{_height} @{_scale:F2}x] rendered={_renderedFramesSinceLog} idle={_idleFramesSinceLog} | step={LastStepMs:F2}ms read={LastReadbackMs:F2}ms upload={LastUploadMs:F2}ms blit={LastBlitMs:F2}ms total={total:F2}ms");
         _renderedFramesSinceLog = 0;
         _idleFramesSinceLog = 0;
     }
@@ -345,88 +321,6 @@ internal sealed class MenuSurfaceHost : IDisposable
         _height = height;
         _linearTexture = linear;
 
-        if (!_d3d11InteropFailed
-            && bridge != null
-            && bridge.SupportsD3D11Interop
-            && SystemInfo.graphicsDeviceType == GraphicsDeviceType.Direct3D11)
-        {
-            // Try concrete non-typeless Texture2D first (Unity RenderTexture sRGB allocates DXGI_FORMAT_R8G8B8A8_TYPELESS,
-            // which WGL_NV_DX_interop2 rejects with ERROR_OPEN_FAILED 0xC007006E), then fall back to explicit GraphicsFormat RenderTexture.
-            Texture2D interopTex = null;
-            try
-            {
-                interopTex = new Texture2D(width, height, TextureFormat.RGBA32, mipChain: false, linear: linear)
-                {
-                    name = $"LumenicMenu_{Name}_InteropTex_{width}x{height}",
-                    wrapMode = TextureWrapMode.Clamp,
-                    filterMode = FilterMode.Bilinear
-                };
-                interopTex.Apply(updateMipmaps: false, makeNoLongerReadable: true);
-                IntPtr texPtr = interopTex.GetNativeTexturePtr();
-                if (texPtr != IntPtr.Zero && bridge.AttachD3D11Texture(SurfaceId, texPtr))
-                {
-                    _interopTex2D = interopTex;
-                    _usingD3D11Interop = true;
-                    MelonLogger.Msg($"[LumenicMenu] {Name} using zero-copy WGL_NV_DX_interop2 D3D11 Texture2D ({width}x{height}).");
-                    return;
-                }
-                MelonLogger.Warning($"[LumenicMenu] {Name} D3D11 Texture2D interop attach failed ({bridge.GetLastError()}); trying RenderTexture.");
-            }
-            catch (Exception ex)
-            {
-                MelonLogger.Warning($"[LumenicMenu] {Name} D3D11 Texture2D interop exception: {ex.Message}");
-            }
-            if (interopTex != null)
-            {
-                UnityEngine.Object.Destroy(interopTex);
-            }
-
-            RenderTexture rt = null;
-            try
-            {
-                var desc = new RenderTextureDescriptor(
-                    width,
-                    height,
-                    linear ? GraphicsFormat.R8G8B8A8_UNorm : GraphicsFormat.R8G8B8A8_SRGB,
-                    0)
-                {
-                    useMipMap = false,
-                    autoGenerateMips = false,
-                    msaaSamples = 1
-                };
-                rt = new RenderTexture(desc)
-                {
-                    name = $"LumenicMenu_{Name}_InteropRT_{width}x{height}",
-                    wrapMode = TextureWrapMode.Clamp,
-                    filterMode = FilterMode.Bilinear
-                };
-                if (rt.Create())
-                {
-                    IntPtr nativePtr = rt.GetNativeTexturePtr();
-                    if (nativePtr != IntPtr.Zero && bridge.AttachD3D11Texture(SurfaceId, nativePtr))
-                    {
-                        _interopRt = rt;
-                        _usingD3D11Interop = true;
-                        MelonLogger.Msg($"[LumenicMenu] {Name} using zero-copy WGL_NV_DX_interop2 D3D11 RenderTexture ({width}x{height}).");
-                        return;
-                    }
-                    MelonLogger.Warning($"[LumenicMenu] {Name} D3D11 RenderTexture interop attach failed ({bridge.GetLastError()}); falling back to CPU readback.");
-                }
-            }
-            catch (Exception ex)
-            {
-                MelonLogger.Warning($"[LumenicMenu] {Name} D3D11 RenderTexture interop exception: {ex.Message}; falling back to CPU readback.");
-            }
-
-            _d3d11InteropFailed = true;
-            if (rt != null)
-            {
-                rt.Release();
-                UnityEngine.Object.Destroy(rt);
-            }
-        }
-
-        _usingD3D11Interop = false;
         _texture = new Texture2D(width, height, TextureFormat.RGBA32, mipChain: false, linear: linear)
         {
             name = $"LumenicMenu_{Name}_{width}x{height}",
@@ -441,23 +335,6 @@ internal sealed class MenuSurfaceHost : IDisposable
 
     private void ReleaseBuffers(NativeBridge bridge = null)
     {
-        if (_usingD3D11Interop)
-        {
-            bridge?.DetachD3D11Texture(SurfaceId);
-            _usingD3D11Interop = false;
-        }
-        if (_interopRt != null)
-        {
-            _interopRt.Release();
-            UnityEngine.Object.Destroy(_interopRt);
-            _interopRt = null;
-        }
-        if (_interopTex2D != null)
-        {
-            UnityEngine.Object.Destroy(_interopTex2D);
-            _interopTex2D = null;
-        }
-
         if (_hasPinnedBuffer)
         {
             _pinnedBuffer.Free();

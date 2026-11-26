@@ -962,7 +962,7 @@ pub fn render_user_detail_view(
                 .shadow(14.0, SHADOW_CARD);
 
                 // Right: Online Status, Instance & Social Actions
-                ui.col(|ui| {
+                ui.scroll("mm_ud_right_scroll", |ui| {
                     // Status & Instance card
                     ui.col(|ui| {
                         let status_lbl = if detail.online_state || detail.is_local {
@@ -984,10 +984,197 @@ pub fn render_user_detail_view(
                             },
                         );
 
-                        if !detail.world_name.is_empty() {
-                            ui.txt(&format!("World: {}", detail.world_name))
-                                .sz(crate::theme::fs(11.5))
-                                .fg(TEXT_MUTED);
+                        if !detail.instance_id.is_empty() || !detail.world_name.is_empty() {
+                            let can_open_inst = !detail.instance_id.is_empty();
+                            let can_open_world = !detail.world_id.is_empty();
+                            ui.row(|ui| {
+                                if ui
+                                    .btn_with("mm_ud_inst_card", |ui| {
+                                        ui.col(|ui| {
+                                            ui.row(|ui| {
+                                                if let Some(tex) =
+                                                    state.main_textures.get(&detail.world_image_key)
+                                                {
+                                                    ui.img(tex)
+                                                        .w(78.0)
+                                                        .h(50.0)
+                                                        .fit(ImageFit::Cover)
+                                                        .bevel_rounded(5.5, 1.2)
+                                                        .bd(1.0, border_subtle());
+                                                } else {
+                                                    ui.col(|ui| {
+                                                        icons::icon(ui, icons::WORLD, 20.0)
+                                                            .fg(TEXT_DIM);
+                                                    })
+                                                    .center()
+                                                    .w(78.0)
+                                                    .h(50.0)
+                                                    .bg(tile_idle_bg())
+                                                    .bd(1.0, border_subtle())
+                                                    .bevel_rounded(5.5, 1.2);
+                                                }
+
+                                                ui.col(|ui| {
+                                                    let inst_title = if !detail.instance_name.is_empty() {
+                                                        detail.instance_name.as_str()
+                                                    } else if !detail.world_name.is_empty() {
+                                                        detail.world_name.as_str()
+                                                    } else {
+                                                        "Private Instance"
+                                                    };
+                                                    ui.txt(inst_title)
+                                                        .sz(crate::theme::fs(12.0))
+                                                        .semibold()
+                                                        .fg(TEXT_PRIMARY)
+                                                        .ellipsis();
+
+                                                    if !detail.world_name.is_empty()
+                                                        && !detail.instance_name.is_empty()
+                                                    {
+                                                        ui.txt(&detail.world_name)
+                                                            .sz(crate::theme::fs(10.5))
+                                                            .fg(TEXT_MUTED)
+                                                            .ellipsis();
+                                                    }
+
+                                                    let shown_players = detail
+                                                        .instance_player_count
+                                                        .max(detail.instance_members.len() as i32);
+                                                    if shown_players > 0
+                                                        || detail.instance_max_players > 0
+                                                        || !detail.instance_region.is_empty()
+                                                    {
+                                                        let region = if detail.instance_region.is_empty() {
+                                                            "Global"
+                                                        } else {
+                                                            &detail.instance_region
+                                                        };
+                                                        let meta = if detail.instance_max_players > 0
+                                                            || shown_players > 0
+                                                        {
+                                                            format!(
+                                                                "{} / {} players  |  {}",
+                                                                shown_players,
+                                                                detail
+                                                                    .instance_max_players
+                                                                    .max(shown_players),
+                                                                region
+                                                            )
+                                                        } else {
+                                                            region.to_string()
+                                                        };
+                                                        ui.txt(&meta)
+                                                            .sz(crate::theme::fs(10.0))
+                                                            .fg(TEXT_DIM)
+                                                            .ellipsis();
+                                                    }
+                                                })
+                                                .gap(2.0)
+                                                .grow(1.0);
+                                            })
+                                            .align_center()
+                                            .gap(8.0);
+
+                                            if !detail.instance_members.is_empty()
+                                                || detail.instance_player_count > 0
+                                            {
+                                                crate::content_browser::render_instance_member_strip(
+                                                    ui,
+                                                    state,
+                                                    &detail.instance_members,
+                                                    detail.instance_player_count,
+                                                    accent,
+                                                );
+                                            }
+                                        })
+                                        .gap(4.0)
+                                        .grow(1.0);
+                                    })
+                                    .grow(1.0)
+                                    .p(7.0)
+                                    .bg(Color::TRANSPARENT)
+                                    .hover_bg(tile_idle_hover())
+                                    .borderless()
+                                    .bevel_rounded(6.0, 1.2)
+                                    .clicked()
+                                    && (can_open_inst || can_open_world)
+                                {
+                                    push_click(actions);
+                                    crate::main_menu::push_nav_history(state);
+                                    state.main_menu.active_tab = String::from("worlds");
+                                    actions.push(UiAction::SocialCloseUserDetail);
+                                    actions.push(UiAction::SocialCloseGroupDetail);
+                                    if can_open_inst {
+                                        actions.push(UiAction::ContentLoadInstanceDetail {
+                                            instance_id: detail.instance_id.clone(),
+                                        });
+                                    } else {
+                                        actions.push(UiAction::ContentLoadDetail {
+                                            kind: String::from("world"),
+                                            id: detail.world_id.clone(),
+                                        });
+                                    }
+                                }
+
+                                if can_open_inst {
+                                    ui.col(|ui| {
+                                        if !detail.is_local
+                                            && ui
+                                                .btn_with("mm_ud_join_inst", |ui| {
+                                                    ui.txt("Join")
+                                                        .sz(crate::theme::fs(11.0))
+                                                        .bold()
+                                                        .align(TextAlign::Center)
+                                                        .fg(TEXT_PRIMARY)
+                                                        .grow(1.0);
+                                                })
+                                                .w(68.0)
+                                                .py(5.5)
+                                                .bg(tint_alpha(accent, 52))
+                                                .hover_bg(tint_alpha(accent, 85))
+                                                .bd(1.0, tint_alpha(accent, 195))
+                                                .bevel_rounded(6.0, 1.3)
+                                                .clicked()
+                                        {
+                                            push_click(actions);
+                                            actions.push(UiAction::ContentJoinInstance {
+                                                instance_id: detail.instance_id.clone(),
+                                            });
+                                        }
+
+                                        if ui
+                                            .btn_with("mm_ud_portal_inst", |ui| {
+                                                ui.txt("Portal")
+                                                    .sz(crate::theme::fs(10.5))
+                                                    .semibold()
+                                                    .align(TextAlign::Center)
+                                                    .fg(TEXT_PRIMARY)
+                                                    .grow(1.0);
+                                            })
+                                            .w(68.0)
+                                            .py(5.0)
+                                            .bg(tile_idle_bg())
+                                            .hover_bg(tile_idle_hover())
+                                            .bd(1.0, border_subtle())
+                                            .bevel_rounded(6.0, 1.3)
+                                            .clicked()
+                                        {
+                                            push_click(actions);
+                                            actions.push(UiAction::ContentDropPortal {
+                                                instance_id: detail.instance_id.clone(),
+                                            });
+                                        }
+                                    })
+                                    .gap(5.0);
+                                }
+                            })
+                            .align_center()
+                            .p(4.0)
+                            .pr(8.0)
+                            .gap(6.0)
+                            .bg(card_inner_bg())
+                            .bd(1.0, border_subtle())
+                            .bevel_rounded(7.0, 1.3);
                         }
                         if !detail.avatar_name.is_empty() {
                             if !detail.avatar_id.is_empty() {
@@ -1058,66 +1245,6 @@ pub fn render_user_detail_view(
                                     .sz(crate::theme::fs(11.5))
                                     .fg(TEXT_MUTED);
                             }
-                        }
-
-                        if !detail.instance_id.is_empty() {
-                            ui.row(|ui| {
-                                if !detail.is_local
-                                    && ui
-                                        .btn_with("mm_ud_join_inst", |ui| {
-                                            ui.txt("Join Instance")
-                                                .sz(crate::theme::fs(12.0))
-                                                .bold()
-                                                .align(TextAlign::Center)
-                                                .fg(TEXT_PRIMARY)
-                                                .grow(1.0);
-                                        })
-                                        .grow(1.0)
-                                        .py(8.0)
-                                        .bg(tint_alpha(EMERALD, 50))
-                                        .hover_bg(tint_alpha(EMERALD, 80))
-                                        .bd(1.5, tint_alpha(EMERALD, 195))
-                                        .bevel_rounded(6.5, 1.3)
-                                        .clicked()
-                                {
-                                    push_click(actions);
-                                    actions.push(UiAction::ContentJoinInstance {
-                                        instance_id: detail.instance_id.clone(),
-                                    });
-                                }
-
-                                if ui
-                                    .btn_with("mm_ud_inst_details", |ui| {
-                                        ui.row(|ui| {
-                                            icons::icon(ui, icons::INSTANCE, 13.5).fg(accent);
-                                            ui.txt("Instance Details")
-                                                .sz(crate::theme::fs(11.5))
-                                                .semibold()
-                                                .fg(TEXT_PRIMARY);
-                                        })
-                                        .center()
-                                        .gap(5.0)
-                                        .grow(1.0);
-                                    })
-                                    .grow(1.0)
-                                    .py(8.0)
-                                    .bg(tile_idle_bg())
-                                    .hover_bg(tile_idle_hover())
-                                    .bd(1.0, tint_alpha(accent, 150))
-                                    .bevel_rounded(6.5, 1.3)
-                                    .clicked()
-                                {
-                                    push_click(actions);
-                                    crate::main_menu::push_nav_history(state);
-                                    state.main_menu.active_tab = String::from("worlds");
-                                    actions.push(UiAction::SocialCloseUserDetail);
-                                    actions.push(UiAction::SocialCloseGroupDetail);
-                                    actions.push(UiAction::ContentLoadInstanceDetail {
-                                        instance_id: detail.instance_id.clone(),
-                                    });
-                                }
-                            })
-                            .gap(6.0);
                         }
                     })
                     .p(11.0)
@@ -1632,7 +1759,6 @@ pub fn render_user_detail_view(
                             })
                             .gap(6.0);
                         })
-                        .grow(1.0)
                         .p(11.0)
                         .gap(7.0)
                         .bg(card_bg())
@@ -1643,7 +1769,8 @@ pub fn render_user_detail_view(
                 })
                 .grow(1.0)
                 .h_frac(1.0)
-                .gap(9.0);
+                .gap(9.0)
+                .no_scrollbar();
             })
             .grow(1.0)
             .gap(10.0);

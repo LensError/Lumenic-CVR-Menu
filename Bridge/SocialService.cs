@@ -69,6 +69,13 @@ internal sealed class SocialService
         public bool IsFeatured;
     }
 
+    private sealed class UserInstanceMemberDto
+    {
+        public string Id = string.Empty;
+        public string Name = string.Empty;
+        public string ImageUrl = string.Empty;
+    }
+
     private sealed class UserDetailDto
     {
         public string Id = string.Empty;
@@ -96,11 +103,17 @@ internal sealed class SocialService
         public bool IsLocal;
         public string InstanceId = string.Empty;
         public string InstanceName = string.Empty;
+        public string InstanceRegion = string.Empty;
+        public int InstancePlayerCount;
+        public int InstanceMaxPlayers;
+        public string WorldId = string.Empty;
         public string WorldName = string.Empty;
+        public string WorldImageUrl = string.Empty;
         public bool Loading;
         public string Error = string.Empty;
         public List<UserBadgeDto> Badges = new List<UserBadgeDto>();
         public List<UserGroupDto> Groups = new List<UserGroupDto>();
+        public List<UserInstanceMemberDto> InstanceMembers = new List<UserInstanceMemberDto>();
     }
 
     private sealed class GroupMemberDto
@@ -1731,6 +1744,7 @@ internal sealed class SocialService
         UserDetailDto detailCopy;
         List<UserBadgeDto> detailBadges = null;
         List<UserGroupDto> detailGroups = null;
+        List<UserInstanceMemberDto> detailInstanceMembers = null;
         lock (_lock)
         {
             detailCopy = _userDetail;
@@ -1738,6 +1752,7 @@ internal sealed class SocialService
             {
                 detailBadges = new List<UserBadgeDto>(detailCopy.Badges);
                 detailGroups = new List<UserGroupDto>(detailCopy.Groups);
+                detailInstanceMembers = new List<UserInstanceMemberDto>(detailCopy.InstanceMembers);
             }
         }
 
@@ -1798,9 +1813,20 @@ internal sealed class SocialService
                 prop_visibility = propVis,
                 instance_id = detailCopy.InstanceId,
                 instance_name = detailCopy.InstanceName,
+                instance_region = detailCopy.InstanceRegion,
+                instance_player_count = detailCopy.InstancePlayerCount,
+                instance_max_players = detailCopy.InstanceMaxPlayers,
+                world_id = detailCopy.WorldId,
                 world_name = detailCopy.WorldName,
+                world_image_key = images != null ? images.RequestThumbnail(NativeBridge.SurfaceMain, detailCopy.WorldImageUrl) : string.Empty,
                 loading = detailCopy.Loading,
                 error = detailCopy.Error,
+                instance_members = detailInstanceMembers.Select(m => (object)new
+                {
+                    id = m.Id,
+                    name = m.Name,
+                    image_key = images != null ? images.RequestThumbnail(NativeBridge.SurfaceMain, m.ImageUrl) : string.Empty
+                }).ToList(),
                 badges = detailBadges.Select(b => (object)new
                 {
                     id = b.Id,
@@ -2186,7 +2212,77 @@ internal sealed class SocialService
                 next.IsBlocked = d.IsBlocked;
                 next.InstanceId = d.Instance?.Id ?? string.Empty;
                 next.InstanceName = d.Instance?.Name ?? string.Empty;
+                next.InstanceRegion = d.Instance?.Region ?? string.Empty;
+                next.InstancePlayerCount = d.Instance?.CurrentPlayerCount ?? 0;
+                next.InstanceMaxPlayers = d.Instance?.MaxPlayer ?? 0;
+                next.WorldId = d.Instance?.World?.Id ?? string.Empty;
                 next.WorldName = d.Instance?.World?.Name ?? string.Empty;
+                next.WorldImageUrl = d.Instance?.World?.ImageUrl ?? string.Empty;
+                if (d.Instance?.Members != null)
+                {
+                    foreach (UserDetails m in d.Instance.Members)
+                    {
+                        if (m == null || string.IsNullOrEmpty(m.Id)) continue;
+                        next.InstanceMembers.Add(new UserInstanceMemberDto
+                        {
+                            Id = m.Id,
+                            Name = m.Name ?? "Player",
+                            ImageUrl = m.ImageUrl ?? string.Empty
+                        });
+                        if (next.InstanceMembers.Count >= 12)
+                            break;
+                    }
+                }
+
+                if (!string.IsNullOrEmpty(next.InstanceId)
+                    && (string.IsNullOrEmpty(next.WorldImageUrl)
+                        || (next.InstanceMembers.Count == 0 && next.InstancePlayerCount > 0)))
+                {
+                    try
+                    {
+                        BaseResponse<InstanceDetailsResponse> instResp =
+                            await ApiConnection.MakeRequest<InstanceDetailsResponse>(
+                                ApiConnection.ApiOperation.InstanceDetail,
+                                new { instanceID = next.InstanceId });
+                        if (instResp?.Data != null)
+                        {
+                            InstanceDetailsResponse idata = instResp.Data;
+                            if (string.IsNullOrEmpty(next.InstanceName))
+                                next.InstanceName = idata.Name ?? string.Empty;
+                            if (string.IsNullOrEmpty(next.InstanceRegion))
+                                next.InstanceRegion = idata.Region ?? string.Empty;
+                            if (next.InstancePlayerCount <= 0)
+                                next.InstancePlayerCount = idata.CurrentPlayerCount;
+                            if (next.InstanceMaxPlayers <= 0)
+                                next.InstanceMaxPlayers = idata.MaxPlayer;
+                            if (string.IsNullOrEmpty(next.WorldId))
+                                next.WorldId = idata.World?.Id ?? string.Empty;
+                            if (string.IsNullOrEmpty(next.WorldName))
+                                next.WorldName = idata.World?.Name ?? string.Empty;
+                            if (string.IsNullOrEmpty(next.WorldImageUrl))
+                                next.WorldImageUrl = idata.World?.ImageUrl ?? string.Empty;
+                            if (next.InstanceMembers.Count == 0 && idata.Members != null)
+                            {
+                                foreach (UserDetails m in idata.Members)
+                                {
+                                    if (m == null || string.IsNullOrEmpty(m.Id)) continue;
+                                    next.InstanceMembers.Add(new UserInstanceMemberDto
+                                    {
+                                        Id = m.Id,
+                                        Name = m.Name ?? "Player",
+                                        ImageUrl = m.ImageUrl ?? string.Empty
+                                    });
+                                    if (next.InstanceMembers.Count >= 12)
+                                        break;
+                                }
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        // Non-fatal instance enrichment failure.
+                    }
+                }
             }
             else
             {

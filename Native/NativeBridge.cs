@@ -35,7 +35,6 @@ internal sealed class NativeBridge : IDisposable
     public const uint StepFlagPointerOverUi = 1u << 2;
     public const uint StepFlagHasActions = 1u << 3;
     public const uint StepFlagPixelsRead = 1u << 4;
-    public const uint StepFlagD3D11Blitted = 1u << 5;
     public const uint StepFlagErrorOrPanic = 1u << 31;
 
     [StructLayout(LayoutKind.Sequential)]
@@ -92,18 +91,6 @@ internal sealed class NativeBridge : IDisposable
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     [return: MarshalAs(UnmanagedType.I1)]
     private delegate bool ResizeFn(IntPtr handle, uint surfaceId, uint w, uint h, float scale);
-
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    [return: MarshalAs(UnmanagedType.I1)]
-    private delegate bool SupportsD3D11InteropFn(IntPtr handle);
-
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    [return: MarshalAs(UnmanagedType.I1)]
-    private delegate bool AttachD3D11TextureFn(IntPtr handle, uint surfaceId, IntPtr d3d11TexPtr);
-
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    [return: MarshalAs(UnmanagedType.I1)]
-    private delegate bool DetachD3D11TextureFn(IntPtr handle, uint surfaceId);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private delegate void PointerMoveFn(IntPtr handle, uint surfaceId, float x, float y);
@@ -237,9 +224,6 @@ internal sealed class NativeBridge : IDisposable
     private CreateFn _create;
     private DestroyFn _destroy;
     private ResizeFn _resize;
-    private SupportsD3D11InteropFn _supportsD3D11Interop;
-    private AttachD3D11TextureFn _attachD3D11Texture;
-    private DetachD3D11TextureFn _detachD3D11Texture;
     private PointerMoveFn _pointerMove;
     private PointerButtonFn _pointerDown;
     private PointerButtonFn _pointerUp;
@@ -409,9 +393,6 @@ internal sealed class NativeBridge : IDisposable
         _create = Bind<CreateFn>("lumenic_cvr_create");
         _destroy = Bind<DestroyFn>("lumenic_cvr_destroy");
         _resize = Bind<ResizeFn>("lumenic_cvr_resize");
-        _supportsD3D11Interop = Bind<SupportsD3D11InteropFn>("lumenic_cvr_supports_d3d11_interop");
-        _attachD3D11Texture = Bind<AttachD3D11TextureFn>("lumenic_cvr_attach_d3d11_texture");
-        _detachD3D11Texture = Bind<DetachD3D11TextureFn>("lumenic_cvr_detach_d3d11_texture");
         _pointerMove = Bind<PointerMoveFn>("lumenic_cvr_pointer_move");
         _pointerDown = Bind<PointerButtonFn>("lumenic_cvr_pointer_down");
         _pointerUp = Bind<PointerButtonFn>("lumenic_cvr_pointer_up");
@@ -443,9 +424,6 @@ internal sealed class NativeBridge : IDisposable
             && _create != null
             && _destroy != null
             && _resize != null
-            && _supportsD3D11Interop != null
-            && _attachD3D11Texture != null
-            && _detachD3D11Texture != null
             && _pointerMove != null
             && _pointerDown != null
             && _pointerUp != null
@@ -507,20 +485,6 @@ internal sealed class NativeBridge : IDisposable
     {
         if (!IsHealthy) return false;
         return _resize(_handle, surfaceId, width, height, scale);
-    }
-
-    public bool SupportsD3D11Interop => IsHealthy && _supportsD3D11Interop != null && _supportsD3D11Interop(_handle);
-
-    public bool AttachD3D11Texture(uint surfaceId, IntPtr d3d11TexPtr)
-    {
-        if (!IsHealthy || _attachD3D11Texture == null || d3d11TexPtr == IntPtr.Zero) return false;
-        return _attachD3D11Texture(_handle, surfaceId, d3d11TexPtr);
-    }
-
-    public bool DetachD3D11Texture(uint surfaceId)
-    {
-        if (!IsHealthy || _detachD3D11Texture == null) return false;
-        return _detachD3D11Texture(_handle, surfaceId);
     }
 
     public void PointerMove(uint surfaceId, float x, float y)
@@ -1005,9 +969,6 @@ internal sealed class NativeBridge : IDisposable
             _create = null;
             _destroy = null;
             _resize = null;
-            _supportsD3D11Interop = null;
-            _attachD3D11Texture = null;
-            _detachD3D11Texture = null;
             _pointerMove = null;
             _pointerDown = null;
             _pointerUp = null;
