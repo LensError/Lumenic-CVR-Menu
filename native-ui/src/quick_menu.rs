@@ -606,10 +606,11 @@ pub fn render_quick_menu(
                     ui, state, accent, actions, "qm",
                 );
             } else if let Some(alert) = state.host.system_alert.take() {
-                crate::settings_view::render_system_alert_modal(
-                    ui, state, &alert, accent, actions, "qm",
-                );
-                state.host.system_alert = Some(alert);
+                if crate::settings_view::render_system_alert_modal(
+                    ui, &alert, accent, actions, "qm",
+                ) {
+                    state.host.system_alert = Some(alert);
+                }
             } else if let Some(ext_modal) = state.extensions.qm_modal.take() {
                 crate::ext_view::render_ext_modal(ui, state, "quick", &ext_modal, accent, actions);
                 state.extensions.qm_modal = Some(ext_modal);
@@ -621,8 +622,10 @@ pub fn render_quick_menu(
                 render_group_mod_prompt_modal(ui, &prompt, accent, actions, "qm");
                 state.host.content.group_mod_prompt = Some(prompt);
             } else if let Some((world_id, world_name)) = state.quick.qm_world_modal.take() {
-                render_qm_world_instance_modal(ui, state, &world_id, &world_name, accent, actions);
-                state.quick.qm_world_modal = Some((world_id, world_name));
+                if render_qm_world_instance_modal(ui, state, &world_id, &world_name, accent, actions)
+                {
+                    state.quick.qm_world_modal = Some((world_id, world_name));
+                }
             } else if state.quick.show_info_modal {
                 render_system_info_modal(ui, state, accent, actions);
             }
@@ -1872,11 +1875,12 @@ fn render_qm_world_instance_modal(
     world_name: &str,
     accent: Color,
     actions: &mut Vec<UiAction>,
-) {
+) -> bool {
+    let mut keep_open = true;
     ui.zstack(|ui| {
         if crate::theme::modal_scrim(ui, "qm_world_modal_scrim_fx", "qm_world_modal_scrim") {
             push_click(actions);
-            state.quick.qm_world_modal = None;
+            keep_open = false;
         }
 
         ui.col(|ui| {
@@ -1904,7 +1908,7 @@ fn render_qm_world_instance_modal(
                                 .clicked()
                             {
                                 push_click(actions);
-                                state.quick.qm_world_modal = None;
+                                keep_open = false;
                             }
                         })
                         .align_center()
@@ -2167,7 +2171,7 @@ fn render_qm_world_instance_modal(
                                 .clicked()
                             {
                                 push_click(actions);
-                                state.quick.qm_world_modal = None;
+                                keep_open = false;
                                 state.main_menu.nav_history.clear();
                                 state.main_menu.active_tab = String::from("worlds");
                                 actions.push(UiAction::QmOpenWorldDetails {
@@ -2195,6 +2199,7 @@ fn render_qm_world_instance_modal(
     })
     .w_frac(1.0)
     .h_frac(1.0);
+    keep_open
 }
 
 pub fn render_group_mod_prompt_modal(

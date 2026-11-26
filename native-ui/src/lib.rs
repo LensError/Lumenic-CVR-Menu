@@ -2594,6 +2594,97 @@ mod tests {
             lumenic_cvr_destroy(handle);
         }
     }
+
+    #[test]
+    fn ffi_dropdown_modal_select_and_dismiss_closes_modal() {
+        let handle = lumenic_cvr_create(1280, 720, 800, 800, 1.0);
+        assert!(!handle.is_null());
+
+        unsafe {
+            {
+                let hnd = &mut *handle;
+                hnd.state.host.disclaimer_accepted = true;
+                hnd.state.host.show_whats_new = false;
+                hnd.state.main_menu.active_dropdown = Some(crate::state::ActiveDropdown {
+                    title: String::from("TTS Voice"),
+                    options: vec![
+                        crate::state::DropdownOption {
+                            label: String::from("Voice Alpha"),
+                            selected: true,
+                            action: UiAction::CvrSetString {
+                                key: String::from("AudioTTSVoice"),
+                                value: String::from("alpha"),
+                            },
+                        },
+                        crate::state::DropdownOption {
+                            label: String::from("Voice Beta"),
+                            selected: false,
+                            action: UiAction::CvrSetString {
+                                key: String::from("AudioTTSVoice"),
+                                value: String::from("beta"),
+                            },
+                        },
+                    ],
+                });
+            }
+            let _ = lumenic_cvr_step(handle, SURFACE_MAIN, 0.016, true);
+            let _ = lumenic_cvr_step(handle, SURFACE_MAIN, 0.016, true);
+
+            let opt_rect = {
+                let hnd = &*handle;
+                let surf = hnd.host.surface(hnd.main_surface).unwrap();
+                surf.ui()
+                    .semantics()
+                    .iter()
+                    .find(|n| n.label.contains("Voice Beta"))
+                    .map(|n| n.bounds)
+                    .expect("expected Voice Beta option in dropdown modal")
+            };
+            let cx = opt_rect.x + opt_rect.w * 0.5;
+            let cy = opt_rect.y + opt_rect.h * 0.5;
+            lumenic_cvr_pointer_move(handle, SURFACE_MAIN, cx, cy);
+            let _ = lumenic_cvr_step(handle, SURFACE_MAIN, 0.016, false);
+            lumenic_cvr_pointer_down(handle, SURFACE_MAIN, 0);
+            let _ = lumenic_cvr_step(handle, SURFACE_MAIN, 0.016, false);
+            lumenic_cvr_pointer_up(handle, SURFACE_MAIN, 0);
+            let _ = lumenic_cvr_step(handle, SURFACE_MAIN, 0.016, false);
+
+            assert!(
+                (&*handle).state.main_menu.active_dropdown.is_none(),
+                "clicking a dropdown option must close active_dropdown (no softlock)"
+            );
+
+            // Re-open and verify backdrop scrim click also closes it.
+            {
+                let hnd = &mut *handle;
+                hnd.state.main_menu.active_dropdown = Some(crate::state::ActiveDropdown {
+                    title: String::from("Preferred Display Mode"),
+                    options: vec![crate::state::DropdownOption {
+                        label: String::from("Above Head"),
+                        selected: true,
+                        action: UiAction::CvrSetInt {
+                            key: String::from("AudioChatBoxDisplayMode"),
+                            value: 0,
+                        },
+                    }],
+                });
+            }
+            let _ = lumenic_cvr_step(handle, SURFACE_MAIN, 0.016, true);
+            lumenic_cvr_pointer_move(handle, SURFACE_MAIN, 20.0, 20.0);
+            let _ = lumenic_cvr_step(handle, SURFACE_MAIN, 0.016, false);
+            lumenic_cvr_pointer_down(handle, SURFACE_MAIN, 0);
+            let _ = lumenic_cvr_step(handle, SURFACE_MAIN, 0.016, false);
+            lumenic_cvr_pointer_up(handle, SURFACE_MAIN, 0);
+            let _ = lumenic_cvr_step(handle, SURFACE_MAIN, 0.016, false);
+
+            assert!(
+                (&*handle).state.main_menu.active_dropdown.is_none(),
+                "clicking dropdown backdrop scrim must close active_dropdown"
+            );
+
+            lumenic_cvr_destroy(handle);
+        }
+    }
 }
 }
 

@@ -537,18 +537,18 @@ pub fn render_main_menu(
                     ui, state, accent, actions, "mm",
                 );
             } else if let Some(alert) = state.host.system_alert.take() {
-                crate::settings_view::render_system_alert_modal(
-                    ui, state, &alert, accent, actions, "mm",
-                );
-                state.host.system_alert = Some(alert);
+                if crate::settings_view::render_system_alert_modal(
+                    ui, &alert, accent, actions, "mm",
+                ) {
+                    state.host.system_alert = Some(alert);
+                }
             } else if let Some(ext_modal) = state.extensions.mm_modal.take() {
                 crate::ext_view::render_ext_modal(ui, state, "main", &ext_modal, accent, actions);
                 state.extensions.mm_modal = Some(ext_modal);
             } else if let Some(dd) = state.main_menu.active_dropdown.take() {
-                crate::settings_view::render_dropdown_modal(
-                    ui, state, &dd, accent, actions, "mm",
-                );
-                state.main_menu.active_dropdown = Some(dd);
+                if crate::settings_view::render_dropdown_modal(ui, &dd, accent, actions, "mm") {
+                    state.main_menu.active_dropdown = Some(dd);
+                }
             }
         })
         .w_frac(1.0)

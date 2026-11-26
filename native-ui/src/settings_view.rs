@@ -2559,12 +2559,12 @@ pub fn render_mod_update_modal(
 
 pub fn render_system_alert_modal(
     ui: &mut UiContext,
-    state: &mut AppState,
     alert: &crate::state::SystemAlertDto,
     accent: Color,
     actions: &mut Vec<UiAction>,
     prefix: &str,
-) {
+) -> bool {
+    let mut keep_open = true;
     let card_w = if prefix == "qm" { 500.0 } else { 560.0 };
     let is_confirm = alert.kind == "confirm";
     let border_col = if is_confirm { accent } else { crate::theme::AMBER };
@@ -2633,7 +2633,7 @@ pub fn render_system_alert_modal(
                                     .clicked()
                                 {
                                     push_click(actions);
-                                    state.host.system_alert = None;
+                                    keep_open = false;
                                     actions.push(UiAction::RespondSystemConfirm {
                                         id: alert.id,
                                         confirmed: false,
@@ -2658,7 +2658,7 @@ pub fn render_system_alert_modal(
                                     .clicked()
                                 {
                                     push_click(actions);
-                                    state.host.system_alert = None;
+                                    keep_open = false;
                                     actions.push(UiAction::RespondSystemConfirm {
                                         id: alert.id,
                                         confirmed: true,
@@ -2682,7 +2682,7 @@ pub fn render_system_alert_modal(
                                 .clicked()
                             {
                                 push_click(actions);
-                                state.host.system_alert = None;
+                                keep_open = false;
                                 actions.push(UiAction::DismissSystemAlert { id: alert.id });
                             }
                         })
@@ -2706,16 +2706,17 @@ pub fn render_system_alert_modal(
     })
     .w_frac(1.0)
     .h_frac(1.0);
+    keep_open
 }
 
 pub fn render_dropdown_modal(
     ui: &mut UiContext,
-    state: &mut AppState,
     dropdown: &crate::state::ActiveDropdown,
     accent: Color,
     actions: &mut Vec<UiAction>,
     prefix: &str,
-) {
+) -> bool {
+    let mut keep_open = true;
     let card_w = if prefix == "qm" { 400.0 } else { 440.0 };
 
     ui.zstack(|ui| {
@@ -2725,7 +2726,7 @@ pub fn render_dropdown_modal(
             &format!("{prefix}_dd_scrim_hit"),
         ) {
             push_click(actions);
-            state.main_menu.active_dropdown = None;
+            keep_open = false;
         }
 
         ui.col(|ui| {
@@ -2754,7 +2755,7 @@ pub fn render_dropdown_modal(
                                 .clicked()
                             {
                                 push_click(actions);
-                                state.main_menu.active_dropdown = None;
+                                keep_open = false;
                             }
                         })
                         .align_center()
@@ -2806,7 +2807,7 @@ pub fn render_dropdown_modal(
                                     {
                                         push_click(actions);
                                         actions.push(opt.action.clone());
-                                        state.main_menu.active_dropdown = None;
+                                        keep_open = false;
                                     }
                                 }
                             })
@@ -2832,4 +2833,5 @@ pub fn render_dropdown_modal(
     })
     .w_frac(1.0)
     .h_frac(1.0);
+    keep_open
 }
