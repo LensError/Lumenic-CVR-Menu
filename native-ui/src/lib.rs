@@ -2243,6 +2243,13 @@ mod tests {
         unsafe {
             {
                 let hnd = &mut *handle;
+                hnd.state.host.colorize_menu = true;
+                hnd.state.host.accent_r = 40;
+                hnd.state.host.accent_g = 140;
+                hnd.state.host.accent_b = 60;
+                hnd.state.host.accent2_r = 255;
+                hnd.state.host.accent2_g = 80;
+                hnd.state.host.accent2_b = 0;
                 hnd.state.host.audio_master = 50;
                 hnd.state.quick.master_slider = 50.0;
                 hnd.state.quick.last_host_master = 50;
@@ -2260,6 +2267,25 @@ mod tests {
                     .map(|n| n.bounds)
                     .expect("expected Master Volume slider")
             };
+            {
+                let mut px = vec![0u8; 800 * 800 * 4];
+                assert!(lumenic_cvr_read_pixels(handle, SURFACE_QUICK, px.as_mut_ptr(), px.len()));
+                let fy = 799usize.saturating_sub((slider_rect.y + slider_rect.h * 0.5) as usize);
+                let fill_x = (slider_rect.x + slider_rect.w * 0.25) as usize;
+                let fill_idx = (fy * 800 + fill_x) * 4;
+                let (fr, fg, fb) = (px[fill_idx], px[fill_idx + 1], px[fill_idx + 2]);
+                assert!(
+                    fr > 180 && fb < 60,
+                    "expected slider active fill to use secondary player color (orange), got rgb({fr},{fg},{fb})"
+                );
+                let bg_x = (slider_rect.x + slider_rect.w * 0.75) as usize;
+                let bg_idx = (fy * 800 + bg_x) * 4;
+                let (br, bg, bb) = (px[bg_idx], px[bg_idx + 1], px[bg_idx + 2]);
+                assert!(
+                    bg >= br && bg >= bb && bb < 120,
+                    "expected slider track background to use primary player color (green tint), got rgb({br},{bg},{bb})"
+                );
+            }
 
             let start_x = slider_rect.x + slider_rect.w * 0.5;
             let cy = slider_rect.y + slider_rect.h * 0.5;

@@ -1051,10 +1051,10 @@ pub fn render_ext_node(
                 .fill(fill_col)
                 .no_focus_ring()
                 .track_h(14.0)
-                .track_bg(tint_alpha(fill_col, 34))
-                .track_bd(1.0, tint_alpha(fill_col, 150))
+                .track_bg(tile_idle_bg())
+                .track_bd(1.0, border_subtle())
                 .bg(card_inner_bg())
-                .bd(1.0, tint_alpha(fill_col, 95))
+                .bd(1.0, border_subtle())
                 .bevel(rad(8.0));
             let mut resp = apply_style(sb, &node.style, accent);
             let hovered = resp.hovered();

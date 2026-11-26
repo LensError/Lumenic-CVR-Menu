@@ -47,14 +47,14 @@ pub fn styled_slider(
 
         let mut resp = ui
             .slider("__track", value, range)
-            .compact()
+            .fill(accent)
+            .fg(accent)
             .no_bg()
             .borderless()
             .no_focus_ring()
             .track_h(14.0)
-            .track_bg(tint_alpha(accent, 34))
-            .track_bd(1.0, tint_alpha(accent, 150))
-            .fill(accent)
+            .track_bg(tile_idle_bg())
+            .track_bd(1.0, border_subtle())
             .enabled(enabled)
             .w_frac(1.0);
         changed = resp.changed();
@@ -68,7 +68,7 @@ pub fn styled_slider(
             .gap(5.0)
             .bg(card_inner_bg())
             .hover_bg(tile_idle_hover())
-            .bd(1.0, tint_alpha(accent, 95))
+            .bd(1.0, border_subtle())
             .bevel(8.0)
             .opacity(if enabled { 1.0 } else { 0.48 })
             .grow(1.0)
