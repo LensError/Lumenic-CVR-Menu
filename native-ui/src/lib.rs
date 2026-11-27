@@ -188,6 +188,107 @@ fn decode_button(button: u32) -> PointerButton {
     }
 }
 
+const MAX_IMAGE_DIM: u32 = 4096;
+const MAX_IMAGE_PIXELS: u64 = (MAX_IMAGE_DIM as u64) * (MAX_IMAGE_DIM as u64);
+
+fn validate_image_dims(w: u32, h: u32, ctx: &str) -> Result<(), String> {
+    if w == 0 || h == 0 || w > MAX_IMAGE_DIM || h > MAX_IMAGE_DIM || (w as u64) * (h as u64) > MAX_IMAGE_PIXELS {
+        return Err(format!(
+            "{ctx}: dimensions {w}x{h} exceed {MAX_IMAGE_DIM}x{MAX_IMAGE_DIM} limit"
+        ));
+    }
+    Ok(())
+}
+
+/// Pre-validates declared dimensions from PNG/GIF/BMP/WebP/JPEG headers before decoding
+/// to prevent decompression bombs from allocating gigabytes of RGBA memory.
+fn check_image_header_dimensions(raw: &[u8], ctx: &str) -> Result<(), String> {
+    // PNG: 8-byte signature + IHDR chunk (width/height at bytes 16..24)
+    if raw.len() >= 24 && &raw[0..8] == b"\x89PNG\r\n\x1a\n" && &raw[12..16] == b"IHDR" {
+        let w = u32::from_be_bytes([raw[16], raw[17], raw[18], raw[19]]);
+        let h = u32::from_be_bytes([raw[20], raw[21], raw[22], raw[23]]);
+        return validate_image_dims(w, h, ctx);
+    }
+    // GIF: GIF87a / GIF89a, width/height LE u16 at bytes 6..10
+    if raw.len() >= 10 && (&raw[0..6] == b"GIF87a" || &raw[0..6] == b"GIF89a") {
+        let w = u16::from_le_bytes([raw[6], raw[7]]) as u32;
+        let h = u16::from_le_bytes([raw[8], raw[9]]) as u32;
+        return validate_image_dims(w, h, ctx);
+    }
+    // BMP: BM + BITMAPINFOHEADER (>= 40 bytes)
+    if raw.len() >= 26 && &raw[0..2] == b"BM" {
+        let dib_size = u32::from_le_bytes([raw[14], raw[15], raw[16], raw[17]]);
+        if dib_size >= 40 {
+            let w = i32::from_le_bytes([raw[18], raw[19], raw[20], raw[21]]).unsigned_abs();
+            let h = i32::from_le_bytes([raw[22], raw[23], raw[24], raw[25]]).unsigned_abs();
+            return validate_image_dims(w, h, ctx);
+        }
+    }
+    // WebP: RIFF....WEBP + VP8X / VP8L / VP8
+    if raw.len() >= 30 && &raw[0..4] == b"RIFF" && &raw[8..12] == b"WEBP" {
+        match &raw[12..16] {
+            b"VP8X" => {
+                let w = 1 + (raw[24] as u32 | ((raw[25] as u32) << 8) | ((raw[26] as u32) << 16));
+                let h = 1 + (raw[27] as u32 | ((raw[28] as u32) << 8) | ((raw[29] as u32) << 16));
+                return validate_image_dims(w, h, ctx);
+            }
+            b"VP8L" if raw[20] == 0x2f => {
+                let bits = u32::from_le_bytes([raw[21], raw[22], raw[23], raw[24]]);
+                let w = (bits & 0x3FFF) + 1;
+                let h = ((bits >> 14) & 0x3FFF) + 1;
+                return validate_image_dims(w, h, ctx);
+            }
+            b"VP8 " if raw[23] == 0x9d && raw[24] == 0x01 && raw[25] == 0x2a => {
+                let w = (u16::from_le_bytes([raw[26], raw[27]]) & 0x3FFF) as u32;
+                let h = (u16::from_le_bytes([raw[28], raw[29]]) & 0x3FFF) as u32;
+                return validate_image_dims(w, h, ctx);
+            }
+            _ => {}
+        }
+    }
+    // JPEG: SOI (FF D8) followed by marker segments until SOF
+    if raw.len() >= 4 && raw[0] == 0xFF && raw[1] == 0xD8 {
+        let mut i = 2usize;
+        while i + 3 < raw.len() {
+            if raw[i] != 0xFF {
+                break;
+            }
+            while i < raw.len() && raw[i] == 0xFF {
+                i += 1;
+            }
+            if i >= raw.len() {
+                break;
+            }
+            let marker = raw[i];
+            i += 1;
+            if marker == 0xD9 || marker == 0xDA {
+                break;
+            }
+            if (0xD0..=0xD8).contains(&marker) || marker == 0x01 {
+                continue;
+            }
+            if i + 1 >= raw.len() {
+                break;
+            }
+            let seg_len = u16::from_be_bytes([raw[i], raw[i + 1]]) as usize;
+            if seg_len < 2 || i + seg_len > raw.len() {
+                break;
+            }
+            let is_sof = (0xC0..=0xCF).contains(&marker)
+                && marker != 0xC4
+                && marker != 0xC8
+                && marker != 0xCC;
+            if is_sof && seg_len >= 7 && i + 7 <= raw.len() {
+                let h = u16::from_be_bytes([raw[i + 3], raw[i + 4]]) as u32;
+                let w = u16::from_be_bytes([raw[i + 5], raw[i + 6]]) as u32;
+                return validate_image_dims(w, h, ctx);
+            }
+            i += seg_len;
+        }
+    }
+    Ok(())
+}
+
 unsafe fn checked_slice<'a>(ptr: *const u8, len: usize) -> Result<&'a [u8], String> {
     if ptr.is_null() {
         return Err(String::from("null buffer pointer"));
@@ -957,8 +1058,10 @@ pub unsafe extern "C" fn lumenic_cvr_upload_image_bytes(
             .map_err(|e| format!("invalid image key utf8: {e}"))?
             .to_owned();
         let raw_bytes = unsafe { checked_slice(bytes_ptr, bytes_len)? };
+        check_image_header_dimensions(raw_bytes, &format!("decode_image({key})"))?;
         let decoded =
             lumenic::decode_image(raw_bytes).map_err(|e| format!("decode_image({key}): {e}"))?;
+        validate_image_dims(decoded.width, decoded.height, &format!("decode_image({key})"))?;
 
         let HostHandle { host, state, .. } = hnd;
         let guard = MakeNotCurrentGuard(host);
@@ -1281,8 +1384,10 @@ pub unsafe extern "C" fn lumenic_cvr_decode_image(
 
     let res = catch_unwind(AssertUnwindSafe(|| -> Result<(), String> {
         let raw_bytes = unsafe { checked_slice(bytes_ptr, bytes_len)? };
+        check_image_header_dimensions(raw_bytes, "decode_image")?;
         let decoded =
             lumenic::decode_image(raw_bytes).map_err(|e| format!("decode_image: {e}"))?;
+        validate_image_dims(decoded.width, decoded.height, "decode_image")?;
         let mut boxed = decoded.data.into_boxed_slice();
         let len = boxed.len();
         let ptr = boxed.as_mut_ptr();
@@ -1339,6 +1444,12 @@ pub unsafe extern "C" fn lumenic_cvr_upload_rgba_batch(
         return 0;
     }
     let res = catch_unwind(AssertUnwindSafe(|| -> Result<usize, String> {
+        let items_bytes = count
+            .checked_mul(std::mem::size_of::<RgbaUploadItem>())
+            .ok_or_else(|| String::from("rgba batch count overflow"))?;
+        if items_bytes > isize::MAX as usize || count > isize::MAX as usize {
+            return Err(format!("rgba batch count exceeds isize::MAX: {count}"));
+        }
         let items = unsafe { slice::from_raw_parts(items_ptr, count) };
         let results = if out_results_ptr.is_null() {
             None
@@ -1364,16 +1475,16 @@ pub unsafe extern "C" fn lumenic_cvr_upload_rgba_batch(
                 SURFACE_QUICK => Some(*quick_surface),
                 _ => None,
             };
+            let dims_ok = validate_image_dims(item.width, item.height, "upload_rgba_batch").is_ok();
             let expected_len = (item.width as usize)
-                .saturating_mul(item.height as usize)
-                .saturating_mul(4);
+                .checked_mul(item.height as usize)
+                .and_then(|px| px.checked_mul(4));
 
-            if let Some(sid) = sid {
-                if !item.key_ptr.is_null()
+            if let (Some(sid), Some(expected_len)) = (sid, expected_len) {
+                if dims_ok
+                    && !item.key_ptr.is_null()
                     && item.key_len > 0
                     && !item.rgba_ptr.is_null()
-                    && item.width > 0
-                    && item.height > 0
                     && item.rgba_len >= expected_len
                 {
                     if let (Ok(key_bytes), Ok(rgba)) = (
@@ -1442,9 +1553,17 @@ pub unsafe extern "C" fn lumenic_cvr_upload_rgba_texture(
         set_last_error("lumenic_cvr_upload_rgba_texture: invalid arguments");
         return false;
     }
-    let expected_len = (width as usize)
-        .saturating_mul(height as usize)
-        .saturating_mul(4);
+    if let Err(err) = validate_image_dims(width, height, "lumenic_cvr_upload_rgba_texture") {
+        set_last_error(err);
+        return false;
+    }
+    let Some(expected_len) = (width as usize)
+        .checked_mul(height as usize)
+        .and_then(|px| px.checked_mul(4))
+    else {
+        set_last_error("lumenic_cvr_upload_rgba_texture: dimensions overflow");
+        return false;
+    };
     if rgba_len < expected_len {
         set_last_error("lumenic_cvr_upload_rgba_texture: rgba buffer too small");
         return false;
@@ -2022,6 +2141,7 @@ mod tests {
                         icon_key: String::new(),
                         active: i == 0,
                         kind: String::from("mod"),
+                        status_dots: Vec::new(),
                     })
                     .collect();
             }
@@ -2343,17 +2463,20 @@ mod tests {
                 let _ = lumenic_cvr_step(handle, SURFACE_MAIN, 0.016, false);
             }
             lumenic_cvr_pointer_up(handle, SURFACE_MAIN, 0);
-            let hz_actions: Vec<i32> = (&*handle)
+            let slider_updates: Vec<i32> = (&*handle)
                 .actions
                 .iter()
                 .filter_map(|a| match a {
                     state::UiAction::SetMaxRefreshHz { hz } => Some(*hz),
+                    state::UiAction::SetPanelOpacity { opacity } => {
+                        Some((*opacity * 100.0).round() as i32)
+                    }
                     _ => None,
                 })
                 .collect();
             assert!(
-                hz_actions.len() >= 3,
-                "dragging MM Settings slider should continuously emit updates across frames, got {hz_actions:?}"
+                slider_updates.len() >= 3,
+                "dragging MM Settings slider should continuously emit updates across frames, got {slider_updates:?}"
             );
             lumenic_cvr_destroy(handle);
         }
@@ -2686,6 +2809,24 @@ mod tests {
 
             lumenic_cvr_destroy(handle);
         }
+    }
+
+    #[test]
+    fn image_header_precheck_rejects_oversized_png_and_allows_valid() {
+        let mut png_bomb = Vec::from(&b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR"[..]);
+        png_bomb.extend_from_slice(&30_000u32.to_be_bytes());
+        png_bomb.extend_from_slice(&30_000u32.to_be_bytes());
+        assert!(check_image_header_dimensions(&png_bomb, "test").is_err());
+
+        let mut png_ok = Vec::from(&b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR"[..]);
+        png_ok.extend_from_slice(&512u32.to_be_bytes());
+        png_ok.extend_from_slice(&512u32.to_be_bytes());
+        assert!(check_image_header_dimensions(&png_ok, "test").is_ok());
+
+        let mut gif_bomb = Vec::from(&b"GIF89a"[..]);
+        gif_bomb.extend_from_slice(&5000u16.to_le_bytes());
+        gif_bomb.extend_from_slice(&5000u16.to_le_bytes());
+        assert!(check_image_header_dimensions(&gif_bomb, "test").is_err());
     }
 }
 }

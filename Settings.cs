@@ -34,6 +34,10 @@ internal static class Settings
     private static MelonPreferences_Entry<string> _uiSoundPack;
     private static MelonPreferences_Entry<bool> _enableRecentHistory;
     private static MelonPreferences_Entry<bool> _qmModTabsIconOnly;
+    private static MelonPreferences_Entry<string> _qmPresetConfirmMode;
+    private static MelonPreferences_Entry<string> _themePreset;
+    private static MelonPreferences_Entry<float> _panelOpacity;
+    private static MelonPreferences_Entry<bool> _cursorGlow;
     private static MelonPreferences_Entry<bool> _disclaimerAccepted;
     private static MelonPreferences_Entry<string> _lastSeenVersion;
     private static MelonPreferences_Entry<string> _dismissedUpdateVersion;
@@ -72,158 +76,195 @@ internal static class Settings
     public static string UiSoundPack => _uiSoundPack?.Value ?? "SoftSub";
     public static bool EnableRecentHistory => _enableRecentHistory?.Value ?? true;
     public static bool QmModTabsIconOnly => _qmModTabsIconOnly?.Value ?? false;
+    public static string QmPresetConfirmMode => NormalizePresetConfirmMode(_qmPresetConfirmMode?.Value);
+    public static string ThemePreset => NormalizeThemePreset(_themePreset?.Value);
+    public static float PanelOpacity => Mathf.Clamp(_panelOpacity?.Value ?? 1.0f, 0.50f, 1.0f);
+    public static bool CursorGlow => _cursorGlow?.Value ?? true;
     public static bool DisclaimerAccepted => _disclaimerAccepted?.Value ?? false;
     public static string LastSeenVersion => _lastSeenVersion?.Value ?? string.Empty;
     public static string DismissedUpdateVersion => _dismissedUpdateVersion?.Value ?? string.Empty;
     public static string QmQuickActionsOrder => _qmQuickActionsOrder?.Value ?? string.Empty;
     public static string MmQuickToolsOrder => _mmQuickToolsOrder?.Value ?? string.Empty;
 
+    private static MelonPreferences_Entry<T> CreateHiddenEntry<T>(
+        string identifier,
+        T defaultValue,
+        string displayName,
+        string description)
+        => _category.CreateEntry(identifier, defaultValue, displayName, description, is_hidden: true, dont_save_default: false);
+
     public static void Initialize()
     {
-        _category = MelonPreferences.CreateCategory("LumenicMenu", "LumenicMenu");
+        // Hidden from external MelonPreferences UIs (UIExpansionKit, Mowods, etc.);
+        // managed exclusively via LumenicMenu's Quick Menu toggles and native Settings panel.
+        _category = MelonPreferences.CreateCategory("LumenicMenu", "LumenicMenu", is_hidden: true, should_save: true);
 
-        _enableMainMenu = _category.CreateEntry(
+        _enableMainMenu = CreateHiddenEntry(
             "EnableMainMenu",
             true,
             "Enable Lumenic Main Menu",
             "Replace CVR's Main Menu with Lumenic UI.");
 
-        _enableQuickMenu = _category.CreateEntry(
+        _enableQuickMenu = CreateHiddenEntry(
             "EnableQuickMenu",
             true,
             "Enable Lumenic Quick Menu",
             "Replace CVR's Quick Menu with Lumenic UI.");
 
-        _enableHud = _category.CreateEntry(
+        _enableHud = CreateHiddenEntry(
             "EnableHud",
             true,
             "Enable Lumenic HUD",
             "Replace CVR's HUD, ChatBox HUD, and Portal indicator with unified Lumenic UGUI HUD.");
 
-        _maxRefreshHz = _category.CreateEntry(
+        _maxRefreshHz = CreateHiddenEntry(
             "MaxRefreshHz",
             60,
             "Max Redraw Refresh Rate (Hz)",
             "Caps dirty-frame pixel readback frequency (15-144 Hz) to preserve VR frametime.");
 
-        _uiScale = _category.CreateEntry(
+        _uiScale = CreateHiddenEntry(
             "UiScale",
             1.0f,
             "UI Scale Factor",
             "DPI scale factor passed to Lumenic surfaces (0.5-2.0).");
 
-        _fontScale = _category.CreateEntry(
+        _fontScale = CreateHiddenEntry(
             "FontScale",
             1.0f,
             "Text Size",
             "Global text size multiplier across Lumenic menus (presets: 75%, 100%, 125%, 150%; range 0.5-2.5).");
 
-        _desktopScrollMultiplier = _category.CreateEntry(
+        _desktopScrollMultiplier = CreateHiddenEntry(
             "DesktopScrollMultiplier",
             24.0f,
             "Desktop Scroll Multiplier",
             "Multiplier converting CVR desktop mouse scrollValue (+/-0.12/notch) into Lumenic scroll lines.");
 
-        _vrScrollMultiplier = _category.CreateEntry(
+        _vrScrollMultiplier = CreateHiddenEntry(
             "VrScrollMultiplier",
             3.0f,
             "VR Stick Scroll Multiplier",
             "Multiplier converting CVR VR thumbstick per-frame scrollValue into Lumenic scroll lines.");
 
-        _hudSpreadDesktop = _category.CreateEntry(
+        _hudSpreadDesktop = CreateHiddenEntry(
             "HudSpreadDesktop",
             1.0f,
             "HUD Horizontal Spread (Desktop)",
             "Horizontal spread factor for edge-anchored HUD elements in Desktop mode (0.5-1.35).");
 
-        _hudSpreadYDesktop = _category.CreateEntry(
+        _hudSpreadYDesktop = CreateHiddenEntry(
             "HudSpreadYDesktop",
             1.0f,
             "HUD Vertical Spread (Desktop)",
             "Vertical spread factor for top/bottom HUD elements in Desktop mode (0.5-1.35).");
 
-        _hudSpreadVr = _category.CreateEntry(
+        _hudSpreadVr = CreateHiddenEntry(
             "HudSpreadVr",
             0.85f,
             "HUD Horizontal Spread (VR)",
             "Horizontal spread factor for edge-anchored HUD elements in VR mode (0.5-1.35).");
 
-        _hudSpreadYVr = _category.CreateEntry(
+        _hudSpreadYVr = CreateHiddenEntry(
             "HudSpreadYVr",
             0.85f,
             "HUD Vertical Spread (VR)",
             "Vertical spread factor for top/bottom HUD elements in VR mode (0.5-1.35).");
 
-        _hudAlertsScaleDesktop = _category.CreateEntry("HudAlertsScaleDesktop", 1.0f, "HUD Alerts & Icons Scale (Desktop)", "Scale for alert badges and status icons in Desktop mode (0.5-2.0).");
-        _hudMicScaleDesktop = _category.CreateEntry("HudMicScaleDesktop", 1.0f, "HUD Mic Icon Scale (Desktop)", "Scale for the mic pill in Desktop mode (0.5-2.0).");
-        _hudNotificationsScaleDesktop = _category.CreateEntry("HudNotificationsScaleDesktop", 1.0f, "HUD Notifications Scale (Desktop)", "Scale for notification toasts and join feed in Desktop mode (0.5-2.0).");
-        _hudChatboxScaleDesktop = _category.CreateEntry("HudChatboxScaleDesktop", 1.0f, "HUD ChatBox Scale (Desktop)", "Scale for the ChatBox / Portal card in Desktop mode (0.5-2.0).");
-        _hudAlertsScaleVr = _category.CreateEntry("HudAlertsScaleVr", 1.0f, "HUD Alerts & Icons Scale (VR)", "Scale for alert badges and status icons in VR mode (0.5-2.0).");
-        _hudMicScaleVr = _category.CreateEntry("HudMicScaleVr", 1.0f, "HUD Mic Icon Scale (VR)", "Scale for the mic pill in VR mode (0.5-2.0).");
-        _hudNotificationsScaleVr = _category.CreateEntry("HudNotificationsScaleVr", 1.0f, "HUD Notifications Scale (VR)", "Scale for notification toasts and join feed in VR mode (0.5-2.0).");
-        _hudChatboxScaleVr = _category.CreateEntry("HudChatboxScaleVr", 1.0f, "HUD ChatBox Scale (VR)", "Scale for the ChatBox / Portal card in VR mode (0.5-2.0).");
+        _hudAlertsScaleDesktop = CreateHiddenEntry("HudAlertsScaleDesktop", 1.0f, "HUD Alerts & Icons Scale (Desktop)", "Scale for alert badges and status icons in Desktop mode (0.5-2.0).");
+        _hudMicScaleDesktop = CreateHiddenEntry("HudMicScaleDesktop", 1.0f, "HUD Mic Icon Scale (Desktop)", "Scale for the mic pill in Desktop mode (0.5-2.0).");
+        _hudNotificationsScaleDesktop = CreateHiddenEntry("HudNotificationsScaleDesktop", 1.0f, "HUD Notifications Scale (Desktop)", "Scale for notification toasts and join feed in Desktop mode (0.5-2.0).");
+        _hudChatboxScaleDesktop = CreateHiddenEntry("HudChatboxScaleDesktop", 1.0f, "HUD ChatBox Scale (Desktop)", "Scale for the ChatBox / Portal card in Desktop mode (0.5-2.0).");
+        _hudAlertsScaleVr = CreateHiddenEntry("HudAlertsScaleVr", 1.0f, "HUD Alerts & Icons Scale (VR)", "Scale for alert badges and status icons in VR mode (0.5-2.0).");
+        _hudMicScaleVr = CreateHiddenEntry("HudMicScaleVr", 1.0f, "HUD Mic Icon Scale (VR)", "Scale for the mic pill in VR mode (0.5-2.0).");
+        _hudNotificationsScaleVr = CreateHiddenEntry("HudNotificationsScaleVr", 1.0f, "HUD Notifications Scale (VR)", "Scale for notification toasts and join feed in VR mode (0.5-2.0).");
+        _hudChatboxScaleVr = CreateHiddenEntry("HudChatboxScaleVr", 1.0f, "HUD ChatBox Scale (VR)", "Scale for the ChatBox / Portal card in VR mode (0.5-2.0).");
 
-        _linearTextureMode = _category.CreateEntry(
+        _linearTextureMode = CreateHiddenEntry(
             "LinearTextureMode",
             false,
             "Texture2D Linear Color Space",
             "Milestone 1 calibration toggle: false = sRGB Texture2D, true = Linear Texture2D.");
 
-        _perfLogging = _category.CreateEntry(
+        _perfLogging = CreateHiddenEntry(
             "PerfLogging",
             false,
             "Stopwatch Perf Logging",
             "Logs step, readback, upload, and blit timings in ms on active frames.");
 
-        _uiClickSounds = _category.CreateEntry(
+        _uiClickSounds = CreateHiddenEntry(
             "UiClickSounds",
             true,
             "CVR UI Click & Hover Sounds",
             "Plays UI feedback sounds on Lumenic hover and button clicks.");
 
-        _uiSoundPack = _category.CreateEntry(
+        _uiSoundPack = CreateHiddenEntry(
             "UiSoundPack",
             "SoftSub",
             "UI Sound Pack (SoftSub | Glass | Vanilla)",
             "Selects the Lumenic UI sound pack: 'SoftSub' (default warm click), 'Glass', or 'Vanilla' (CVR InterfaceAudio).");
 
-        _enableRecentHistory = _category.CreateEntry(
+        _enableRecentHistory = CreateHiddenEntry(
             "EnableRecentHistory",
             true,
             "Track Local Recent History",
             "Records and shows local Recent categories (Worlds, Avatars, Props, Users) in UserData/LumenicMenu/recent-history.json.");
 
-        _qmModTabsIconOnly = _category.CreateEntry(
+        _qmModTabsIconOnly = CreateHiddenEntry(
             "QmModTabsIconOnly",
             false,
             "Quick Menu Mod Tabs Icons Only",
             "Show only icons for added mod tabs in the Quick Menu tab bar, with the mod name shown in a hover tooltip.");
 
-        _disclaimerAccepted = _category.CreateEntry(
+        _qmPresetConfirmMode = CreateHiddenEntry(
+            "QmPresetConfirmMode",
+            "sync",
+            "Quick Menu Outfit Preset Confirm Mode",
+            "Controls whether selecting an outfit preset in Quick Menu requires Confirm: sync (follow Main Menu Auto Apply), on (always confirm), or off (instant apply).");
+
+        _themePreset = CreateHiddenEntry(
+            "ThemePreset",
+            "default",
+            "Menu Theme Preset",
+            "Built-in menu & HUD visual theme preset: default, oled, frost, or contrast.");
+
+        _panelOpacity = CreateHiddenEntry(
+            "PanelOpacity",
+            1.0f,
+            "Menu & HUD Panel Opacity",
+            "Background opacity multiplier for menu cards and HUD elements (0.50 - 1.00).");
+
+        _cursorGlow = CreateHiddenEntry(
+            "CursorGlow",
+            true,
+            "Menu Cursor Glow",
+            "Render the subtle cursor-follow hex-glow shader behind menu cards.");
+
+        _disclaimerAccepted = CreateHiddenEntry(
             "DisclaimerAccepted",
             false,
             "First-Use Disclaimer Accepted",
             "Tracks whether the LumenicMenu first-use support and bug-reporting disclaimer modal has been acknowledged.");
 
-        _lastSeenVersion = _category.CreateEntry(
+        _lastSeenVersion = CreateHiddenEntry(
             "LastSeenVersion",
             string.Empty,
             "Last Seen Mod Version",
             "Tracks the last LumenicMenu version whose bundled changelog modal was shown.");
 
-        _dismissedUpdateVersion = _category.CreateEntry(
+        _dismissedUpdateVersion = CreateHiddenEntry(
             "DismissedUpdateVersion",
             string.Empty,
             "Dismissed Update Version",
             "Version string skipped by the user so the update modal does not reopen for that release.");
 
-        _qmQuickActionsOrder = _category.CreateEntry(
+        _qmQuickActionsOrder = CreateHiddenEntry(
             "QmQuickActionsOrder",
             string.Empty,
             "Quick Menu Quick Actions Tile Order",
             "Comma-separated custom tile order for the Quick Menu Quick Actions 3x3 grid.");
 
-        _mmQuickToolsOrder = _category.CreateEntry(
+        _mmQuickToolsOrder = CreateHiddenEntry(
             "MmQuickToolsOrder",
             string.Empty,
             "Main Menu Quick Tools Tile Order",
@@ -255,6 +296,10 @@ internal static class Settings
         _uiSoundPack.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
         _enableRecentHistory.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
         _qmModTabsIconOnly.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
+        _qmPresetConfirmMode.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
+        _themePreset.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
+        _panelOpacity.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
+        _cursorGlow.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
         _disclaimerAccepted.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
         _lastSeenVersion.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
         _dismissedUpdateVersion.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
@@ -370,6 +415,66 @@ internal static class Settings
         if (_qmModTabsIconOnly != null && _qmModTabsIconOnly.Value != value)
         {
             _qmModTabsIconOnly.Value = value;
+            ScheduleSave();
+        }
+    }
+
+    private static string NormalizePresetConfirmMode(string mode)
+    {
+        return mode switch
+        {
+            "on" => "on",
+            "off" => "off",
+            _ => "sync",
+        };
+    }
+
+    public static void SetQmPresetConfirmMode(string mode)
+    {
+        string normalized = NormalizePresetConfirmMode(mode);
+        if (_qmPresetConfirmMode != null && !string.Equals(_qmPresetConfirmMode.Value, normalized, StringComparison.Ordinal))
+        {
+            _qmPresetConfirmMode.Value = normalized;
+            ScheduleSave();
+        }
+    }
+
+    private static string NormalizeThemePreset(string preset)
+    {
+        return preset switch
+        {
+            "oled" => "oled",
+            "frost" => "frost",
+            "contrast" => "contrast",
+            _ => "default",
+        };
+    }
+
+    public static void SetThemePreset(string preset)
+    {
+        string normalized = NormalizeThemePreset(preset);
+        if (_themePreset != null && !string.Equals(_themePreset.Value, normalized, StringComparison.Ordinal))
+        {
+            _themePreset.Value = normalized;
+            ScheduleSave();
+        }
+    }
+
+    public static void SetPanelOpacity(float opacity)
+    {
+        float clamped = Mathf.Clamp(opacity, 0.50f, 1.0f);
+        if (_panelOpacity != null && Mathf.Abs(_panelOpacity.Value - clamped) > 0.001f)
+        {
+            _panelOpacity.Value = clamped;
+            ScheduleSave();
+        }
+    }
+
+    public static void SetCursorGlow(bool enabled)
+    {
+        if (_cursorGlow != null && _cursorGlow.Value != enabled)
+        {
+            _cursorGlow.Value = enabled;
             ScheduleSave();
         }
     }

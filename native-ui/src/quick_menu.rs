@@ -354,7 +354,7 @@ pub fn render_quick_menu(
 
                         let icon_only = state.host.qm_mod_tabs_icon_only && !is_official(tab);
                         let mut tab_btn = ui.btn_with(&tab_btn_id, |ui| {
-                            let mut row = ui.row(|ui| {
+                            let row = ui.row(|ui| {
                                 match tab.kind.as_str() {
                                     "home" => {
                                         icons::icon(ui, icons::HOME, 17.0)
@@ -401,13 +401,44 @@ pub fn render_quick_menu(
                                         .ellipsis()
                                         .grow(1.0);
                                 }
+                                if !icon_only && !tab.status_dots.is_empty() {
+                                    ui.row(|ui| {
+                                        for hex in tab.status_dots.iter().take(4) {
+                                            let dot_col = crate::uilib_view::parse_hex_rgb(hex)
+                                                .unwrap_or(accent);
+                                            ui.col(|_| {})
+                                                .w(5.0)
+                                                .h(5.0)
+                                                .r(2.5)
+                                                .bg(dot_col);
+                                        }
+                                    })
+                                    .align_center()
+                                    .gap(2.5);
+                                }
                             });
                             if icon_only {
-                                row = row.center().grow(1.0);
+                                if !tab.status_dots.is_empty() {
+                                    let _ = row.center().grow(1.0);
+                                    ui.row(|ui| {
+                                        for hex in tab.status_dots.iter().take(4) {
+                                            let dot_col = crate::uilib_view::parse_hex_rgb(hex)
+                                                .unwrap_or(accent);
+                                            ui.col(|_| {})
+                                                .w(4.5)
+                                                .h(4.5)
+                                                .r(2.5)
+                                                .bg(dot_col);
+                                        }
+                                    })
+                                    .center()
+                                    .gap(2.0);
+                                } else {
+                                    let _ = row.center().grow(1.0);
+                                }
                             } else {
-                                row = row.align_center().gap(7.0).grow(1.0);
+                                let _ = row.align_center().gap(7.0).grow(1.0);
                             }
-                            let _ = row;
                         });
                         if icon_only {
                             tab_btn = tab_btn
@@ -626,6 +657,8 @@ pub fn render_quick_menu(
                 {
                     state.quick.qm_world_modal = Some((world_id, world_name));
                 }
+            } else if state.quick.qm_presets_open {
+                render_qm_presets_drawer(ui, state, accent, actions);
             } else if state.quick.show_info_modal {
                 render_system_info_modal(ui, state, accent, actions);
             }
@@ -1443,6 +1476,7 @@ fn render_home_center(
                     .gap(6.0);
 
                     let qm_modal_open = state.quick.qm_world_modal.is_some()
+                        || state.quick.qm_presets_open
                         || state.quick.show_info_modal
                         || state.host.content.group_mod_prompt.is_some()
                         || state.host.uilib.modal.is_some()
@@ -1460,34 +1494,91 @@ fn render_home_center(
                         actions,
                     );
 
-                    if ui
-                        .btn_with("qm_btn_avatar_settings", |ui| {
-                            ui.row(|ui| {
-                                icons::icon(ui, icons::SLIDERS, 14.0).fg(accent);
-                                ui.txt("Avatar Settings")
-                                    .sz(crate::theme::fs(11.0))
-                                    .semibold()
-                                    .fg(TEXT_PRIMARY);
+                    let has_presets = !state.host.avatar_settings.profiles.is_empty();
+                    let compact_btn = crate::theme::fs(10.0) > 12.0;
+                    let btn_font = crate::theme::fs(10.5).min(12.0);
+                    ui.row(|ui| {
+                        let presets_resp = ui
+                            .btn_with("qm_btn_outfit_presets", |ui| {
+                                ui.row(|ui| {
+                                    if !compact_btn {
+                                        icons::icon(ui, icons::AVATAR, 12.5).fg(if has_presets {
+                                            accent
+                                        } else {
+                                            TEXT_DIM
+                                        });
+                                    }
+                                    ui.txt("Presets")
+                                        .sz(btn_font)
+                                        .semibold()
+                                        .fg(if has_presets { TEXT_PRIMARY } else { TEXT_DIM })
+                                        .ellipsis();
+                                })
+                                .center()
+                                .gap(4.0)
+                                .grow(1.0);
                             })
-                            .center()
-                            .gap(5.0)
-                            .grow(1.0);
-                        })
-                        .w_frac(1.0)
-                        .py(6.5)
-                        .bg(tint_alpha(accent, 38))
-                        .hover_bg(tint_alpha(accent, 68))
-                        .bd(1.0, tint_alpha(accent, 165))
-                        .bevel_rounded(6.5, 1.3)
-                        .clicked()
-                    {
-                        state.quick.go_home_confirm = false;
-                        state.main_menu.active_tab = String::from("avatarSettings");
-                        push_click(actions);
-                        actions.push(UiAction::OpenMainMenuPage {
-                            page: String::from("avatarSettings"),
-                        });
-                    }
+                            .grow(1.0)
+                            .py(6.5)
+                            .bg(if has_presets {
+                                tint_alpha(accent, 30)
+                            } else {
+                                tile_idle_bg()
+                            })
+                            .hover_bg(if has_presets {
+                                tint_alpha(accent, 58)
+                            } else {
+                                tile_idle_bg()
+                            })
+                            .bd(
+                                1.0,
+                                if has_presets {
+                                    tint_alpha(accent, 140)
+                                } else {
+                                    border_subtle()
+                                },
+                            )
+                            .bevel_rounded(6.5, 1.3)
+                            .opacity(if has_presets { 1.0 } else { 0.55 });
+                        if has_presets && presets_resp.clicked() {
+                            push_click(actions);
+                            state.quick.qm_presets_open = true;
+                        }
+
+                        if ui
+                            .btn_with("qm_btn_avatar_settings", |ui| {
+                                ui.row(|ui| {
+                                    if !compact_btn {
+                                        icons::icon(ui, icons::SLIDERS, 12.5).fg(accent);
+                                    }
+                                    ui.txt("Settings")
+                                        .sz(btn_font)
+                                        .semibold()
+                                        .fg(TEXT_PRIMARY)
+                                        .ellipsis();
+                                })
+                                .center()
+                                .gap(4.0)
+                                .grow(1.0);
+                            })
+                            .grow(1.0)
+                            .py(6.5)
+                            .bg(tint_alpha(accent, 38))
+                            .hover_bg(tint_alpha(accent, 68))
+                            .bd(1.0, tint_alpha(accent, 165))
+                            .bevel_rounded(6.5, 1.3)
+                            .clicked()
+                        {
+                            state.quick.go_home_confirm = false;
+                            state.main_menu.active_tab = String::from("avatarSettings");
+                            push_click(actions);
+                            actions.push(UiAction::OpenMainMenuPage {
+                                page: String::from("avatarSettings"),
+                            });
+                        }
+                    })
+                    .w_frac(1.0)
+                    .gap(5.0);
                 })
                 .grow(1.15)
                 .h_frac(1.0)
@@ -1766,7 +1857,7 @@ fn render_home_center(
                     {
                         state.quick.go_home_confirm = false;
                         state.main_menu.active_tab = String::from("settings");
-                        state.main_menu.settings_tab = 2; // Audio
+                        state.main_menu.settings_tab = crate::settings_view::tab_index("audio");
                         push_click(actions);
                         actions.push(UiAction::OpenMainMenuPage {
                             page: String::from("settings"),
@@ -2200,6 +2291,321 @@ fn render_qm_world_instance_modal(
     .w_frac(1.0)
     .h_frac(1.0);
     keep_open
+}
+
+pub fn render_qm_presets_drawer(
+    ui: &mut UiContext,
+    state: &mut AppState,
+    accent: Color,
+    actions: &mut Vec<UiAction>,
+) {
+    let confirm_mode = match state.host.qm_preset_confirm_mode.as_str() {
+        "on" => true,
+        "off" => false,
+        _ => !state.host.avatar_settings.auto_apply,
+    };
+    let has_staged = state.host.avatar_settings.has_staged;
+    let current_profile = state.host.avatar_settings.current_profile.clone();
+    let staged_profile = state.host.avatar_settings.staged_profile.clone();
+    let profiles = state.host.avatar_settings.profiles.clone();
+    let load_mode = if confirm_mode { "preview" } else { "apply" };
+
+    let close_discard = |state: &mut AppState, actions: &mut Vec<UiAction>| {
+        if confirm_mode && has_staged {
+            actions.push(UiAction::AvatarDiscardStaged);
+        }
+        state.quick.qm_presets_open = false;
+    };
+
+    ui.zstack(|ui| {
+        if crate::theme::modal_scrim(ui, "qm_presets_scrim_fx", "qm_presets_scrim") {
+            push_click(actions);
+            close_discard(state, actions);
+        }
+
+        ui.col(|ui| {
+            ui.col(|_| {}).grow(1.0);
+            ui.row(|ui| {
+                ui.col(|_| {}).grow(1.0);
+                let mut card = ui
+                    .col(|ui| {
+                        ui.row(|ui| {
+                            icons::icon(ui, icons::AVATAR, 16.0).fg(accent);
+                            ui.txt("Outfit Presets")
+                                .sz(crate::theme::fs(14.0))
+                                .bold()
+                                .fg(TEXT_PRIMARY)
+                                .grow(1.0);
+                            if confirm_mode && has_staged {
+                                let preview_lbl = if staged_profile.is_empty() {
+                                    "Previewing"
+                                } else {
+                                    staged_profile.as_str()
+                                };
+                                ui.txt(&format!("Preview: {preview_lbl}"))
+                                    .sz(crate::theme::fs(10.0))
+                                    .semibold()
+                                    .fg(AMBER)
+                                    .px(6.0)
+                                    .py(2.0)
+                                    .bg(tint_alpha(AMBER, 32))
+                                    .r(4.0);
+                            }
+                            if ui
+                                .btn_with("qm_presets_close", |ui| {
+                                    icons::icon(ui, icons::CLOSE, 14.0).fg(TEXT_MUTED);
+                                })
+                                .p(6.0)
+                                .bg(tile_idle_bg())
+                                .hover_bg(tile_idle_hover())
+                                .r(6.0)
+                                .clicked()
+                            {
+                                push_click(actions);
+                                close_discard(state, actions);
+                            }
+                        })
+                        .align_center()
+                        .gap(8.0);
+
+                        ui.row(|ui| {
+                            // Left: Preset list
+                            ui.col(|ui| {
+                                ui.scroll("qm_presets_list_scroll", |ui| {
+                                    ui.col(|ui| {
+                                        let default_active = current_profile.is_empty()
+                                            || current_profile.eq_ignore_ascii_case("default");
+                                        let default_staged = has_staged
+                                            && staged_profile.eq_ignore_ascii_case("default");
+                                        let mut render_preset_row =
+                                            |id: &str,
+                                             label: &str,
+                                             prof_val: &str,
+                                             is_active: bool,
+                                             is_staged: bool| {
+                                                let highlighted = is_staged || (!has_staged && is_active);
+                                                if ui
+                                                    .btn_with(id, |ui| {
+                                                        ui.row(|ui| {
+                                                            ui.txt(label)
+                                                                .sz(crate::theme::fs(11.5))
+                                                                .semibold()
+                                                                .fg(if highlighted {
+                                                                    TEXT_PRIMARY
+                                                                } else {
+                                                                    TEXT_MUTED
+                                                                })
+                                                                .ellipsis()
+                                                                .grow(1.0);
+                                                            if is_staged {
+                                                                ui.txt("PREVIEW")
+                                                                    .sz(crate::theme::fs(8.5))
+                                                                    .bold()
+                                                                    .fg(AMBER)
+                                                                    .px(5.0)
+                                                                    .py(2.0)
+                                                                    .bg(tint_alpha(AMBER, 35))
+                                                                    .r(4.0);
+                                                            } else if is_active {
+                                                                ui.txt("ACTIVE")
+                                                                    .sz(crate::theme::fs(8.5))
+                                                                    .bold()
+                                                                    .fg(EMERALD)
+                                                                    .px(5.0)
+                                                                    .py(2.0)
+                                                                    .bg(tint_alpha(EMERALD, 35))
+                                                                    .r(4.0);
+                                                            }
+                                                        })
+                                                        .align_center()
+                                                        .gap(6.0)
+                                                        .grow(1.0);
+                                                    })
+                                                    .w_frac(1.0)
+                                                    .px(10.0)
+                                                    .py(8.0)
+                                                    .bg(if is_staged {
+                                                        tint_alpha(AMBER, 38)
+                                                    } else if is_active {
+                                                        tint_alpha(accent, 42)
+                                                    } else {
+                                                        tile_idle_bg()
+                                                    })
+                                                    .hover_bg(tile_idle_hover())
+                                                    .bd(
+                                                        1.0,
+                                                        if is_staged {
+                                                            tint_alpha(AMBER, 190)
+                                                        } else if is_active {
+                                                            tint_alpha(accent, 175)
+                                                        } else {
+                                                            border_subtle()
+                                                        },
+                                                    )
+                                                    .bevel_rounded(6.5, 1.3)
+                                                    .clicked()
+                                                {
+                                                    push_click(actions);
+                                                    actions.push(UiAction::AvatarLoadProfile {
+                                                        profile: String::from(prof_val),
+                                                        mode: String::from(load_mode),
+                                                    });
+                                                }
+                                            };
+
+                                        render_preset_row(
+                                            "qm_preset_row_default",
+                                            "Default",
+                                            "default",
+                                            default_active,
+                                            default_staged,
+                                        );
+
+                                        for (idx, prof) in profiles.iter().enumerate() {
+                                            let is_act = current_profile == *prof;
+                                            let is_stg = has_staged && staged_profile == *prof;
+                                            render_preset_row(
+                                                &format!("qm_preset_row_{idx}"),
+                                                prof,
+                                                prof,
+                                                is_act,
+                                                is_stg,
+                                            );
+                                        }
+                                    })
+                                    .gap(5.0);
+                                })
+                                .grow(1.0);
+                            })
+                            .grow(1.0)
+                            .h_frac(1.0)
+                            .p(8.0)
+                            .bg(card_inner_bg())
+                            .bd(1.0, border_subtle())
+                            .bevel_rounded(8.0, 1.4);
+
+                            // Right: Live 3D Avatar Turntable showing the preset
+                            ui.col(|ui| {
+                                crate::avatar_settings_view::render_avatar_turntable_stage(
+                                    ui,
+                                    state,
+                                    1,
+                                    "local",
+                                    "qm_presets_turntable_drag",
+                                    "",
+                                    accent,
+                                    actions,
+                                );
+                            })
+                            .grow(1.15)
+                            .h_frac(1.0);
+                        })
+                        .grow(1.0)
+                        .gap(10.0);
+
+                        // Bottom action bar
+                        ui.row(|ui| {
+                            if confirm_mode {
+                                if ui
+                                    .btn_with("qm_presets_cancel", |ui| {
+                                        ui.txt("Cancel")
+                                            .sz(crate::theme::fs(11.5))
+                                            .semibold()
+                                            .align(TextAlign::Center)
+                                            .fg(TEXT_MUTED)
+                                            .grow(1.0);
+                                    })
+                                    .grow(0.8)
+                                    .py(8.0)
+                                    .bg(tile_idle_bg())
+                                    .hover_bg(tile_idle_hover())
+                                    .bd(1.0, border_subtle())
+                                    .bevel_rounded(6.5, 1.3)
+                                    .clicked()
+                                {
+                                    push_click(actions);
+                                    close_discard(state, actions);
+                                }
+
+                                let confirm_resp = ui
+                                    .btn_with("qm_presets_confirm", |ui| {
+                                        ui.txt("Confirm")
+                                            .sz(crate::theme::fs(11.5))
+                                            .bold()
+                                            .align(TextAlign::Center)
+                                            .fg(if has_staged { TEXT_PRIMARY } else { TEXT_DIM })
+                                            .grow(1.0);
+                                    })
+                                    .grow(1.2)
+                                    .py(8.0)
+                                    .bg(if has_staged {
+                                        tint_alpha(accent, 68)
+                                    } else {
+                                        tile_idle_bg()
+                                    })
+                                    .hover_bg(if has_staged {
+                                        tint_alpha(accent, 96)
+                                    } else {
+                                        tile_idle_bg()
+                                    })
+                                    .bd(
+                                        1.2,
+                                        if has_staged {
+                                            accent
+                                        } else {
+                                            border_subtle()
+                                        },
+                                    )
+                                    .bevel_rounded(6.5, 1.3)
+                                    .opacity(if has_staged { 1.0 } else { 0.55 });
+                                if has_staged && confirm_resp.clicked() {
+                                    push_click(actions);
+                                    actions.push(UiAction::AvatarApplyStaged);
+                                    state.quick.qm_presets_open = false;
+                                }
+                            } else if ui
+                                .btn_with("qm_presets_done", |ui| {
+                                    ui.txt("Done")
+                                        .sz(crate::theme::fs(11.5))
+                                        .bold()
+                                        .align(TextAlign::Center)
+                                        .fg(TEXT_PRIMARY)
+                                        .grow(1.0);
+                                })
+                                .grow(1.0)
+                                .py(8.0)
+                                .bg(tint_alpha(accent, 52))
+                                .hover_bg(tint_alpha(accent, 82))
+                                .bd(1.0, tint_alpha(accent, 180))
+                                .bevel_rounded(6.5, 1.3)
+                                .clicked()
+                            {
+                                push_click(actions);
+                                state.quick.qm_presets_open = false;
+                            }
+                        })
+                        .w_frac(1.0)
+                        .gap(8.0);
+                    })
+                    .w(620.0)
+                    .h(520.0)
+                    .p(14.0)
+                    .gap(10.0)
+                    .bg(Color::rgba(15, 19, 28, 248))
+                    .bd(1.5, accent)
+                    .bevel_rounded(12.0, 2.0)
+                    .shadow(22.0, Color::rgba(0, 0, 0, 190));
+                let _ = card.hovered();
+                ui.col(|_| {}).grow(1.0);
+            })
+            .w_frac(1.0);
+            ui.col(|_| {}).grow(1.0);
+        })
+        .w_frac(1.0)
+        .h_frac(1.0);
+    })
+    .w_frac(1.0)
+    .h_frac(1.0);
 }
 
 pub fn render_group_mod_prompt_modal(

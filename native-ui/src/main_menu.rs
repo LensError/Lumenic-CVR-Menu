@@ -1704,8 +1704,35 @@ fn render_home_dashboard(
             .bevel_rounded(10.0, 2.0)
             .shadow(14.0, SHADOW_CARD);
 
-            // --- BOTTOM RIGHT: 3-COLUMN UTILITY TILE GRID ---
-            ui.col(|ui| {
+            // --- BOTTOM RIGHT: 3-COLUMN UTILITY TILE GRID (section: mm.home.quick_tools) ---
+            let qt_patch = state
+                .extensions
+                .sections
+                .get("mm.home.quick_tools")
+                .cloned();
+            if let Some(ref p) = qt_patch {
+                if !p.before.is_empty() {
+                    crate::ext_view::render_ext_slots(ui, state, "main", &p.before, accent, actions);
+                }
+            }
+            let qt_hidden = qt_patch
+                .as_ref()
+                .and_then(|p| p.style.as_ref())
+                .is_some_and(|s| s.hidden);
+            if !qt_hidden {
+                let qt_style = qt_patch.as_ref().and_then(|p| p.style.as_ref());
+                crate::theme::with_style_override(qt_style, || {
+                    if let Some(ref repl) = qt_patch.as_ref().and_then(|p| p.replace.as_ref()) {
+                        crate::ext_view::render_ext_slots(
+                            ui,
+                            state,
+                            "main",
+                            std::slice::from_ref(*repl),
+                            accent,
+                            actions,
+                        );
+                    } else {
+                        ui.col(|ui| {
                 const MM_DEFAULT_TOOLS: [&str; 12] = [
                     "vr", "seated", "flight", "respawn", "camera", "advav", "chat", "cursor",
                     "mirror", "home", "fbt", "mods",
@@ -1780,6 +1807,19 @@ fn render_home_dashboard(
                 })
                 .align_center()
                 .gap(6.0);
+
+                if let Some(ref p) = qt_patch {
+                    if !p.inside_start.is_empty() {
+                        crate::ext_view::render_ext_slots(
+                            ui,
+                            state,
+                            "main",
+                            &p.inside_start,
+                            accent,
+                            actions,
+                        );
+                    }
+                }
 
                 let mut swapped_pair: Option<(usize, usize)> = None;
                 for row_idx in 0..4 {
@@ -1982,6 +2022,19 @@ fn render_home_dashboard(
                         order: tool_order,
                     });
                 }
+
+                if let Some(ref p) = qt_patch {
+                    if !p.inside_end.is_empty() {
+                        crate::ext_view::render_ext_slots(
+                            ui,
+                            state,
+                            "main",
+                            &p.inside_end,
+                            accent,
+                            actions,
+                        );
+                    }
+                }
             })
             .grow(1.0)
             .p(10.0)
@@ -1990,6 +2043,14 @@ fn render_home_dashboard(
             .bd(1.0, border_subtle())
             .bevel_rounded(10.5, 2.0)
             .shadow(14.0, SHADOW_CARD);
+                    }
+                });
+            }
+            if let Some(ref p) = qt_patch {
+                if !p.after.is_empty() {
+                    crate::ext_view::render_ext_slots(ui, state, "main", &p.after, accent, actions);
+                }
+            }
         })
         .w(306.0)
         .h_frac(1.0)

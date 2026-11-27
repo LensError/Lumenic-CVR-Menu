@@ -166,43 +166,85 @@ fn mix_tinted(base: Color, tint: (f32, f32, f32), amount: f32) -> Color {
     Color::rgba(r, g, b, base.a)
 }
 
+fn base_palette_for_preset(preset: &str) -> PanelPalette {
+    match preset {
+        "oled" => PanelPalette {
+            card_bg: Color::rgba(10, 10, 12, 246),
+            card_inner_bg: Color::rgba(16, 16, 20, 242),
+            tile_idle_bg: Color::rgba(22, 22, 27, 238),
+            tile_idle_hover: Color::rgba(34, 34, 42, 248),
+            border_subtle: Color::rgba(255, 255, 255, 28),
+            shadow_card: Color::rgba(0, 0, 0, 190),
+            ..PanelPalette::default()
+        },
+        "frost" => PanelPalette {
+            card_bg: Color::rgba(36, 42, 54, 198),
+            card_inner_bg: Color::rgba(28, 34, 45, 190),
+            tile_idle_bg: Color::rgba(48, 56, 72, 196),
+            tile_idle_hover: Color::rgba(64, 74, 94, 220),
+            border_subtle: Color::rgba(255, 255, 255, 58),
+            shadow_card: Color::rgba(0, 0, 0, 120),
+            ..PanelPalette::default()
+        },
+        "contrast" => PanelPalette {
+            card_bg: Color::rgba(14, 14, 16, 250),
+            card_inner_bg: Color::rgba(20, 20, 24, 248),
+            tile_idle_bg: Color::rgba(30, 30, 36, 248),
+            tile_idle_hover: Color::rgba(48, 48, 58, 255),
+            border_subtle: Color::rgba(255, 255, 255, 112),
+            text_muted: Color::rgb(212, 212, 220),
+            text_dim: Color::rgb(168, 168, 180),
+            shadow_card: Color::rgba(0, 0, 0, 200),
+            ..PanelPalette::default()
+        },
+        _ => PanelPalette::default(),
+    }
+}
+
 /// Computes the frame's panel palette and typography/density tokens from CVR's Colorize Menu setting,
-/// built-in user FontScale, and any active `LumenicApi.Theme` overrides.
+/// built-in user FontScale, theme preset, and any active `LumenicApi.Theme` overrides.
 pub fn begin_frame(state: &AppState) {
+    let base_preset = base_palette_for_preset(state.host.theme_preset.as_str());
     let mut palette = if !state.host.colorize_menu {
-        PanelPalette::default()
+        base_preset
     } else {
         let pr = state.host.accent_r as f32;
         let pg = state.host.accent_g as f32;
         let pb = state.host.accent_b as f32;
         if pr.max(pg).max(pb) < 12.0 {
-            PanelPalette::default()
+            base_preset
         } else {
             // Cap primary luminance so bright/white primaries remain dark and stylish on panels.
             let tame = clamp_luma_rgb(pr, pg, pb, 118.0);
             let border_tint = clamp_luma_rgb(pr, pg, pb, 185.0);
             PanelPalette {
-                card_bg: mix_tinted(CARD_BG, tame, 0.20),
-                card_inner_bg: mix_tinted(CARD_INNER_BG, tame, 0.14),
-                tile_idle_bg: mix_tinted(TILE_IDLE_BG, tame, 0.16),
-                tile_idle_hover: mix_tinted(TILE_IDLE_HOVER, tame, 0.22),
+                card_bg: mix_tinted(base_preset.card_bg, tame, 0.20),
+                card_inner_bg: mix_tinted(base_preset.card_inner_bg, tame, 0.14),
+                tile_idle_bg: mix_tinted(base_preset.tile_idle_bg, tame, 0.16),
+                tile_idle_hover: mix_tinted(base_preset.tile_idle_hover, tame, 0.22),
                 border_subtle: Color::rgba(
                     border_tint.0.clamp(0.0, 255.0) as u8,
                     border_tint.1.clamp(0.0, 255.0) as u8,
                     border_tint.2.clamp(0.0, 255.0) as u8,
-                    58,
+                    base_preset.border_subtle.a.max(58),
                 ),
-                ..PanelPalette::default()
+                ..base_preset
             }
         }
     };
 
     let ext = &state.extensions.theme;
-    let opacity = if ext.panel_opacity.is_finite() {
+    let host_opacity = if state.host.panel_opacity.is_finite() {
+        state.host.panel_opacity.clamp(0.5, 1.0)
+    } else {
+        1.0
+    };
+    let ext_opacity = if ext.panel_opacity.is_finite() {
         ext.panel_opacity.clamp(0.15, 1.0)
     } else {
         1.0
     };
+    let opacity = (host_opacity * ext_opacity).clamp(0.15, 1.0);
     if (opacity - 1.0).abs() > 0.001 {
         palette.card_bg = scale_alpha(palette.card_bg, opacity);
         palette.card_inner_bg = scale_alpha(palette.card_inner_bg, opacity);
@@ -285,7 +327,9 @@ pub fn begin_frame(state: &AppState) {
             .qm_action_columns
             .map(|c| c.clamp(2, 6))
             .unwrap_or(3),
-        glow_intensity: if ext.glow_intensity.is_finite() {
+        glow_intensity: if !state.host.cursor_glow {
+            0.0
+        } else if ext.glow_intensity.is_finite() {
             ext.glow_intensity.clamp(0.0, 2.0)
         } else {
             1.0

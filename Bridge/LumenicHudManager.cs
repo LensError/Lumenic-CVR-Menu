@@ -7,6 +7,7 @@ using ABI_RC.Core.UI;
 using ABI_RC.Core.UI.Hud;
 using ABI_RC.Core.UI.UIRework.Managers;
 using ABI_RC.Systems.Communications;
+using ABI_RC.Systems.PlayerColors;
 using HarmonyLib;
 using LumenicMenu.Native;
 using MelonLoader;
@@ -29,17 +30,17 @@ internal sealed class LumenicHudManager : IDisposable
     private const float FeedLifetime = 4.5f;
 
     // Mirrors native-ui/src/theme.rs tokens so the HUD reads as part of the menu.
-    private static readonly Color BgGlass = new Color(0.133f, 0.133f, 0.133f, 0.91f);
-    private static readonly Color BgChip = new Color(0.165f, 0.165f, 0.165f, 0.92f);
-    private static readonly Color BorderSubtle = new Color(1f, 1f, 1f, 0.13f);
+    private static Color BgGlass = new Color(0.133f, 0.133f, 0.133f, 0.91f);
+    private static Color BgChip = new Color(0.165f, 0.165f, 0.165f, 0.92f);
+    private static Color BorderSubtle = new Color(1f, 1f, 1f, 0.13f);
     private static readonly Color TextPrimary = new Color(1f, 1f, 1f, 1f);
     private static readonly Color TextMuted = new Color(0.69f, 0.69f, 0.69f, 1f);
-    private static readonly Color AccentSky = new Color(0.894f, 0.212f, 0f, 1f);
+    private static Color AccentSky = new Color(0.894f, 0.212f, 0f, 1f);
     private static readonly Color AccentGreen = new Color(0.216f, 0.741f, 0.235f, 1f);
     private static readonly Color AccentAmber = new Color(0.941f, 0.647f, 0.188f, 1f);
     private static readonly Color AccentRed = new Color(0.937f, 0.267f, 0.267f, 1f);
     private static readonly Color AccentBlue = new Color(0.220f, 0.741f, 0.973f, 1f);
-    private static readonly Color AccentPurple = AccentSky;
+    private static Color AccentPurple => AccentSky;
 
     private static readonly FieldInfo CohtmlHudViewField = AccessTools.Field(typeof(CohtmlHud), "hudView");
     private static readonly FieldInfo CohtmlHudRendererField = AccessTools.Field(typeof(CohtmlHud), "_hudRenderer");
@@ -112,6 +113,10 @@ internal sealed class LumenicHudManager : IDisposable
     private PortalHudIndicator _cachedPortal;
     private bool _built;
     private bool _prevEnabled;
+    private readonly List<(Image Bg, Image Border, bool IsChip)> _themedCards = new List<(Image, Image, bool)>();
+    private readonly List<Image> _accentImages = new List<Image>();
+    private TMP_Text _ttsText;
+    private string _lastThemeKey = string.Empty;
 
     // Status & Mic
     private RectTransform _statusClusterRt;
@@ -329,6 +334,82 @@ internal sealed class LumenicHudManager : IDisposable
             _hasAlerts = settings.GetSettingsBool("HUDCustomizationAlerts") && UIMessageManager.Instance.HasSystemMessage;
             _hasInfo = (settings.GetSettingsBool("HUDCustomizationInfo") && UIMessageManager.Instance.HasOtherMessage) || UIMessageManager.Instance.HasGroupMessage;
         }
+
+        ApplyHudTheme();
+    }
+
+    private void ApplyHudTheme()
+    {
+        string preset = Settings.ThemePreset;
+        float opacity = Settings.PanelOpacity;
+        bool colorize = MetaPort.Instance?.settings != null
+            && MetaPort.Instance.settings.GetSettingsBool(PlayerColorsManager.ColourizeMenuSettingKey);
+        Color32 p1 = PlayerColorsManager.CurrentColors.PrimaryColor;
+        string key = $"{preset}|{opacity:F2}|{colorize}|{p1.r},{p1.g},{p1.b}";
+        if (string.Equals(key, _lastThemeKey, StringComparison.Ordinal))
+            return;
+        _lastThemeKey = key;
+
+        Color glass = preset switch
+        {
+            "oled" => new Color(0.039f, 0.039f, 0.047f, 0.96f),
+            "frost" => new Color(0.141f, 0.165f, 0.212f, 0.78f),
+            "contrast" => new Color(0.055f, 0.055f, 0.063f, 0.98f),
+            _ => new Color(0.133f, 0.133f, 0.133f, 0.91f),
+        };
+        Color chip = preset switch
+        {
+            "oled" => new Color(0.086f, 0.086f, 0.106f, 0.94f),
+            "frost" => new Color(0.188f, 0.220f, 0.282f, 0.77f),
+            "contrast" => new Color(0.118f, 0.118f, 0.141f, 0.97f),
+            _ => new Color(0.165f, 0.165f, 0.165f, 0.92f),
+        };
+        Color border = preset switch
+        {
+            "oled" => new Color(1f, 1f, 1f, 0.11f),
+            "frost" => new Color(1f, 1f, 1f, 0.23f),
+            "contrast" => new Color(1f, 1f, 1f, 0.44f),
+            _ => new Color(1f, 1f, 1f, 0.13f),
+        };
+
+        Color accent = new Color(0.894f, 0.212f, 0f, 1f);
+        if (colorize && (p1.r | p1.g | p1.b) != 0)
+        {
+            accent = new Color(p1.r / 255f, p1.g / 255f, p1.b / 255f, 1f);
+            float luma = 0.299f * p1.r + 0.587f * p1.g + 0.114f * p1.b;
+            float tameScale = luma > 118f ? 118f / luma : 1f;
+            Color tame = new Color((p1.r * tameScale) / 255f, (p1.g * tameScale) / 255f, (p1.b * tameScale) / 255f, 1f);
+            glass = new Color(Mathf.Lerp(glass.r, tame.r, 0.20f), Mathf.Lerp(glass.g, tame.g, 0.20f), Mathf.Lerp(glass.b, tame.b, 0.20f), glass.a);
+            chip = new Color(Mathf.Lerp(chip.r, tame.r, 0.16f), Mathf.Lerp(chip.g, tame.g, 0.16f), Mathf.Lerp(chip.b, tame.b, 0.16f), chip.a);
+            float bScale = luma > 185f ? 185f / luma : 1f;
+            border = new Color((p1.r * bScale) / 255f, (p1.g * bScale) / 255f, (p1.b * bScale) / 255f, Mathf.Max(border.a, 0.23f));
+        }
+
+        glass.a *= opacity;
+        chip.a *= opacity;
+
+        BgGlass = glass;
+        BgChip = chip;
+        BorderSubtle = border;
+        AccentSky = accent;
+
+        for (int i = 0; i < _themedCards.Count; i++)
+        {
+            var (bg, bd, isChip) = _themedCards[i];
+            if (bg != null)
+                bg.color = isChip ? BgChip : BgGlass;
+            if (bd != null)
+                bd.color = BorderSubtle;
+        }
+
+        for (int i = 0; i < _accentImages.Count; i++)
+        {
+            if (_accentImages[i] != null)
+                _accentImages[i].color = AccentSky;
+        }
+
+        if (_ttsText != null)
+            _ttsText.color = AccentSky;
     }
 
     // --- Event Receivers ---
@@ -754,7 +835,8 @@ internal sealed class LumenicHudManager : IDisposable
         hlg.childForceExpandHeight = false;
 
         _badgesRow = row.gameObject;
-        _badgeFriends = CreateIconChip("Friends", row, HudIcon.Friends, AccentSky, 24f, 13f);
+        _badgeFriends = CreateIconChip("Friends", row, HudIcon.Friends, AccentSky, 24f, 13f, out var friendsIcon);
+        _accentImages.Add(friendsIcon);
         _badgeInvites = CreateIconChip("Invites", row, HudIcon.Invite, AccentGreen, 24f, 13f);
         _badgeVotes = CreateIconChip("Votes", row, HudIcon.Vote, AccentAmber, 24f, 13f);
         _badgeAlerts = CreateIconChip("Alerts", row, HudIcon.Alert, AccentRed, 24f, 13f);
@@ -845,13 +927,13 @@ internal sealed class LumenicHudManager : IDisposable
 
         var tts = CreateCard("TtsChip", pill, BgChip, 26f, 18f);
         AddLayout(tts.gameObject, 26f, 18f);
-        var ttsTxt = CreateText("TtsText", tts, 8.5f, AccentSky, FontStyles.Bold, TextAlignmentOptions.Center);
-        var ttsRt = ttsTxt.rectTransform;
+        _ttsText = CreateText("TtsText", tts, 8.5f, AccentSky, FontStyles.Bold, TextAlignmentOptions.Center);
+        var ttsRt = _ttsText.rectTransform;
         ttsRt.anchorMin = Vector2.zero;
         ttsRt.anchorMax = Vector2.one;
         ttsRt.offsetMin = Vector2.zero;
         ttsRt.offsetMax = Vector2.zero;
-        ttsTxt.text = "TTS";
+        _ttsText.text = "TTS";
         _ttsChip = tts.gameObject;
         _ttsChip.SetActive(false);
     }
@@ -894,7 +976,7 @@ internal sealed class LumenicHudManager : IDisposable
         hlg.childControlHeight = true;
         hlg.childForceExpandWidth = false;
 
-        CreateIcon("PropIcon", cardRt, HudIcon.Prop, 14f, AccentSky);
+        _accentImages.Add(CreateIcon("PropIcon", cardRt, HudIcon.Prop, 14f, AccentSky));
         _propName = CreateText("PropName", cardRt, 12f, TextPrimary, FontStyles.Bold, TextAlignmentOptions.Left);
 
         _propCard = cardRt.gameObject;
@@ -1442,6 +1524,7 @@ internal sealed class LumenicHudManager : IDisposable
         borderImg.type = Image.Type.Sliced;
         borderImg.color = BorderSubtle;
         borderImg.raycastTarget = false;
+        _themedCards.Add((img, borderImg, color == BgChip));
         return rt;
     }
 

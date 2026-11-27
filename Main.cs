@@ -44,6 +44,7 @@ public sealed class LumenicMenuMod : MelonMod
     internal AvatarStageManager AvatarStage { get; private set; }
     internal ModUpdateService Updates { get; private set; }
     internal SystemAlertService SystemAlerts { get; private set; }
+    internal LegalDocsService LegalDocs { get; private set; }
     internal LumenicHudManager Hud { get; private set; }
 
     private bool _keyboardLocked;
@@ -95,6 +96,7 @@ public sealed class LumenicMenuMod : MelonMod
         AvatarStage = new AvatarStageManager();
         Updates = new ModUpdateService(ModVersion, () => MarkStateDirty(StateDomain.Core));
         SystemAlerts = new SystemAlertService(() => MarkStateDirty(StateDomain.Core));
+        LegalDocs = new LegalDocsService(() => MarkStateDirty(StateDomain.Settings));
         Hud = new LumenicHudManager();
         _mainSurface = new MenuSurfaceHost(NativeBridge.SurfaceMain, "MainMenu", referenceLogicalHeight: 720f);
         _quickSurface = new MenuSurfaceHost(NativeBridge.SurfaceQuick, "QuickMenu", referenceLogicalHeight: 860f);

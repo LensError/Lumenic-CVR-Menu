@@ -42,6 +42,7 @@ internal static class GameEvents
     private static FieldInfo _crLastUiCoordsField;
     private static FieldInfo _crInteractField;
     private static FieldInfo _crInteractUpField;
+    private static PropertyInfo _customEngineFuncNameProp;
 
     public static void ApplyPatches(HarmonyLib.Harmony harmony)
     {
@@ -54,6 +55,7 @@ internal static class GameEvents
         _crLastUiCoordsField = AccessTools.Field(typeof(ControllerRay), "_lastUiCoords");
         _crInteractField = AccessTools.Field(typeof(ControllerRay), "_interact");
         _crInteractUpField = AccessTools.Field(typeof(ControllerRay), "_interactUp");
+        _customEngineFuncNameProp = AccessTools.Property(typeof(CustomEngineOnFunction), "FunctionName");
 
         PatchSafe(
             harmony,
@@ -140,6 +142,11 @@ internal static class GameEvents
             harmony,
             AccessTools.Method(typeof(QuickMenuAPI), nameof(QuickMenuAPI.ShowAlertToast)),
             prefix: nameof(Prefix_UiLib_ShowAlertToast));
+
+        PatchSafe(
+            harmony,
+            AccessTools.Method(typeof(CustomEngineOnFunction), nameof(CustomEngineOnFunction.TriggerEvent), new[] { typeof(object[]) }),
+            postfix: nameof(Postfix_UiLib_CustomEngineOnFunction_TriggerEvent));
 
         PatchSafe(
             harmony,
@@ -790,6 +797,30 @@ internal static class GameEvents
             MelonLogger.Error($"[LumenicMenu] UiLib ShowAlertToast hook error: {ex.Message}");
         }
         return true;
+    }
+
+    private static void Postfix_UiLib_CustomEngineOnFunction_TriggerEvent(CustomEngineOnFunction __instance, object[] __args)
+    {
+        try
+        {
+            if (__instance == null || __args == null || __args.Length == 0)
+                return;
+
+            var mod = LumenicMenuMod.Instance;
+            if (mod?.UiLib == null)
+                return;
+
+            object[] eventArgs = __args[0] as object[];
+            string funcName = _customEngineFuncNameProp?.GetValue(__instance) as string;
+            if (mod.UiLib.HandleCustomEngineEvent(funcName, eventArgs))
+            {
+                mod.MarkStateDirty(Bridge.StateDomain.UiLib);
+            }
+        }
+        catch (Exception ex)
+        {
+            MelonLogger.Error($"[LumenicMenu] UiLib CustomEngineOnFunction hook error: {ex.Message}");
+        }
     }
 
     // --- MiniMe Studio Box Placement & Click-and-Drag Turntable Spin ---

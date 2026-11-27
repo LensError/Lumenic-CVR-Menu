@@ -98,6 +98,14 @@ pub struct HostStateSnapshot {
     pub enable_recent_history: bool,
     #[serde(default)]
     pub qm_mod_tabs_icon_only: bool,
+    #[serde(default = "default_qm_preset_confirm_mode")]
+    pub qm_preset_confirm_mode: String,
+    #[serde(default = "default_theme_preset")]
+    pub theme_preset: String,
+    #[serde(default = "default_one")]
+    pub panel_opacity: f32,
+    #[serde(default = "default_true")]
+    pub cursor_glow: bool,
     pub disclaimer_accepted: bool,
     pub show_whats_new: bool,
     pub whats_new_notes: String,
@@ -227,6 +235,14 @@ pub struct CoreStatePatch {
     pub enable_recent_history: bool,
     #[serde(default)]
     pub qm_mod_tabs_icon_only: bool,
+    #[serde(default = "default_qm_preset_confirm_mode")]
+    pub qm_preset_confirm_mode: String,
+    #[serde(default = "default_theme_preset")]
+    pub theme_preset: String,
+    #[serde(default = "default_one")]
+    pub panel_opacity: f32,
+    #[serde(default = "default_true")]
+    pub cursor_glow: bool,
     pub disclaimer_accepted: bool,
     pub show_whats_new: bool,
     pub update_status: UpdateStatusDto,
@@ -323,6 +339,10 @@ impl HostStateSnapshot {
         self.ui_sound_pack = patch.ui_sound_pack;
         self.enable_recent_history = patch.enable_recent_history;
         self.qm_mod_tabs_icon_only = patch.qm_mod_tabs_icon_only;
+        self.qm_preset_confirm_mode = patch.qm_preset_confirm_mode;
+        self.theme_preset = patch.theme_preset;
+        self.panel_opacity = patch.panel_opacity;
+        self.cursor_glow = patch.cursor_glow;
         self.disclaimer_accepted = patch.disclaimer_accepted;
         self.show_whats_new = patch.show_whats_new;
         self.update_status = patch.update_status;
@@ -474,6 +494,10 @@ impl Default for HostStateSnapshot {
             ui_sound_pack: String::from("SoftSub"),
             enable_recent_history: true,
             qm_mod_tabs_icon_only: false,
+            qm_preset_confirm_mode: default_qm_preset_confirm_mode(),
+            theme_preset: default_theme_preset(),
+            panel_opacity: 1.0,
+            cursor_glow: true,
             disclaimer_accepted: true,
             show_whats_new: false,
             whats_new_notes: String::new(),
@@ -511,5 +535,21 @@ impl Default for HostStateSnapshot {
             perf_logging: false,
         }
     }
+}
+
+fn default_qm_preset_confirm_mode() -> String {
+    String::from("sync")
+}
+
+fn default_theme_preset() -> String {
+    String::from("default")
+}
+
+fn default_one() -> f32 {
+    1.0
+}
+
+fn default_true() -> bool {
+    true
 }
 

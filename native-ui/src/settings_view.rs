@@ -7,8 +7,9 @@ use crate::theme::{
     TEXT_MUTED, TEXT_PRIMARY, tile_idle_bg, tile_idle_hover,
 };
 
-const SETTINGS_TABS: [(&str, &str, &str); 14] = [
+const SETTINGS_TABS: [(&str, &str, &str); 16] = [
     ("lumenic", icons::BOLT, "LumenicMenu"),
+    ("about_lumenic", icons::INFO, "About LumenicMenu"),
     ("colors", icons::STAR, "Player Colors"),
     ("general", icons::HOME, "General"),
     ("audio", icons::VOLUME, "Audio"),
@@ -22,7 +23,15 @@ const SETTINGS_TABS: [(&str, &str, &str); 14] = [
     ("cache", icons::TRASH, "Cache"),
     ("experimental", icons::TOOLBOX, "Experimental"),
     ("support", icons::MAIL, "Support"),
+    ("legal", icons::SHIELD, "Legal"),
 ];
+
+pub fn tab_index(cat_id: &str) -> usize {
+    SETTINGS_TABS
+        .iter()
+        .position(|(id, _, _)| *id == cat_id)
+        .unwrap_or(0)
+}
 
 fn render_subcat_card(
     ui: &mut UiContext,
@@ -587,7 +596,10 @@ pub fn render_settings_page(
                             9
                         } else if *cat_id == "colors" {
                             state.host.player_color_presets.len()
-                        } else if *cat_id == "support" {
+                        } else if *cat_id == "support"
+                            || *cat_id == "about_lumenic"
+                            || *cat_id == "legal"
+                        {
                             0
                         } else {
                             state
@@ -699,17 +711,102 @@ pub fn render_settings_page(
                 .unwrap_or("lumenic");
 
             ui.col(|ui| {
+                if q.is_empty() && active_cat == "safety" {
+                    let av_count = state
+                        .host
+                        .cvr_settings
+                        .items
+                        .iter()
+                        .filter(|it| it.category == "safety" && it.sub_tab != "props")
+                        .count();
+                    let prop_count = state
+                        .host
+                        .cvr_settings
+                        .items
+                        .iter()
+                        .filter(|it| it.category == "safety" && it.sub_tab == "props")
+                        .count();
+                    ui.row(|ui| {
+                        for (idx, icon_p, lbl, cnt) in [
+                            (0usize, icons::AVATAR, "Avatar Filters", av_count),
+                            (1usize, icons::CUBE, "Prop Filters", prop_count),
+                        ] {
+                            let active = state.main_menu.safety_sub_tab == idx;
+                            let btn_id = format!("mm_set_safety_sub_{idx}");
+                            if ui
+                                .btn_with(&btn_id, |ui| {
+                                    ui.row(|ui| {
+                                        icons::icon(ui, icon_p, 14.0)
+                                            .fg(if active { accent } else { TEXT_MUTED });
+                                        ui.txt(lbl)
+                                            .sz(crate::theme::fs(12.0))
+                                            .semibold()
+                                            .fg(if active { TEXT_PRIMARY } else { TEXT_MUTED });
+                                        let c_txt = format!("{cnt}");
+                                        ui.txt(&c_txt)
+                                            .sz(crate::theme::fs(10.0))
+                                            .fg(if active { accent } else { TEXT_DIM });
+                                    })
+                                    .center()
+                                    .gap(7.0)
+                                    .grow(1.0);
+                                })
+                                .grow(1.0)
+                                .px(12.0)
+                                .py(8.0)
+                                .bg(if active {
+                                    tint_alpha(accent, 48)
+                                } else {
+                                    card_inner_bg()
+                                })
+                                .hover_bg(tile_idle_hover())
+                                .bd(
+                                    1.0,
+                                    if active {
+                                        tint_alpha(accent, 195)
+                                    } else {
+                                        border_subtle()
+                                    },
+                                )
+                                .bevel_rounded(7.0, 1.4)
+                                .clicked()
+                            {
+                                push_click(actions);
+                                state.main_menu.safety_sub_tab = idx;
+                            }
+                        }
+                    })
+                    .align_center()
+                    .gap(8.0)
+                    .pb(2.0);
+                } else if q.is_empty() && active_cat == "legal" {
+                    render_legal_sub_tabs(ui, state, accent, actions);
+                }
+
                 ui.scroll("mm_set_body_scroll", |ui| {
                     if q.is_empty() && active_cat == "lumenic" {
                         render_lumenic_settings(ui, state, "", accent, actions);
+                    } else if q.is_empty() && active_cat == "about_lumenic" {
+                        render_about_lumenic_section(ui, state, accent, actions);
                     } else if q.is_empty() && active_cat == "colors" {
                         render_player_colors_section(ui, state, accent, actions);
                     } else if q.is_empty() && active_cat == "support" {
                         render_support_section(ui, state, accent, actions);
+                    } else if q.is_empty() && active_cat == "legal" {
+                        render_legal_section(ui, state, accent, actions);
                     } else {
                         let mut total_hits = 0usize;
                         if !q.is_empty() {
                             total_hits += render_lumenic_settings(ui, state, &q, accent, actions);
+                            if "about lumenicmenu update version github issues discord whats new"
+                                .contains(&q)
+                                || q.contains("update")
+                                || q.contains("about")
+                                || q.contains("lumenic")
+                            {
+                                render_about_lumenic_section(ui, state, accent, actions);
+                                total_hits += 1;
+                            }
                             if "player colors colorize menu primary secondary emission preset swatch"
                                 .contains(&q)
                                 || q.contains("color")
@@ -736,7 +833,15 @@ pub fn render_settings_page(
                             .iter()
                             .filter(|it| {
                                 if q.is_empty() {
-                                    it.category == active_cat
+                                    if it.category != active_cat {
+                                        return false;
+                                    }
+                                    if active_cat == "safety" {
+                                        let want_props = state.main_menu.safety_sub_tab == 1;
+                                        (it.sub_tab == "props") == want_props
+                                    } else {
+                                        true
+                                    }
                                 } else {
                                     it.label.to_ascii_lowercase().contains(&q)
                                         || it.key.to_ascii_lowercase().contains(&q)
@@ -848,9 +953,16 @@ fn render_lumenic_settings(
 
     // --- APPEARANCE & TYPOGRAPHY ---
     let show_text_size = m("Text Size", "font text size typography scale readability");
-    if show_text_size {
-        hits += 1;
+    let show_theme_preset = m(
+        "Theme Preset",
+        "theme preset oled frost glass high contrast slate style appearance",
+    );
+    let show_panel_opacity = m("Panel Opacity", "panel opacity transparency glass alpha");
+    let show_cursor_glow = m("Cursor Glow", "cursor glow background shader hex");
+    if show_text_size || show_theme_preset || show_panel_opacity || show_cursor_glow {
         render_subcat_card(ui, "Appearance & Typography", None, accent, |_| {}, |ui| {
+        if show_text_size {
+        hits += 1;
         let cur_pct = (state.host.font_scale.clamp(0.5, 2.5) * 100.0).round() as i32;
         ui.row(|ui| {
             ui.txt("Text Size")
@@ -902,6 +1014,149 @@ fn render_lumenic_settings(
         .bg(card_inner_bg())
         .bd(1.0, border_subtle())
         .bevel_rounded(6.0, 1.3);
+        }
+
+        if show_theme_preset {
+            hits += 1;
+            let cur_preset = state.host.theme_preset.as_str();
+            let mut row_resp = ui
+                .row(|ui| {
+                    ui.txt("Theme Preset")
+                        .sz(crate::theme::fs(11.0))
+                        .semibold()
+                        .fg(crate::theme::text_primary())
+                        .min_w(130.0);
+                    for (preset_id, lbl) in [
+                        ("default", "CVR Slate"),
+                        ("oled", "OLED Black"),
+                        ("frost", "Frost Glass"),
+                        ("contrast", "High Contrast"),
+                    ] {
+                        let active = if matches!(cur_preset, "oled" | "frost" | "contrast") {
+                            cur_preset == preset_id
+                        } else {
+                            preset_id == "default"
+                        };
+                        if ui
+                            .btn_with(&format!("mm_set_theme_{preset_id}"), |ui| {
+                                ui.txt(lbl)
+                                    .sz(crate::theme::fs(10.0))
+                                    .semibold()
+                                    .align(TextAlign::Center)
+                                    .fg(if active { TEXT_PRIMARY } else { TEXT_MUTED })
+                                    .grow(1.0);
+                            })
+                            .grow(1.0)
+                            .py(5.0)
+                            .bg(if active {
+                                tint_alpha(accent, 52)
+                            } else {
+                                tile_idle_bg()
+                            })
+                            .hover_bg(tile_idle_hover())
+                            .bd(
+                                1.0,
+                                if active {
+                                    tint_alpha(accent, 195)
+                                } else {
+                                    border_subtle()
+                                },
+                            )
+                            .bevel_rounded(5.0, 1.3)
+                            .clicked()
+                        {
+                            push_click(actions);
+                            actions.push(UiAction::SetThemePreset {
+                                preset: String::from(preset_id),
+                            });
+                        }
+                    }
+                })
+                .align_center()
+                .px(8.0)
+                .py(6.0)
+                .gap(5.0)
+                .bg(card_inner_bg())
+                .bd(1.0, border_subtle())
+                .bevel_rounded(6.0, 1.3);
+            if row_resp.hovered() {
+                state.main_menu.hovered_tooltip = String::from(
+                    "Choose a built-in palette for all menus and the Lumenic HUD. Works alongside Colorize Menu.",
+                );
+            }
+        }
+
+        if show_panel_opacity {
+            hits += 1;
+            let op_pct = (state.host.panel_opacity.clamp(0.5, 1.0) * 100.0).round() as i32;
+            let slot = state
+                .main_menu
+                .settings_sliders
+                .entry(String::from("lm_panel_opacity"))
+                .or_insert((op_pct as f32, op_pct));
+            if slot.1 != op_pct {
+                slot.0 = op_pct as f32;
+                slot.1 = op_pct;
+            }
+            let (cur_f, last_i) = (&mut slot.0, &mut slot.1);
+            let mut emit_opacity: Option<f32> = None;
+            let mut row_resp = ui
+                .col(|ui| {
+                    let sl = crate::widgets::styled_slider(
+                        ui,
+                        "mm_set_lm_opacity",
+                        "Panel Opacity",
+                        &format!("{op_pct}%"),
+                        cur_f,
+                        50.0..=100.0,
+                        accent,
+                        true,
+                        false,
+                    );
+                    if sl.changed {
+                        let next_pct = (*cur_f).round().clamp(50.0, 100.0) as i32;
+                        *cur_f = next_pct as f32;
+                        if next_pct != *last_i {
+                            *last_i = next_pct;
+                            emit_opacity = Some(next_pct as f32 / 100.0);
+                        }
+                    }
+                })
+                .px(8.0)
+                .py(6.0)
+                .bg(card_inner_bg())
+                .bd(1.0, border_subtle())
+                .bevel_rounded(6.0, 1.3);
+            if row_resp.hovered() {
+                state.main_menu.hovered_tooltip = String::from(
+                    "Adjust card and HUD background opacity (50% - 100%).",
+                );
+            }
+            if let Some(next_op) = emit_opacity {
+                actions.push(UiAction::SetPanelOpacity { opacity: next_op });
+            }
+        }
+
+        if show_cursor_glow {
+            hits += 1;
+            let (clicked, hov) = compact_toggle_cell(
+                ui,
+                "mm_set_lm_cursor_glow",
+                "Cursor Glow Shader",
+                state.host.cursor_glow,
+            );
+            if hov {
+                state.main_menu.hovered_tooltip = String::from(
+                    "Render the cursor-follow background glow shader behind menu cards. Disable for lower GPU usage.",
+                );
+            }
+            if clicked {
+                push_click(actions);
+                actions.push(UiAction::SetCursorGlow {
+                    enabled: !state.host.cursor_glow,
+                });
+            }
+        }
         });
     }
 
@@ -1270,13 +1525,86 @@ fn render_lumenic_settings(
         "Quick Menu Mod Tabs Icons Only",
         "quick menu qm mod tabs icon only compact tooltip",
     );
+    let show_qm_preset_confirm = m(
+        "Quick Menu Outfit Preset Confirm",
+        "quick menu qm outfit preset confirm preview auto apply sync",
+    );
     let show_recent = m(
         "Track Recent History",
         "recent categories history userdata visited seen spawned",
     );
     let show_clear = m("Clear User Data", "clear reset history pinned pins userdata layouts");
-    if show_qm_icon_tabs || show_recent || show_clear {
+    if show_qm_icon_tabs || show_qm_preset_confirm || show_recent || show_clear {
         render_subcat_card(ui, "Quick Menu & User Data", None, accent, |_| {}, |ui| {
+
+        if show_qm_preset_confirm {
+            hits += 1;
+            let cur_mode = state.host.qm_preset_confirm_mode.as_str();
+            let mut row_resp = ui
+                .row(|ui| {
+                    ui.txt("QM Outfit Preset Confirm")
+                        .sz(crate::theme::fs(11.0))
+                        .semibold()
+                        .fg(crate::theme::text_primary())
+                        .min_w(140.0);
+                    for (mode_id, lbl) in [
+                        ("sync", "Sync Main"),
+                        ("on", "Force On"),
+                        ("off", "Force Off"),
+                    ] {
+                        let active = if cur_mode == "on" || cur_mode == "off" {
+                            cur_mode == mode_id
+                        } else {
+                            mode_id == "sync"
+                        };
+                        if ui
+                            .btn_with(&format!("mm_set_lm_qm_preset_{mode_id}"), |ui| {
+                                ui.txt(lbl)
+                                    .sz(crate::theme::fs(10.0))
+                                    .semibold()
+                                    .align(TextAlign::Center)
+                                    .fg(if active { TEXT_PRIMARY } else { TEXT_MUTED })
+                                    .grow(1.0);
+                            })
+                            .grow(1.0)
+                            .py(5.0)
+                            .bg(if active {
+                                tint_alpha(accent, 52)
+                            } else {
+                                tile_idle_bg()
+                            })
+                            .hover_bg(tile_idle_hover())
+                            .bd(
+                                1.0,
+                                if active {
+                                    tint_alpha(accent, 195)
+                                } else {
+                                    border_subtle()
+                                },
+                            )
+                            .bevel_rounded(5.0, 1.3)
+                            .clicked()
+                        {
+                            push_click(actions);
+                            actions.push(UiAction::SetQmPresetConfirmMode {
+                                mode: String::from(mode_id),
+                            });
+                        }
+                    }
+                })
+                .align_center()
+                .px(8.0)
+                .py(6.0)
+                .gap(5.0)
+                .bg(card_inner_bg())
+                .bd(1.0, border_subtle())
+                .bevel_rounded(6.0, 1.3);
+            if row_resp.hovered() {
+                state.main_menu.hovered_tooltip = String::from(
+                    "Sync Main: follows Main Menu's Auto Apply Changes setting. Force On: always preview in 3D and require Confirm. Force Off: apply outfit presets immediately.",
+                );
+            }
+        }
 
         if show_qm_icon_tabs {
             hits += 1;
@@ -1655,40 +1983,17 @@ fn render_player_colors_section(
     }
 }
 
-fn render_support_section(
+fn render_about_lumenic_section(
     ui: &mut UiContext,
     state: &mut AppState,
     accent: Color,
     actions: &mut Vec<UiAction>,
 ) {
-    // --- BIG MODDED CLIENT DISCLAIMER ---
-    ui.col(|ui| {
-        ui.row(|ui| {
-            icons::icon(ui, icons::BELL, 15.0).fg(crate::theme::AMBER);
-            ui.txt("IMPORTANT - Read Before Reporting Bugs to ChilloutVR")
-                .sz(crate::theme::fs(12.0))
-                .bold()
-                .fg(crate::theme::AMBER);
-        })
-        .align_center()
-        .gap(6.0);
-
-        ui.txt("If you notice ANY bug even remotely related to the UI, menus, input, or rendering, you MUST completely UNINSTALL LumenicMenu (remove LumenicMenu.dll from Mods/ and restart the game - do NOT just toggle it off) and reproduce the issue on a clean vanilla client before reporting anything to ChilloutVR or the CVR team.")
-            .sz(crate::theme::fs(11.0))
-            .fg(TEXT_PRIMARY)
-            .wrap();
-    })
-    .p(11.0)
-    .gap(6.0)
-    .bg(tint_alpha(crate::theme::AMBER, 26))
-    .bd(1.5, tint_alpha(crate::theme::AMBER, 175))
-    .bevel_rounded(8.5, 1.5);
-
-    // --- LUMENICMENU MOD SUPPORT ---
+    // --- LUMENICMENU MOD SUPPORT & UPDATES ---
     ui.col(|ui| {
         ui.row(|ui| {
             icons::icon(ui, icons::BOLT, 14.5).fg(accent);
-            ui.txt("LumenicMenu Support & Mod Issues")
+            ui.txt("About LumenicMenu & Mod Support")
                 .sz(crate::theme::fs(12.5))
                 .bold()
                 .fg(TEXT_PRIMARY);
@@ -1868,6 +2173,59 @@ fn render_support_section(
     .gap(7.0)
     .bg(card_inner_bg())
     .bd(1.0, border_subtle())
+    .bevel_rounded(8.5, 1.5);
+
+    // --- MODDED CLIENT DISCLAIMER ---
+    ui.col(|ui| {
+        ui.row(|ui| {
+            icons::icon(ui, icons::BELL, 15.0).fg(crate::theme::AMBER);
+            ui.txt("IMPORTANT - Read Before Reporting Bugs to ChilloutVR")
+                .sz(crate::theme::fs(12.0))
+                .bold()
+                .fg(crate::theme::AMBER);
+        })
+        .align_center()
+        .gap(6.0);
+
+        ui.txt("If you notice ANY bug even remotely related to the UI, menus, input, or rendering, you MUST completely UNINSTALL LumenicMenu (remove LumenicMenu.dll from Mods/ and restart the game - do NOT just toggle it off) and reproduce the issue on a clean vanilla client before reporting anything to ChilloutVR or the CVR team.")
+            .sz(crate::theme::fs(11.0))
+            .fg(TEXT_PRIMARY)
+            .wrap();
+    })
+    .p(11.0)
+    .gap(6.0)
+    .bg(tint_alpha(crate::theme::AMBER, 26))
+    .bd(1.5, tint_alpha(crate::theme::AMBER, 175))
+    .bevel_rounded(8.5, 1.5);
+}
+
+fn render_support_section(
+    ui: &mut UiContext,
+    state: &mut AppState,
+    accent: Color,
+    actions: &mut Vec<UiAction>,
+) {
+    // --- BIG MODDED CLIENT DISCLAIMER ---
+    ui.col(|ui| {
+        ui.row(|ui| {
+            icons::icon(ui, icons::BELL, 15.0).fg(crate::theme::AMBER);
+            ui.txt("IMPORTANT - Read Before Reporting Bugs to ChilloutVR")
+                .sz(crate::theme::fs(12.0))
+                .bold()
+                .fg(crate::theme::AMBER);
+        })
+        .align_center()
+        .gap(6.0);
+
+        ui.txt("If you notice ANY bug even remotely related to the UI, menus, input, or rendering, you MUST completely UNINSTALL LumenicMenu (remove LumenicMenu.dll from Mods/ and restart the game - do NOT just toggle it off) and reproduce the issue on a clean vanilla client before reporting anything to ChilloutVR or the CVR team.")
+            .sz(crate::theme::fs(11.0))
+            .fg(TEXT_PRIMARY)
+            .wrap();
+    })
+    .p(11.0)
+    .gap(6.0)
+    .bg(tint_alpha(crate::theme::AMBER, 26))
+    .bd(1.5, tint_alpha(crate::theme::AMBER, 175))
     .bevel_rounded(8.5, 1.5);
 
     // --- OFFICIAL CHILLOUTVR SUPPORT ---
@@ -2086,6 +2444,333 @@ fn render_support_section(
     .bg(card_inner_bg())
     .bd(1.0, border_subtle())
     .bevel_rounded(8.5, 1.5);
+}
+
+const LEGAL_TABS: [(&str, &str, &str); 4] = [
+    (
+        "tos",
+        "Terms of Service",
+        "https://docs.chilloutvr.net/official/legal/tos/",
+    ),
+    (
+        "behaviour",
+        "Behaviour",
+        "https://docs.chilloutvr.net/official/legal/behaviour_guidelines/",
+    ),
+    (
+        "content",
+        "Content",
+        "https://docs.chilloutvr.net/official/legal/content_guidelines/",
+    ),
+    (
+        "privacy",
+        "Privacy Policy",
+        "https://docs.chilloutvr.net/official/legal/privacy-policy/",
+    ),
+];
+
+fn render_legal_sub_tabs(
+    ui: &mut UiContext,
+    state: &mut AppState,
+    accent: Color,
+    actions: &mut Vec<UiAction>,
+) {
+    let active_idx = state.main_menu.legal_sub_tab.min(LEGAL_TABS.len() - 1);
+    let (active_id, _, active_url) = LEGAL_TABS[active_idx];
+
+    ui.row(|ui| {
+        for (idx, (_, lbl, _)) in LEGAL_TABS.iter().enumerate() {
+            let active = active_idx == idx;
+            let btn_id = format!("mm_set_legal_sub_{idx}");
+            if ui
+                .btn_with(&btn_id, |ui| {
+                    ui.txt(lbl)
+                        .sz(crate::theme::fs(11.5))
+                        .semibold()
+                        .align(TextAlign::Center)
+                        .fg(if active { TEXT_PRIMARY } else { TEXT_MUTED })
+                        .ellipsis()
+                        .grow(1.0);
+                })
+                .grow(1.0)
+                .px(8.0)
+                .py(7.5)
+                .bg(if active {
+                    tint_alpha(accent, 48)
+                } else {
+                    card_inner_bg()
+                })
+                .hover_bg(tile_idle_hover())
+                .bd(
+                    1.0,
+                    if active {
+                        tint_alpha(accent, 195)
+                    } else {
+                        border_subtle()
+                    },
+                )
+                .bevel_rounded(6.5, 1.3)
+                .clicked()
+            {
+                push_click(actions);
+                state.main_menu.legal_sub_tab = idx;
+            }
+        }
+
+        if ui
+            .btn_with("mm_set_legal_refresh", |ui| {
+                icons::icon(ui, icons::RELOAD, 13.5).fg(TEXT_PRIMARY);
+            })
+            .px(9.0)
+            .py(7.5)
+            .bg(tile_idle_bg())
+            .hover_bg(tile_idle_hover())
+            .bd(1.0, border_subtle())
+            .bevel_rounded(6.5, 1.3)
+            .clicked()
+        {
+            push_click(actions);
+            actions.push(UiAction::FetchLegalDoc {
+                doc_id: String::from(active_id),
+                force: true,
+            });
+        }
+
+        if ui
+            .btn_with("mm_set_legal_browser", |ui| {
+                ui.row(|ui| {
+                    icons::icon(ui, icons::WORLD, 13.0).fg(accent);
+                    ui.txt("Browser")
+                        .sz(crate::theme::fs(10.5))
+                        .semibold()
+                        .fg(TEXT_PRIMARY);
+                })
+                .center()
+                .gap(5.0);
+            })
+            .px(10.0)
+            .py(7.5)
+            .bg(tile_idle_bg())
+            .hover_bg(tile_idle_hover())
+            .bd(1.0, border_subtle())
+            .bevel_rounded(6.5, 1.3)
+            .clicked()
+        {
+            push_click(actions);
+            actions.push(UiAction::OpenExternalUrl {
+                url: String::from(active_url),
+            });
+        }
+    })
+    .align_center()
+    .gap(6.0)
+    .pb(2.0);
+}
+
+fn render_legal_section(
+    ui: &mut UiContext,
+    state: &mut AppState,
+    accent: Color,
+    actions: &mut Vec<UiAction>,
+) {
+    let active_idx = state.main_menu.legal_sub_tab.min(LEGAL_TABS.len() - 1);
+    let (active_id, active_title, active_url) = LEGAL_TABS[active_idx];
+
+    let doc = state
+        .host
+        .cvr_settings
+        .legal_docs
+        .iter()
+        .find(|d| d.id == active_id)
+        .cloned();
+
+    let status = doc
+        .as_ref()
+        .map(|d| d.status.as_str())
+        .unwrap_or("idle");
+
+    if status == "idle"
+        && !state
+            .main_menu
+            .legal_requested_docs
+            .iter()
+            .any(|id| id == active_id)
+    {
+        state
+            .main_menu
+            .legal_requested_docs
+            .push(String::from(active_id));
+        actions.push(UiAction::FetchLegalDoc {
+            doc_id: String::from(active_id),
+            force: false,
+        });
+    }
+
+    match status {
+        "ready" => {
+            if let Some(d) = doc {
+                ui.col(|ui| {
+                    ui.row(|ui| {
+                        icons::icon(ui, icons::SHIELD, 15.0).fg(accent);
+                        ui.txt(&d.title)
+                            .sz(crate::theme::fs(14.0))
+                            .bold()
+                            .fg(TEXT_PRIMARY)
+                            .grow(1.0);
+                        ui.txt("docs.chilloutvr.net")
+                            .sz(crate::theme::fs(10.0))
+                            .fg(TEXT_DIM);
+                    })
+                    .align_center()
+                    .gap(7.0)
+                    .pb(4.0);
+
+                    for block in &d.blocks {
+                        match block.kind.as_str() {
+                            "h1" => {
+                                ui.txt(&block.text)
+                                    .sz(crate::theme::fs(15.0))
+                                    .bold()
+                                    .fg(TEXT_PRIMARY)
+                                    .wrap()
+                                    .pt(6.0);
+                            }
+                            "h2" => {
+                                ui.txt(&block.text)
+                                    .sz(crate::theme::fs(13.0))
+                                    .bold()
+                                    .fg(accent)
+                                    .wrap()
+                                    .pt(8.0);
+                            }
+                            "h3" => {
+                                ui.txt(&block.text)
+                                    .sz(crate::theme::fs(11.8))
+                                    .semibold()
+                                    .fg(TEXT_PRIMARY)
+                                    .wrap()
+                                    .pt(5.0);
+                            }
+                            "li" => {
+                                ui.row(|ui| {
+                                    ui.txt("-")
+                                        .sz(crate::theme::fs(11.0))
+                                        .bold()
+                                        .fg(accent)
+                                        .w(12.0);
+                                    ui.txt(&block.text)
+                                        .sz(crate::theme::fs(11.0))
+                                        .fg(TEXT_MUTED)
+                                        .wrap()
+                                        .grow(1.0);
+                                })
+                                .gap(4.0)
+                                .pl(6.0);
+                            }
+                            _ => {
+                                ui.txt(&block.text)
+                                    .sz(crate::theme::fs(11.0))
+                                    .fg(TEXT_PRIMARY)
+                                    .wrap();
+                            }
+                        }
+                    }
+                })
+                .p(13.0)
+                .gap(5.0)
+                .bg(card_inner_bg())
+                .bd(1.0, border_subtle())
+                .bevel_rounded(9.0, 1.5);
+            }
+        }
+        "error" => {
+            let err_msg = doc
+                .as_ref()
+                .map(|d| d.error.as_str())
+                .filter(|s| !s.is_empty())
+                .unwrap_or("Unable to reach docs.chilloutvr.net");
+            ui.col(|ui| {
+                icons::icon(ui, icons::SHIELD, 24.0).fg(crate::theme::AMBER);
+                ui.txt(&format!("Could not load {active_title}"))
+                    .sz(crate::theme::fs(13.5))
+                    .bold()
+                    .fg(TEXT_PRIMARY);
+                ui.txt(err_msg)
+                    .sz(crate::theme::fs(11.0))
+                    .fg(TEXT_MUTED)
+                    .wrap();
+                ui.row(|ui| {
+                    if ui
+                        .btn_with("mm_set_legal_retry", |ui| {
+                            ui.txt("Retry")
+                                .sz(crate::theme::fs(11.0))
+                                .semibold()
+                                .fg(TEXT_PRIMARY);
+                        })
+                        .px(14.0)
+                        .py(7.0)
+                        .bg(tint_alpha(accent, 48))
+                        .hover_bg(tint_alpha(accent, 80))
+                        .bd(1.0, tint_alpha(accent, 180))
+                        .bevel_rounded(6.5, 1.3)
+                        .clicked()
+                    {
+                        push_click(actions);
+                        actions.push(UiAction::FetchLegalDoc {
+                            doc_id: String::from(active_id),
+                            force: true,
+                        });
+                    }
+                    if ui
+                        .btn_with("mm_set_legal_err_open", |ui| {
+                            ui.txt("Open in Browser")
+                                .sz(crate::theme::fs(11.0))
+                                .semibold()
+                                .fg(TEXT_PRIMARY);
+                        })
+                        .px(14.0)
+                        .py(7.0)
+                        .bg(tile_idle_bg())
+                        .hover_bg(tile_idle_hover())
+                        .bd(1.0, border_subtle())
+                        .bevel_rounded(6.5, 1.3)
+                        .clicked()
+                    {
+                        push_click(actions);
+                        actions.push(UiAction::OpenExternalUrl {
+                            url: String::from(active_url),
+                        });
+                    }
+                })
+                .gap(8.0)
+                .pt(4.0);
+            })
+            .center()
+            .p(24.0)
+            .gap(8.0)
+            .bg(card_inner_bg())
+            .bd(1.0, border_subtle())
+            .bevel_rounded(9.0, 1.5);
+        }
+        _ => {
+            ui.col(|ui| {
+                icons::icon(ui, icons::SHIELD, 24.0).fg(accent);
+                ui.txt(&format!("Loading {active_title}..."))
+                    .sz(crate::theme::fs(13.0))
+                    .semibold()
+                    .fg(TEXT_PRIMARY);
+                ui.txt("Fetching latest document from docs.chilloutvr.net")
+                    .sz(crate::theme::fs(10.5))
+                    .fg(TEXT_MUTED);
+            })
+            .center()
+            .p(28.0)
+            .gap(6.0)
+            .bg(card_inner_bg())
+            .bd(1.0, border_subtle())
+            .bevel_rounded(9.0, 1.5);
+        }
+    }
 }
 
 /// First-use modal shown once until accepted, warning users to fully uninstall LumenicMenu

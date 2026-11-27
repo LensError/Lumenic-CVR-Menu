@@ -518,7 +518,7 @@ pub fn render_ext_node(
                 }
             });
             let mut resp = apply_style(sb, &node.style, accent);
-            if resp.hovered() && !node.tooltip.is_empty() {
+            if !node.tooltip.is_empty() && resp.hovered() {
                 set_hovered_tooltip(state, surface_name, &node.tooltip);
             }
         }
@@ -540,7 +540,7 @@ pub fn render_ext_node(
                 }
             });
             let mut resp = apply_style(sb, &node.style, accent);
-            if resp.hovered() && !node.tooltip.is_empty() {
+            if !node.tooltip.is_empty() && resp.hovered() {
                 set_hovered_tooltip(state, surface_name, &node.tooltip);
             }
         }
@@ -588,7 +588,7 @@ pub fn render_ext_node(
                 .bevel_rounded(rad(9.0), bev(1.5))
                 .shadow(10.0, shadow_card());
             let mut resp = apply_style(sb, &node.style, accent);
-            if resp.hovered() && !node.tooltip.is_empty() {
+            if !node.tooltip.is_empty() && resp.hovered() {
                 set_hovered_tooltip(state, surface_name, &node.tooltip);
             }
         }
@@ -711,7 +711,7 @@ pub fn render_ext_node(
                 sb = sb.ellipsis();
             }
             let mut resp = apply_style(sb, &node.style, accent);
-            if resp.hovered() && !node.tooltip.is_empty() {
+            if !node.tooltip.is_empty() && resp.hovered() {
                 set_hovered_tooltip(state, surface_name, &node.tooltip);
             }
         }
@@ -726,7 +726,7 @@ pub fn render_ext_node(
             };
             let sb = icons::icon(ui, name, sz).fg(col);
             let mut resp = apply_style(sb, &node.style, accent);
-            if resp.hovered() && !node.tooltip.is_empty() {
+            if !node.tooltip.is_empty() && resp.hovered() {
                 set_hovered_tooltip(state, surface_name, &node.tooltip);
             }
         }
@@ -745,7 +745,7 @@ pub fn render_ext_node(
             if let Some(tex_id) = tex {
                 let sb = ui.img(tex_id).fit(fit);
                 let mut resp = apply_style(sb, &node.style, accent);
-                if resp.hovered() && !node.tooltip.is_empty() {
+                if !node.tooltip.is_empty() && resp.hovered() {
                     set_hovered_tooltip(state, surface_name, &node.tooltip);
                 }
             } else {
@@ -1005,7 +1005,7 @@ pub fn render_ext_node(
                 .bd(1.0, border_subtle())
                 .bevel_rounded(rad(6.0), bev(1.3));
             let mut resp = apply_style(sb, &node.style, accent);
-            if resp.hovered() && !node.tooltip.is_empty() {
+            if !node.tooltip.is_empty() && resp.hovered() {
                 set_hovered_tooltip(state, surface_name, &node.tooltip);
             }
             if !node.disabled && clicked {
@@ -1234,13 +1234,17 @@ pub fn render_ext_node(
         }
 
         "tabs" => {
+            let stretch = node.style.w.is_some()
+                || node.style.w_frac.is_some()
+                || node.style.grow.is_some();
             let sb = ui
                 .row(|ui| {
                     for (idx, opt) in node.options.iter().enumerate() {
                         let is_sel = idx == node.selected_index;
-                        if ui
+                        let mut tab_btn = ui
                             .btn_with(&format!("{widget_id}_t{idx}"), |ui| {
-                                ui.txt(opt)
+                                let mut t = ui
+                                    .txt(opt)
                                     .sz(fs(node.size.unwrap_or(11.0)))
                                     .semibold()
                                     .align(TextAlign::Center)
@@ -1248,12 +1252,14 @@ pub fn render_ext_node(
                                         text_primary()
                                     } else {
                                         text_muted()
-                                    })
-                                    .grow(1.0);
+                                    });
+                                if stretch {
+                                    t = t.grow(1.0);
+                                }
+                                let _ = t;
                             })
-                            .grow(1.0)
                             .py(pad(5.5))
-                            .px(pad(8.0))
+                            .px(pad(11.0))
                             .bg(if is_sel {
                                 tint_alpha(accent, 52)
                             } else {
@@ -1268,10 +1274,11 @@ pub fn render_ext_node(
                                     border_subtle()
                                 },
                             )
-                            .bevel_rounded(rad(5.5), bev(1.3))
-                            .clicked()
-                            && !node.disabled
-                        {
+                            .bevel_rounded(rad(5.5), bev(1.3));
+                        if stretch {
+                            tab_btn = tab_btn.grow(1.0);
+                        }
+                        if tab_btn.clicked() && !node.disabled {
                             push_click(actions);
                             push_ext_event(
                                 actions,

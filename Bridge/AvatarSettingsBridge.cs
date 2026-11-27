@@ -22,6 +22,12 @@ internal static class AvatarSettingsBridge
     private static readonly FieldInfo StagedParamsField =
         AccessTools.Field(typeof(AvatarSettingsPreview), "_stagedParameters");
 
+    private static readonly PropertyInfo IsProfileStagedProp =
+        AccessTools.Property(typeof(AvatarSettingsPreview), "IsProfileStaged");
+
+    private static readonly PropertyInfo StagedProfileNameProp =
+        AccessTools.Property(typeof(AvatarSettingsPreview), "StagedProfileName");
+
     private static readonly MethodInfo UpdateRenderingMethod =
         AccessTools.Method(typeof(MenuPreviewRig), "UpdateRendering");
 
@@ -404,7 +410,7 @@ internal static class AvatarSettingsBridge
         }
     }
 
-    public static void LoadProfile(string profile)
+    public static void LoadProfile(string profile, string mode = "")
     {
         if (string.IsNullOrWhiteSpace(profile))
             return;
@@ -412,7 +418,46 @@ internal static class AvatarSettingsBridge
         try
         {
             AvatarSettingsPreview preview = AvatarSettingsPreview.Instance;
-            if (string.Equals(profile, "default", StringComparison.OrdinalIgnoreCase))
+            bool isDefault = string.Equals(profile, "default", StringComparison.OrdinalIgnoreCase);
+
+            if (string.Equals(mode, "apply", StringComparison.OrdinalIgnoreCase))
+            {
+                if (isDefault)
+                    PlayerSetup.Instance?.LoadCurrentAvatarSettingsDefault(openPage: false);
+                else
+                    PlayerSetup.Instance?.LoadCurrentAvatarSettingsProfile(profile, openPage: false);
+
+                preview?.DiscardStagedParameters();
+                return;
+            }
+
+            if (string.Equals(mode, "preview", StringComparison.OrdinalIgnoreCase) && preview != null)
+            {
+                bool staged = isDefault ? preview.StageDefaultProfile() : preview.StageProfile(profile);
+                if (!staged)
+                {
+                    var settings = PlayerSetup.Instance?.CurrentAvatarSettings;
+                    var values = isDefault ? settings?.GetDefaultProfileValues() : settings?.GetProfileValues(profile);
+                    if (values != null)
+                    {
+                        var stagedParams = StagedParamsField?.GetValue(preview) as Dictionary<string, float>;
+                        if (stagedParams != null)
+                        {
+                            stagedParams.Clear();
+                            foreach (var v in values)
+                            {
+                                preview.StageParameter(v.name, v.value);
+                                stagedParams[v.name] = v.value;
+                            }
+                        }
+                        IsProfileStagedProp?.SetValue(preview, true);
+                        StagedProfileNameProp?.SetValue(preview, isDefault ? null : profile);
+                    }
+                }
+                return;
+            }
+
+            if (isDefault)
             {
                 if (preview == null || !preview.StageDefaultProfile())
                 {
@@ -429,7 +474,7 @@ internal static class AvatarSettingsBridge
         }
         catch (Exception ex)
         {
-            MelonLogger.Warning($"[LumenicMenu] AvatarSettingsBridge.LoadProfile('{profile}') failed: {ex.Message}");
+            MelonLogger.Warning($"[LumenicMenu] AvatarSettingsBridge.LoadProfile('{profile}', '{mode}') failed: {ex.Message}");
         }
     }
 

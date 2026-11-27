@@ -23,6 +23,8 @@ public sealed class ExtTabOptions
     public int Priority { get; set; }
     /// <summary>When true, omits the default Lumenic page header card.</summary>
     public bool HideHeader { get; set; }
+    /// <summary>When true, hides this tab from the Quick Menu / Main Menu extension tab bar (open via <see cref="ExtTabHandle.Open"/> from a Quick Tool or slot).</summary>
+    public bool HideFromTabBar { get; set; }
     /// <summary>Optional header action buttons rendered on the right side of the page header.</summary>
     public Action<UiBuilder> HeaderActions { get; set; }
 }
@@ -133,6 +135,7 @@ public static class LumenicSections
     public const string QmPlayerDetailsActions = "qm.player_details.actions";
 
     public const string MmHomeBanner = "mm.home.banner";
+    public const string MmHomeQuickTools = "mm.home.quick_tools";
     public const string MmSettingsLumenic = "mm.settings.lumenic";
 }
 
@@ -157,6 +160,8 @@ public sealed class ExtTabHandle : IDisposable
     public void MarkDirty() => _host.MarkDirty();
 
     public void Open() => _host.SelectTab(Surface, $"{ModId}:{TabId}");
+
+    public void Close() => _host.SelectTab(Surface, null);
 
     public void PushSubPage(ExtSubPageOptions options, Action<UiBuilder> build)
         => _host.PushSubPage(Surface, ModId, TabId, options, build);

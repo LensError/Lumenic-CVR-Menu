@@ -1,7 +1,10 @@
 using System;
+using System.IO;
 using System.Net.Http;
+using System.Text;
 using System.Threading.Tasks;
 using MelonLoader;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace LumenicMenu.Bridge;
@@ -23,9 +26,11 @@ internal sealed class ModUpdateService
 {
     public const string BundledChangelog =
         "What's New in LumenicMenu v" + LumenicMenuMod.ModVersion + ":\n\n" +
-        "- Mowods Support: added full support for Mowods by NotAKidoS in the Main Menu Mod Settings screen, including mod and setting search, author/version/assembly info, source links, color-coded mod categories, grouped sections, tooltips, custom Mowods mod pages/buttons, and per-setting, per-section, and per-mod Reset buttons.\n" +
-        "- Dropdown & Modal Softlock Fixes: fixed settings dropdown popups (like TTS Voice and Chatbox Preferred Display Mode), Quick Menu world instance popups, and system alerts so selecting an option or closing them always dismisses cleanly instead of softlocking the menu.\n" +
-        "- Slider Colors: sliders now use your secondary player color for the fill bar and your primary player color for the track background.";
+        "- In-Game Legal Viewer: read ChilloutVR's official legal documents directly inside Main Menu -> Settings -> Legal.\n" +
+        "- Cleaner Content Filter Layout: split Avatar and Prop filter settings into their own sub-tabs to match ChilloutVR's native layout.\n" +
+        "- Less Clutter in Other Mod Menus: LumenicMenu's settings are now hidden from UIExpansionKit, Mowods, and other mod preference lists while continuing to save normally in Quick Menu toggles and Main Menu -> Settings -> LumenicMenu.\n" +
+        "- Quick Tools Extension Support: extensions can now add buttons directly into the Main Menu Quick Tools panel without taking up space on the bottom bar.\n" +
+        "- Extension Images & UI Fixes: fixed remote extension images not loading (with built-in safety limits), fixed clicks not registering on text inside custom extension buttons, and fixed tab labels overflowing their buttons.";
 
     private const string LatestReleaseApiUrl = "https://api.github.com/repos/LensError/Lumenic-CVR-Menu/releases/latest";
     private const string DefaultReleasePageUrl = "https://github.com/LensError/Lumenic-CVR-Menu/releases/latest";
@@ -119,15 +124,20 @@ internal sealed class ModUpdateService
     {
         try
         {
-            using HttpResponseMessage resp = await Http.GetAsync(LatestReleaseApiUrl).ConfigureAwait(false);
+            using HttpResponseMessage resp = await Http.GetAsync(LatestReleaseApiUrl, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
             if (!resp.IsSuccessStatusCode)
             {
                 SetError($"GitHub API returned HTTP {(int)resp.StatusCode}.");
                 return;
             }
 
-            string json = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-            JObject root = JObject.Parse(json);
+            string json = await ReadBoundedStringAsync(resp.Content, 1024 * 1024).ConfigureAwait(false);
+            JObject root;
+            using (var sr = new StringReader(json))
+            using (var jr = new JsonTextReader(sr) { MaxDepth = 32 })
+            {
+                root = JObject.Load(jr);
+            }
 
             string tag = root.Value<string>("tag_name") ?? string.Empty;
             string latest = NormalizeVersion(tag);
@@ -142,7 +152,8 @@ internal sealed class ModUpdateService
             if (notes.Length > 1800)
                 notes = notes.Substring(0, 1797) + "...";
 
-            string htmlUrl = root.Value<string>("html_url") ?? DefaultReleasePageUrl;
+            string rawHtmlUrl = root.Value<string>("html_url") ?? string.Empty;
+            string htmlUrl = IsAllowedGitHubRepoUrl(rawHtmlUrl) ? rawHtmlUrl : DefaultReleasePageUrl;
             string dllUrl = DefaultDownloadUrl;
             if (root["assets"] is JArray assets)
             {
@@ -150,7 +161,7 @@ internal sealed class ModUpdateService
                 {
                     string assetName = token.Value<string>("name") ?? string.Empty;
                     string browserUrl = token.Value<string>("browser_download_url") ?? string.Empty;
-                    if (assetName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(browserUrl))
+                    if (assetName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) && IsAllowedGitHubRepoUrl(browserUrl))
                     {
                         dllUrl = browserUrl;
                         break;
@@ -213,6 +224,43 @@ internal sealed class ModUpdateService
         if (dash >= 0)
             trimmed = trimmed.Substring(0, dash);
         return trimmed.Trim();
+    }
+
+    private static bool IsAllowedGitHubRepoUrl(string url)
+    {
+        if (string.IsNullOrWhiteSpace(url)
+            || !Uri.TryCreate(url, UriKind.Absolute, out Uri uri)
+            || uri.Scheme != Uri.UriSchemeHttps
+            || uri.IsFile
+            || uri.IsUnc)
+        {
+            return false;
+        }
+        return string.Equals(uri.Host, "github.com", StringComparison.OrdinalIgnoreCase)
+            && uri.AbsolutePath.StartsWith("/LensError/Lumenic-CVR-Menu/", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static async Task<string> ReadBoundedStringAsync(HttpContent content, int maxBytes)
+    {
+        long? contentLen = content.Headers.ContentLength;
+        if (contentLen.HasValue && contentLen.Value > maxBytes)
+            throw new Exception("Update check response exceeded maximum size.");
+
+        using Stream stream = await content.ReadAsStreamAsync().ConfigureAwait(false);
+        using var ms = new MemoryStream();
+        byte[] buffer = new byte[8192];
+        int total = 0;
+        while (true)
+        {
+            int read = await stream.ReadAsync(buffer, 0, buffer.Length).ConfigureAwait(false);
+            if (read <= 0)
+                break;
+            total += read;
+            if (total > maxBytes)
+                throw new Exception("Update check response exceeded maximum size.");
+            ms.Write(buffer, 0, read);
+        }
+        return Encoding.UTF8.GetString(ms.GetBuffer(), 0, (int)ms.Length);
     }
 
     private static bool IsRemoteNewer(string current, string remote)

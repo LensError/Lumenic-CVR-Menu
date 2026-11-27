@@ -2,7 +2,9 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using ABI_RC.Core.InteractionSystem;
 using ABI_RC.Core.Networking.API;
@@ -31,6 +33,14 @@ internal sealed class UiLibBridge
     private const string TabHomeId = "home";
     private const string TabPlayersId = "players";
     private const string TabPropsId = "props";
+    private const string TotallyWholesomeModName = "TotallyWholesome";
+    private const string TotallyWholesomeRootPageName = "TWRoot";
+    private const string TotallyWholesomeStatusEvent = "twStatusUpdate";
+
+    private static readonly Regex HtmlBreakRegex = new Regex(@"<\s*br\s*/?\s*>", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex HtmlParagraphCloseRegex = new Regex(@"</\s*p\s*>", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex HtmlTagRegex = new Regex(@"<[^>]+>", RegexOptions.Compiled);
+    private static readonly Regex ExcessNewlinesRegex = new Regex(@"\n{3,}", RegexOptions.Compiled);
 
     // Cached reflection accessors for internal/private UILib members.
     private static readonly FieldInfo RootPagesField = AccessTools.Field(typeof(CVR_MenuManager), "RootPages");
@@ -138,6 +148,16 @@ internal sealed class UiLibBridge
     private float _modalNumberValue;
     private Action<float> _modalNumberCallback;
     private ulong _modalRevision;
+
+    // Live TotallyWholesome status state captured from CustomEngineOnFunction("twStatusUpdate").
+    private string _twBadgeBg = string.Empty;
+    private string _twBadgeFg = string.Empty;
+    private string _twBadgeText = string.Empty;
+    private bool _twDisplayBadge;
+    private bool _twPetAutoAccept;
+    private bool _twMasterAutoAccept;
+    private bool _twVibDevice;
+    private bool _twShockDevice;
 
     public bool IsViewingUiLibPage => _navStack.Count > 0;
     public bool HasActiveToast => !string.IsNullOrEmpty(_toastText) && Time.unscaledTime < _toastExpiresAt;
@@ -278,7 +298,7 @@ internal sealed class UiLibBridge
         ClearModal();
         _modalKind = "confirm";
         _modalTitle = title ?? "Confirm";
-        _modalBody = content ?? string.Empty;
+        _modalBody = SanitizeModalHtml(content);
         _modalYesText = string.IsNullOrEmpty(yesText) ? "Yes" : yesText;
         _modalNoText = string.IsNullOrEmpty(noText) ? "No" : noText;
         _modalYesAction = onYes;
@@ -291,10 +311,51 @@ internal sealed class UiLibBridge
         ClearModal();
         _modalKind = "notice";
         _modalTitle = title ?? "Notice";
-        _modalBody = content ?? string.Empty;
+        _modalBody = SanitizeModalHtml(content);
         _modalOkText = string.IsNullOrEmpty(okText) ? "OK" : okText;
         _modalOkAction = onOk;
         _modalRevision++;
+    }
+
+    public bool HandleCustomEngineEvent(string functionName, object[] args)
+    {
+        if (!string.Equals(functionName, TotallyWholesomeStatusEvent, StringComparison.Ordinal)
+            || args == null
+            || args.Length < 8)
+        {
+            return false;
+        }
+
+        string badgeBg = args[0]?.ToString()?.Trim() ?? string.Empty;
+        string badgeFg = args[1]?.ToString()?.Trim() ?? string.Empty;
+        string badgeText = args[2]?.ToString()?.Trim() ?? string.Empty;
+        bool displayBadge = args[3] is bool db && db;
+        bool petAuto = args[4] is bool pa && pa;
+        bool masterAuto = args[5] is bool ma && ma;
+        bool vibDev = args[6] is bool vd && vd;
+        bool shockDev = args[7] is bool sd && sd;
+
+        bool changed = !string.Equals(_twBadgeBg, badgeBg, StringComparison.Ordinal)
+            || !string.Equals(_twBadgeFg, badgeFg, StringComparison.Ordinal)
+            || !string.Equals(_twBadgeText, badgeText, StringComparison.Ordinal)
+            || _twDisplayBadge != displayBadge
+            || _twPetAutoAccept != petAuto
+            || _twMasterAutoAccept != masterAuto
+            || _twVibDevice != vibDev
+            || _twShockDevice != shockDev;
+
+        if (!changed)
+            return false;
+
+        _twBadgeBg = badgeBg;
+        _twBadgeFg = badgeFg;
+        _twBadgeText = badgeText;
+        _twDisplayBadge = displayBadge;
+        _twPetAutoAccept = petAuto;
+        _twMasterAutoAccept = masterAuto;
+        _twVibDevice = vibDev;
+        _twShockDevice = shockDev;
+        return true;
     }
 
     public void HandleOpenMultiSelect(MultiSelection multiSelection)
@@ -603,7 +664,8 @@ internal sealed class UiLibBridge
         {
             _activeTabId = TabPropsId;
         }
-        else if (GetBoolField(PageIsRootField, page) && !GetBoolField(PageNoTabField, page))
+        else if (GetBoolField(PageIsRootField, page)
+            && (!GetBoolField(PageNoTabField, page) || IsTotallyWholesomeRootPage(page)))
         {
             _activeTabId = GetElementKey(page);
         }
@@ -752,7 +814,8 @@ internal sealed class UiLibBridge
 
             bool isRoot = GetBoolField(PageIsRootField, page);
             bool noTab = GetBoolField(PageNoTabField, page);
-            if (!isRoot || noTab || page.HideTab || page.Hidden)
+            bool isTwRoot = IsTotallyWholesomeRootPage(page);
+            if (!isRoot || (noTab && !isTwRoot) || page.HideTab || page.Hidden)
                 continue;
 
             string id = GetElementKey(page);
@@ -767,11 +830,20 @@ internal sealed class UiLibBridge
 
             string modName = PageModNameField?.GetValue(page) as string ?? string.Empty;
             string tabIcon = PageTabIconField?.GetValue(page) as string ?? string.Empty;
-            string label = !string.IsNullOrWhiteSpace(page.MenuTitle)
-                ? page.MenuTitle
-                : (!string.IsNullOrWhiteSpace(page.PageDisplayName)
-                    ? page.PageDisplayName
-                    : (!string.IsNullOrWhiteSpace(modName) ? modName : "Mod"));
+            if (isTwRoot && string.IsNullOrWhiteSpace(tabIcon))
+            {
+                tabIcon = QuickMenuAPI.DoesIconExist(TotallyWholesomeModName, "TWLogoPride")
+                    ? "TWLogoPride"
+                    : "TWTabIcon";
+            }
+
+            string label = isTwRoot
+                ? "Totally Wholesome"
+                : (!string.IsNullOrWhiteSpace(page.MenuTitle)
+                    ? page.MenuTitle
+                    : (!string.IsNullOrWhiteSpace(page.PageDisplayName)
+                        ? page.PageDisplayName
+                        : (!string.IsNullOrWhiteSpace(modName) ? modName : "Mod")));
 
             bool isToolbox = string.Equals(label, "Toolbox", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(modName, "Toolbox", StringComparison.OrdinalIgnoreCase)
@@ -787,7 +859,8 @@ internal sealed class UiLibBridge
                     mod_name = "CVR",
                     icon_key = string.Empty,
                     active = _activeTabId == id,
-                    kind = "toolbox"
+                    kind = "toolbox",
+                    status_dots = Array.Empty<string>()
                 });
                 continue;
             }
@@ -801,7 +874,8 @@ internal sealed class UiLibBridge
                 mod_name = modName,
                 icon_key = iconKey,
                 active = _activeTabId == id,
-                kind = "mod"
+                kind = "mod",
+                status_dots = isTwRoot ? BuildTotallyWholesomeStatusDots() : Array.Empty<string>()
             });
         }
 
@@ -908,8 +982,12 @@ internal sealed class UiLibBridge
             ? ResolveSelectedPlayerBio()
             : string.Empty;
 
-        bool isRootWithTab = GetBoolField(PageIsRootField, page) && !GetBoolField(PageNoTabField, page);
+        bool isRootWithTab = GetBoolField(PageIsRootField, page)
+            && (!GetBoolField(PageNoTabField, page) || IsTotallyWholesomeRootPage(page));
         bool canGoBack = _navStack.Count > 1 || !isRootWithTab;
+        object[] statusBadges = string.Equals(pageMod, TotallyWholesomeModName, StringComparison.OrdinalIgnoreCase)
+            ? BuildTotallyWholesomeStatusBadges()
+            : Array.Empty<object>();
 
         return new
         {
@@ -923,6 +1001,7 @@ internal sealed class UiLibBridge
             player_preview_status = playerPreviewStatus,
             selected_player_id = selectedPlayerId,
             player_bio = playerBio,
+            status_badges = statusBadges,
             header_buttons = headerButtons,
             top_sliders = topSliders,
             categories
@@ -1235,6 +1314,76 @@ internal sealed class UiLibBridge
             number_value = _modalNumberValue,
             revision = _modalRevision
         };
+    }
+
+    private static bool IsTotallyWholesomeRootPage(Page page)
+    {
+        if (page == null || !GetBoolField(PageIsRootField, page))
+            return false;
+
+        string modName = PageModNameField?.GetValue(page) as string;
+        string pageName = PageNameField?.GetValue(page) as string;
+        return string.Equals(modName, TotallyWholesomeModName, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(pageName, TotallyWholesomeRootPageName, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private string[] BuildTotallyWholesomeStatusDots()
+    {
+        var dots = new List<string>(4);
+        if (_twPetAutoAccept) dots.Add("#00A801");
+        if (_twMasterAutoAccept) dots.Add("#008FFF");
+        if (_twVibDevice) dots.Add("#A855F7");
+        if (_twShockDevice) dots.Add("#F59E0B");
+        return dots.ToArray();
+    }
+
+    private object[] BuildTotallyWholesomeStatusBadges()
+    {
+        var badges = new List<object>(5);
+        if (_twDisplayBadge && !string.IsNullOrWhiteSpace(_twBadgeText))
+        {
+            badges.Add(new
+            {
+                text = _twBadgeText,
+                bg_hex = string.IsNullOrWhiteSpace(_twBadgeBg) ? "#4E00AF" : _twBadgeBg,
+                fg_hex = string.IsNullOrWhiteSpace(_twBadgeFg) ? "#FFFFFF" : _twBadgeFg,
+                icon = string.Empty
+            });
+        }
+        if (_twPetAutoAccept)
+        {
+            badges.Add(new { text = "Pet Auto", bg_hex = "#00A801", fg_hex = "#FFFFFF", icon = string.Empty });
+        }
+        if (_twMasterAutoAccept)
+        {
+            badges.Add(new { text = "Master Auto", bg_hex = "#008FFF", fg_hex = "#FFFFFF", icon = string.Empty });
+        }
+        if (_twVibDevice)
+        {
+            badges.Add(new { text = "Vibe", bg_hex = "#7C3AED", fg_hex = "#FFFFFF", icon = "vibe" });
+        }
+        if (_twShockDevice)
+        {
+            badges.Add(new { text = "Shock", bg_hex = "#D97706", fg_hex = "#FFFFFF", icon = "bolt" });
+        }
+        return badges.ToArray();
+    }
+
+    private static string SanitizeModalHtml(string raw)
+    {
+        if (string.IsNullOrEmpty(raw))
+            return string.Empty;
+
+        if (raw.IndexOf('<') < 0 && raw.IndexOf('&') < 0)
+            return raw;
+
+        string text = HtmlBreakRegex.Replace(raw, "\n");
+        text = HtmlParagraphCloseRegex.Replace(text, "\n\n");
+        text = HtmlTagRegex.Replace(text, string.Empty);
+        text = WebUtility.HtmlDecode(text);
+        text = text.Replace("\r\n", "\n").Replace('\r', '\n');
+        text = ExcessNewlinesRegex.Replace(text, "\n\n");
+        return text.Trim();
     }
 
     private static List<Page> GetRootPages()

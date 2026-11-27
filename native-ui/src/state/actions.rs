@@ -321,6 +321,18 @@ pub enum UiAction {
     SetQmModTabsIconOnly {
         enabled: bool,
     },
+    SetQmPresetConfirmMode {
+        mode: String,
+    },
+    SetThemePreset {
+        preset: String,
+    },
+    SetPanelOpacity {
+        opacity: f32,
+    },
+    SetCursorGlow {
+        enabled: bool,
+    },
     SetDesktopScrollMultiplier {
         value: f32,
     },
@@ -415,6 +427,8 @@ pub enum UiAction {
     AvatarDiscardStaged,
     AvatarLoadProfile {
         profile: String,
+        #[serde(default)]
+        mode: String,
     },
     AvatarSaveProfile {
         profile: String,
@@ -458,5 +472,9 @@ pub enum UiAction {
         max_x: f32,
         min_y: f32,
         max_y: f32,
+    },
+    FetchLegalDoc {
+        doc_id: String,
+        force: bool,
     },
 }

@@ -81,7 +81,7 @@ ExtTabHandle handle = LumenicApi.RegisterQuickMenuHubEntry(
     build: BuildTtsPage);
 ```
 
-For full widescreen (`1280x720`) Main Menu tabs:
+For full widescreen (`1280x720`) Main Menu tabs (set `HideFromTabBar = true` if opened exclusively from a Quick Tools button or slot via `mmTab.Open()`, and `mmTab.Close()` to return):
 
 ```csharp
 ExtTabHandle mmTab = LumenicApi.RegisterMainMenuTab(
@@ -310,6 +310,7 @@ Built-in regions have stable IDs defined in `LumenicSections`:
 | `qm.home.actions` | Quick Menu Home Quick Actions grid | `OverrideStyle` (incl. `Columns`, `MinHeight`, `FontScale`), `Inject`, `Replace`, `Hidden` |
 | `qm.player_details.actions` | Quick Menu Player Details page | `Inject` custom player action buttons/cards |
 | `mm.home.banner` | Top of Main Menu Home | `Inject` custom status/media strip |
+| `mm.home.quick_tools` | Main Menu Home Quick Tools card (right column) | `Inject` (`InsideStart`/`InsideEnd` render inside the Quick Tools card; `Before`/`After` above/below), `OverrideStyle`, `Replace`, `Hidden` |
 | `mm.settings.lumenic` | Inside Main Menu -> Settings -> LumenicMenu | `Inject` custom mod settings cards |
 
 Examples:

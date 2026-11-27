@@ -89,6 +89,9 @@ pub struct MainMenuState {
     pub discover_tab: usize,    // 0 = Random Worlds, 1 = Random Avatars, 2 = Random Props
     pub messages_filter: String,
     pub settings_tab: usize,
+    pub safety_sub_tab: usize, // 0 = Avatar Filters, 1 = Prop Filters
+    pub legal_sub_tab: usize,  // 0 = ToS, 1 = Behaviour, 2 = Content, 3 = Privacy
+    pub legal_requested_docs: Vec<String>,
     pub settings_search_input: TextEditState,
     pub settings_sliders: HashMap<String, (f32, i32)>,
     pub avatar_sliders: HashMap<String, (f32, f32)>,
@@ -155,6 +158,9 @@ impl Default for MainMenuState {
             discover_tab: 0,
             messages_filter: String::from("all"),
             settings_tab: 0,
+            safety_sub_tab: 0,
+            legal_sub_tab: 0,
+            legal_requested_docs: Vec::new(),
             settings_search_input: TextEditState::new(),
             settings_sliders: HashMap::new(),
             avatar_sliders: HashMap::new(),
@@ -214,6 +220,7 @@ pub struct QuickMenuState {
     pub qm_reorder_selected: Option<usize>,
     pub qm_pinned_filter: usize, // 0 = All, 1 = Avatars, 2 = Worlds, 3 = Props
     pub qm_pinned_edit: bool,
+    pub qm_presets_open: bool,
     pub qm_world_modal: Option<(String, String)>, // (world_id, world_name)
     pub qm_world_privacy: String,
     pub qm_world_region: String,
@@ -251,6 +258,7 @@ impl Default for QuickMenuState {
             qm_reorder_selected: None,
             qm_pinned_filter: 0,
             qm_pinned_edit: false,
+            qm_presets_open: false,
             qm_world_modal: None,
             qm_world_privacy: String::from("Friends"),
             qm_world_region: String::from("Eu"),

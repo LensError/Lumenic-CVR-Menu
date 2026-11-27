@@ -484,6 +484,7 @@ pub struct CvrSettingItem {
     pub label: String,
     pub tooltip: String,
     pub category: String,
+    pub sub_tab: String,
     pub group: String,
     pub kind: String, // "bool" | "int_slider" | "int_choice" | "int_step" | "float_step" | "str_choice" | "string_ro"
     pub bool_val: bool,
@@ -551,8 +552,27 @@ impl Default for AvatarSettingsSnapshot {
 
 #[derive(Clone, Debug, Default, Deserialize)]
 #[serde(default)]
+pub struct LegalBlockDto {
+    pub kind: String, // "h1" | "h2" | "h3" | "p" | "li"
+    pub text: String,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(default)]
+pub struct LegalDocDto {
+    pub id: String,
+    pub title: String,
+    pub url: String,
+    pub status: String, // "idle" | "loading" | "ready" | "error"
+    pub error: String,
+    pub blocks: Vec<LegalBlockDto>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(default)]
 pub struct CvrSettingsSnapshot {
     pub items: Vec<CvrSettingItem>,
+    pub legal_docs: Vec<LegalDocDto>,
 }
 
 // ============================================================================
@@ -568,6 +588,16 @@ pub struct UiLibTab {
     pub icon_key: String,
     pub active: bool,
     pub kind: String, // "home" | "players" | "props" | "mod"
+    pub status_dots: Vec<String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(default)]
+pub struct UiLibStatusBadge {
+    pub text: String,
+    pub bg_hex: String,
+    pub fg_hex: String,
+    pub icon: String,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
@@ -640,6 +670,7 @@ pub struct UiLibPageSnapshot {
     pub player_preview_status: String,
     pub selected_player_id: String,
     pub player_bio: String,
+    pub status_badges: Vec<UiLibStatusBadge>,
     pub header_buttons: Vec<UiLibElement>,
     pub top_sliders: Vec<UiLibElement>,
     pub categories: Vec<UiLibCategory>,

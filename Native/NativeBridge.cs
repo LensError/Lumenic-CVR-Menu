@@ -260,7 +260,12 @@ internal sealed class NativeBridge : IDisposable
 
     public bool Load(uint mmW, uint mmH, uint qmW, uint qmH, float scale)
     {
-        EnsureEmbeddedDllExtracted();
+        if (!EnsureEmbeddedDllExtracted(out string extractError))
+        {
+            LastFailureReason = extractError;
+            MelonLogger.Error($"[LumenicMenu] {LastFailureReason}");
+            return false;
+        }
         if (!File.Exists(DefaultDllPath))
         {
             LastFailureReason = $"Native DLL not found at '{DefaultDllPath}'.";
@@ -321,17 +326,18 @@ internal sealed class NativeBridge : IDisposable
         }
     }
 
-    private static void EnsureEmbeddedDllExtracted()
+    private static bool EnsureEmbeddedDllExtracted(out string error)
     {
         const string resourceName = "lumenic_cvr_ui.dll";
+        error = string.Empty;
         try
         {
             Assembly asm = typeof(NativeBridge).Assembly;
             using Stream resStream = asm.GetManifestResourceStream(resourceName);
             if (resStream == null)
             {
-                MelonLogger.Warning($"[LumenicMenu] Embedded resource '{resourceName}' not found in assembly.");
-                return;
+                error = $"Embedded resource '{resourceName}' not found in assembly.";
+                return false;
             }
 
             byte[] embeddedHash;
@@ -340,37 +346,60 @@ internal sealed class NativeBridge : IDisposable
                 embeddedHash = sha.ComputeHash(resStream);
             }
 
-            if (File.Exists(DefaultDllPath))
-            {
-                try
-                {
-                    using var existingStream = File.OpenRead(DefaultDllPath);
-                    using var sha = SHA256.Create();
-                    byte[] existingHash = sha.ComputeHash(existingStream);
-                    if (HashesEqual(embeddedHash, existingHash))
-                        return;
-                }
-                catch
-                {
-                    // Re-extract below if existing file cannot be read.
-                }
-            }
+            if (VerifyFileHash(DefaultDllPath, embeddedHash))
+                return true;
 
             resStream.Position = 0;
             Directory.CreateDirectory(UserDataDir);
-            string tmpPath = DefaultDllPath + ".tmp";
-            using (var fs = new FileStream(tmpPath, FileMode.Create, FileAccess.Write, FileShare.None))
+            string tmpPath = DefaultDllPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            try
             {
-                resStream.CopyTo(fs);
+                using (var fs = new FileStream(tmpPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                {
+                    resStream.CopyTo(fs);
+                }
+                if (File.Exists(DefaultDllPath))
+                    File.Delete(DefaultDllPath);
+                File.Move(tmpPath, DefaultDllPath);
             }
-            if (File.Exists(DefaultDllPath))
-                File.Delete(DefaultDllPath);
-            File.Move(tmpPath, DefaultDllPath);
+            finally
+            {
+                if (File.Exists(tmpPath))
+                {
+                    try { File.Delete(tmpPath); } catch { }
+                }
+            }
+
+            if (!VerifyFileHash(DefaultDllPath, embeddedHash))
+            {
+                error = $"SHA-256 verification failed after extracting '{DefaultDllPath}'.";
+                return false;
+            }
+
             MelonLogger.Msg("[LumenicMenu] Extracted embedded lumenic_cvr_ui.dll.");
+            return true;
         }
         catch (Exception ex)
         {
-            MelonLogger.Warning($"[LumenicMenu] Failed to extract embedded native DLL: {ex.Message}");
+            error = $"Failed to extract/verify embedded native DLL: {ex.Message}";
+            return false;
+        }
+    }
+
+    private static bool VerifyFileHash(string path, byte[] expectedHash)
+    {
+        if (!File.Exists(path))
+            return false;
+        try
+        {
+            using var existingStream = File.OpenRead(path);
+            using var sha = SHA256.Create();
+            byte[] existingHash = sha.ComputeHash(existingStream);
+            return HashesEqual(expectedHash, existingHash);
+        }
+        catch
+        {
+            return false;
         }
     }
 
@@ -781,10 +810,23 @@ internal sealed class NativeBridge : IDisposable
         if (!IsHealthy || _uploadRgbaBatch == null || items == null || count <= 0)
             return 0;
 
+        const int MaxStackBatch = 64;
+        int totalCount = Math.Min(count, items.Length);
+        int totalUploaded = 0;
+        for (int offset = 0; offset < totalCount; offset += MaxStackBatch)
+        {
+            int chunkCount = Math.Min(MaxStackBatch, totalCount - offset);
+            totalUploaded += UploadRgbaBatchChunk(items, offset, chunkCount, outResults);
+        }
+        return totalUploaded;
+    }
+
+    private int UploadRgbaBatchChunk(RgbaBatchItem[] items, int offset, int count, byte[] outResults)
+    {
         int totalKeyBytes = 0;
         for (int i = 0; i < count; i++)
         {
-            totalKeyBytes += Encoding.UTF8.GetMaxByteCount(items[i].Key?.Length ?? 0);
+            totalKeyBytes += Encoding.UTF8.GetMaxByteCount(items[offset + i].Key?.Length ?? 0);
         }
         byte[] keyBuf = EnsureScratchCapacity(Math.Max(1, totalKeyBytes));
 
@@ -801,7 +843,7 @@ internal sealed class NativeBridge : IDisposable
                     int keyOffset = 0;
                     for (int i = 0; i < count; i++)
                     {
-                        ref readonly RgbaBatchItem item = ref items[i];
+                        ref readonly RgbaBatchItem item = ref items[offset + i];
                         string k = item.Key ?? string.Empty;
                         int kLen = k.Length > 0 ? Encoding.UTF8.GetBytes(k, 0, k.Length, keyBuf, keyOffset) : 0;
 
@@ -828,11 +870,14 @@ internal sealed class NativeBridge : IDisposable
                         keyOffset += kLen;
                     }
 
+                    IntPtr chunkResultsPtr = outResults != null && outResults.Length >= offset + count
+                        ? (IntPtr)(resultsPtr + offset)
+                        : IntPtr.Zero;
                     return (int)_uploadRgbaBatch(
                         _handle,
                         (IntPtr)nativeItems,
                         (UIntPtr)count,
-                        outResults != null && outResults.Length >= count ? (IntPtr)resultsPtr : IntPtr.Zero).ToUInt64();
+                        chunkResultsPtr).ToUInt64();
                 }
             }
         }

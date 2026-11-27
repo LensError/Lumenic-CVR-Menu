@@ -71,3 +71,4 @@ pub const ARROW_DOWN: &str = "keyboard_arrow_down";
 pub const PIN: &str = "keep";
 pub const APPS: &str = "apps";
 pub const SHIELD: &str = "shield";
+pub const VIBRATION: &str = "vibration";

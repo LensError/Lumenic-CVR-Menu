@@ -2,7 +2,9 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.Net;
 using System.Net.Http;
+using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using ABI_RC.Core.IO;
@@ -21,12 +23,17 @@ namespace LumenicMenu.Bridge;
 internal sealed class ImageLoaderService : IDisposable
 {
     private const int MaxSurfaceTextures = 512;
+    private const int MaxExtTextures = 192;
     private const int MaxRemoteBytes = 8 * 1024 * 1024;
     private const int MaxFailedEntries = 256;
+    private const int MaxRedirects = 3;
     private const double FailedRetryTtlSeconds = 30.0;
     private const string CouiUiResourcesPrefix = "coui://UIResources/";
 
-    private static readonly HttpClient SharedHttp = new HttpClient
+    private static readonly HttpClient SharedHttp = new HttpClient(new HttpClientHandler
+    {
+        AllowAutoRedirect = false
+    })
     {
         Timeout = TimeSpan.FromSeconds(10)
     };
@@ -61,6 +68,7 @@ internal sealed class ImageLoaderService : IDisposable
     private readonly object _cacheLock = new object();
     private readonly Dictionary<string, byte[]> _bytesCache = new Dictionary<string, byte[]>(StringComparer.Ordinal);
     private readonly LinkedList<string> _bytesOrder = new LinkedList<string>();
+    private readonly LinkedList<string> _extBytesOrder = new LinkedList<string>();
     private readonly Dictionary<string, HashSet<uint>> _inFlight = new Dictionary<string, HashSet<uint>>(StringComparer.Ordinal);
     private readonly Dictionary<string, DateTime> _failedKeys = new Dictionary<string, DateTime>(StringComparer.Ordinal);
     private readonly HashSet<(uint SurfaceId, string Key)> _queuedUploads = new HashSet<(uint, string)>();
@@ -68,6 +76,7 @@ internal sealed class ImageLoaderService : IDisposable
     // Main-thread-only upload state matching Rust's per-surface LRU/FIFO texture cap.
     private readonly Dictionary<uint, HashSet<string>> _uploadedPerSurface = new Dictionary<uint, HashSet<string>>();
     private readonly Dictionary<uint, LinkedList<string>> _uploadedOrderPerSurface = new Dictionary<uint, LinkedList<string>>();
+    private readonly Dictionary<uint, LinkedList<string>> _extUploadedOrderPerSurface = new Dictionary<uint, LinkedList<string>>();
 
     private string _lastLocalPfpUrl = string.Empty;
     private int _localPfpToken;
@@ -93,8 +102,12 @@ internal sealed class ImageLoaderService : IDisposable
     private static bool IsPinnedKey(string key)
     {
         return key == "local_pfp"
-            || key.StartsWith("uilib:", StringComparison.Ordinal)
-            || key.StartsWith("ext:", StringComparison.Ordinal);
+            || key.StartsWith("uilib:", StringComparison.Ordinal);
+    }
+
+    private static bool IsExtKey(string key)
+    {
+        return key.StartsWith("ext:", StringComparison.Ordinal);
     }
 
     public void InvalidateUploaded()
@@ -107,6 +120,7 @@ internal sealed class ImageLoaderService : IDisposable
         }
         _uploadedPerSurface.Clear();
         _uploadedOrderPerSurface.Clear();
+        _extUploadedOrderPerSurface.Clear();
     }
 
     public void RequestLocalPfp(uint surfaceId, string url)
@@ -168,13 +182,10 @@ internal sealed class ImageLoaderService : IDisposable
             return;
 
         string trimmed = url.Trim();
-        if (!trimmed.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
-            && !trimmed.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-        {
+        if (!Uri.TryCreate(trimmed, UriKind.Absolute, out Uri uri) || !IsSafeExternalUrl(uri))
             return;
-        }
 
-        RequestRemoteUrl(surfaceId, key, trimmed, token: 0);
+        RequestRemoteUrl(surfaceId, key, trimmed, token: 0, allowExternalUrl: true);
     }
 
     /// <summary>
@@ -220,12 +231,12 @@ internal sealed class ImageLoaderService : IDisposable
         Task.Run(loader);
     }
 
-    private void RequestRemoteUrl(uint surfaceId, string key, string url, int token)
+    private void RequestRemoteUrl(uint surfaceId, string key, string url, int token, bool allowExternalUrl = false)
     {
-        if (_disposed || !IsAllowedRemoteUrl(url) || !TryAcquireFetchSlot(surfaceId, key, token))
+        if (_disposed || (!allowExternalUrl && !IsAllowedRemoteUrl(url)) || !TryAcquireFetchSlot(surfaceId, key, token))
             return;
 
-        Task.Run(() => FetchRemoteImageAsync(surfaceId, key, url, token));
+        Task.Run(() => FetchRemoteImageAsync(surfaceId, key, url, token, allowExternalUrl));
     }
 
     private bool TryAcquireFetchSlot(uint surfaceId, string key, int token)
@@ -267,15 +278,125 @@ internal sealed class ImageLoaderService : IDisposable
         return false;
     }
 
-    private static bool IsAllowedRemoteUrl(string url)
+    private static bool IsPublicIpAddress(IPAddress ip)
     {
-        if (string.IsNullOrWhiteSpace(url))
+        if (ip == null)
             return false;
 
+        if (ip.IsIPv4MappedToIPv6)
+            ip = ip.MapToIPv4();
+
+        if (IPAddress.IsLoopback(ip)
+            || ip.Equals(IPAddress.Any)
+            || ip.Equals(IPAddress.IPv6Any)
+            || ip.Equals(IPAddress.None)
+            || ip.Equals(IPAddress.Broadcast))
+        {
+            return false;
+        }
+
+        if (ip.AddressFamily == AddressFamily.InterNetwork)
+        {
+            byte[] b = ip.GetAddressBytes();
+            if (b[0] == 0
+                || b[0] == 10
+                || b[0] == 127
+                || (b[0] == 172 && b[1] >= 16 && b[1] <= 31)
+                || (b[0] == 192 && b[1] == 168)
+                || (b[0] == 169 && b[1] == 254)
+                || (b[0] == 100 && b[1] >= 64 && b[1] <= 127)
+                || b[0] >= 224)
+            {
+                return false;
+            }
+        }
+        else if (ip.AddressFamily == AddressFamily.InterNetworkV6)
+        {
+            if (ip.IsIPv6LinkLocal || ip.IsIPv6SiteLocal || ip.IsIPv6Multicast)
+                return false;
+            byte[] b = ip.GetAddressBytes();
+            // Unique local IPv6 (fc00::/7)
+            if ((b[0] & 0xFE) == 0xFC)
+                return false;
+        }
+
+        return true;
+    }
+
+    private static bool IsSafeExternalUrl(Uri uri)
+    {
+        if (uri == null || uri.Scheme != Uri.UriSchemeHttps || uri.IsFile || uri.IsUnc)
+            return false;
+
+        string host = uri.DnsSafeHost;
+        if (string.IsNullOrWhiteSpace(host))
+            return false;
+
+        if (string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase)
+            || host.EndsWith(".local", StringComparison.OrdinalIgnoreCase)
+            || host.EndsWith(".internal", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (IPAddress.TryParse(host, out IPAddress ip))
+            return IsPublicIpAddress(ip);
+
+        return true;
+    }
+
+    private static async Task<bool> IsSafeExternalUrlAsync(Uri uri)
+    {
+        if (!IsSafeExternalUrl(uri))
+            return false;
+
+        string host = uri.DnsSafeHost;
+        if (IPAddress.TryParse(host, out _))
+            return true;
+
+        try
+        {
+            IPAddress[] addresses = await Dns.GetHostAddressesAsync(host).ConfigureAwait(false);
+            if (addresses == null || addresses.Length == 0)
+                return false;
+
+            for (int i = 0; i < addresses.Length; i++)
+            {
+                if (!IsPublicIpAddress(addresses[i]))
+                    return false;
+            }
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool IsAllowedRemoteUrl(string url)
+    {
+        if (string.IsNullOrWhiteSpace(url)
+            || !Uri.TryCreate(url, UriKind.Absolute, out Uri uri)
+            || uri.Scheme != Uri.UriSchemeHttps
+            || uri.IsFile
+            || uri.IsUnc)
+        {
+            return false;
+        }
+
+        string abs = uri.AbsoluteUri;
         foreach (string prefix in ImageCache.ExpectedUrlPrefixes)
         {
-            if (url.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            if (string.IsNullOrEmpty(prefix))
+                continue;
+            if (!abs.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                continue;
+            if (prefix.EndsWith("/", StringComparison.Ordinal)
+                || abs.Length == prefix.Length
+                || abs[prefix.Length] == '/')
+            {
                 return true;
+            }
         }
         return false;
     }
@@ -378,7 +499,13 @@ internal sealed class ImageLoaderService : IDisposable
         }
     }
 
-    private async Task FetchRemoteImageAsync(uint surfaceId, string key, string url, int token)
+    private static bool IsRedirectStatus(HttpStatusCode code)
+    {
+        int n = (int)code;
+        return n == 301 || n == 302 || n == 303 || n == 307 || n == 308;
+    }
+
+    private async Task FetchRemoteImageAsync(uint surfaceId, string key, string url, int token, bool allowExternalUrl = false)
     {
         bool acquired = false;
         try
@@ -388,28 +515,67 @@ internal sealed class ImageLoaderService : IDisposable
             if (_disposed)
                 return;
 
-            using HttpResponseMessage resp = await SharedHttp.GetAsync(url, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
-            if (!resp.IsSuccessStatusCode)
+            if (!Uri.TryCreate(url, UriKind.Absolute, out Uri currentUri))
             {
                 MarkFailed(surfaceId, key, token);
                 return;
             }
 
-            long? contentLen = resp.Content.Headers.ContentLength;
-            if (contentLen.HasValue && contentLen.Value > MaxRemoteBytes)
+            HttpResponseMessage resp = null;
+            try
             {
-                MarkFailed(surfaceId, key, token);
-                return;
-            }
+                for (int hop = 0; hop <= MaxRedirects; hop++)
+                {
+                    // Validate every hop before sending the HTTP request (including DNS resolution).
+                    bool allowed = allowExternalUrl || hop > 0
+                        ? await IsSafeExternalUrlAsync(currentUri).ConfigureAwait(false)
+                        : IsAllowedRemoteUrl(currentUri.AbsoluteUri) && await IsSafeExternalUrlAsync(currentUri).ConfigureAwait(false);
+                    if (!allowed)
+                    {
+                        MarkFailed(surfaceId, key, token);
+                        return;
+                    }
 
-            byte[] bytes = await ReadBoundedBytesAsync(resp.Content, MaxRemoteBytes).ConfigureAwait(false);
-            if (bytes == null || bytes.Length == 0)
+                    resp = await SharedHttp.GetAsync(currentUri, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
+                    if (IsRedirectStatus(resp.StatusCode) && resp.Headers.Location != null)
+                    {
+                        Uri nextUri = resp.Headers.Location.IsAbsoluteUri
+                            ? resp.Headers.Location
+                            : new Uri(currentUri, resp.Headers.Location);
+                        resp.Dispose();
+                        resp = null;
+                        currentUri = nextUri;
+                        continue;
+                    }
+                    break;
+                }
+
+                if (resp == null || !resp.IsSuccessStatusCode)
+                {
+                    MarkFailed(surfaceId, key, token);
+                    return;
+                }
+
+                long? contentLen = resp.Content.Headers.ContentLength;
+                if (contentLen.HasValue && contentLen.Value > MaxRemoteBytes)
+                {
+                    MarkFailed(surfaceId, key, token);
+                    return;
+                }
+
+                byte[] bytes = await ReadBoundedBytesAsync(resp.Content, MaxRemoteBytes).ConfigureAwait(false);
+                if (bytes == null || bytes.Length == 0)
+                {
+                    MarkFailed(surfaceId, key, token);
+                    return;
+                }
+
+                StoreAndEnqueue(surfaceId, key, bytes, token);
+            }
+            finally
             {
-                MarkFailed(surfaceId, key, token);
-                return;
+                resp?.Dispose();
             }
-
-            StoreAndEnqueue(surfaceId, key, bytes, token);
         }
         catch (Exception ex)
         {
@@ -482,7 +648,12 @@ internal sealed class ImageLoaderService : IDisposable
                 _inFlight.Remove(key);
             }
 
-            if (!IsPinnedKey(key))
+            if (IsExtKey(key))
+            {
+                _extBytesOrder.Remove(key);
+                _extBytesOrder.AddLast(key);
+            }
+            else if (!IsPinnedKey(key))
             {
                 _bytesOrder.Remove(key);
                 _bytesOrder.AddLast(key);
@@ -493,6 +664,12 @@ internal sealed class ImageLoaderService : IDisposable
             {
                 string oldest = _bytesOrder.First.Value;
                 _bytesOrder.RemoveFirst();
+                _bytesCache.Remove(oldest);
+            }
+            while (_extBytesOrder.Count > MaxExtTextures)
+            {
+                string oldest = _extBytesOrder.First.Value;
+                _extBytesOrder.RemoveFirst();
                 _bytesCache.Remove(oldest);
             }
 
@@ -649,7 +826,23 @@ internal sealed class ImageLoaderService : IDisposable
         }
 
         set.Add(key);
-        if (!IsPinnedKey(key))
+        if (IsExtKey(key))
+        {
+            if (!_extUploadedOrderPerSurface.TryGetValue(surfaceId, out var extOrder))
+            {
+                extOrder = new LinkedList<string>();
+                _extUploadedOrderPerSurface[surfaceId] = extOrder;
+            }
+            extOrder.Remove(key);
+            extOrder.AddLast(key);
+            while (extOrder.Count > MaxExtTextures)
+            {
+                string oldest = extOrder.First.Value;
+                extOrder.RemoveFirst();
+                set.Remove(oldest);
+            }
+        }
+        else if (!IsPinnedKey(key))
         {
             order.Remove(key);
             order.AddLast(key);
@@ -668,6 +861,8 @@ internal sealed class ImageLoaderService : IDisposable
             set.Remove(key);
         if (_uploadedOrderPerSurface.TryGetValue(surfaceId, out var order))
             order.Remove(key);
+        if (_extUploadedOrderPerSurface.TryGetValue(surfaceId, out var extOrder))
+            extOrder.Remove(key);
     }
 
     public void Dispose()
@@ -678,11 +873,13 @@ internal sealed class ImageLoaderService : IDisposable
             while (_pendingUploads.TryDequeue(out _)) { }
             _bytesCache.Clear();
             _bytesOrder.Clear();
+            _extBytesOrder.Clear();
             _inFlight.Clear();
             _failedKeys.Clear();
             _queuedUploads.Clear();
         }
         _uploadedPerSurface.Clear();
         _uploadedOrderPerSurface.Clear();
+        _extUploadedOrderPerSurface.Clear();
     }
 }

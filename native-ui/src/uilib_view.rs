@@ -9,7 +9,7 @@ use crate::theme::{
     TEXT_DIM, TEXT_MUTED, TEXT_PRIMARY, tile_idle_bg, tile_idle_hover,
 };
 
-fn parse_hex_rgb(hex: &str) -> Option<Color> {
+pub(crate) fn parse_hex_rgb(hex: &str) -> Option<Color> {
     let clean = hex.trim().trim_start_matches('#');
     if clean.len() < 6 {
         return None;
@@ -72,8 +72,9 @@ pub fn render_uilib_page(
     }
 
     ui.col(|ui| {
-        // --- PAGE HEADER (Back button, Title/Subtitle, Breadcrumbs, Header Buttons) ---
-        ui.row(|ui| {
+        // --- PAGE HEADER (Back button, Title/Subtitle, Breadcrumbs, Header Buttons, Status Badges) ---
+        ui.col(|ui| {
+            ui.row(|ui| {
             if page.can_go_back {
                 if ui
                     .btn_with("uilib_back_btn", |ui| {
@@ -156,11 +157,52 @@ pub fn render_uilib_page(
                 .align_center()
                 .gap(5.0);
             }
+            })
+            .align_center()
+            .gap(8.0);
+
+            if !page.status_badges.is_empty() {
+                ui.row(|ui| {
+                    for badge in &page.status_badges {
+                        let base = parse_hex_rgb(&badge.bg_hex).unwrap_or(accent);
+                        let fg = parse_hex_rgb(&badge.fg_hex).unwrap_or(TEXT_PRIMARY);
+                        ui.row(|ui| {
+                            match badge.icon.as_str() {
+                                "bolt" => {
+                                    icons::icon(ui, icons::BOLT, 11.5).fg(fg);
+                                }
+                                "vibe" => {
+                                    icons::icon(ui, icons::VIBRATION, 11.5).fg(fg);
+                                }
+                                _ => {
+                                    ui.col(|_| {})
+                                        .w(5.5)
+                                        .h(5.5)
+                                        .r(3.0)
+                                        .bg(base);
+                                }
+                            }
+                            ui.txt(&badge.text)
+                                .sz(crate::theme::fs(10.0))
+                                .semibold()
+                                .fg(fg);
+                        })
+                        .align_center()
+                        .gap(4.0)
+                        .px(7.0)
+                        .py(2.5)
+                        .bg(tint_alpha(base, 54))
+                        .bd(1.0, tint_alpha(base, 175))
+                        .bevel_rounded(4.8, 1.0);
+                    }
+                })
+                .align_center()
+                .gap(5.0);
+            }
         })
-        .align_center()
         .px(10.0)
         .py(6.0)
-        .gap(8.0)
+        .gap(5.0)
         .bg(card_bg())
         .bd(1.0, tint_alpha(accent, 95))
         .bevel_rounded(8.6, 1.3)

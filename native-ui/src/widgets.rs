@@ -164,6 +164,9 @@ pub fn compute_bg_glow_uniforms(
 
 /// Renders the passthrough background hex-glow shader viewport.
 pub fn render_bg_glow(ui: &mut UiContext, id: &str, shader_key: u64, uniforms: [f32; 11]) {
+    if crate::theme::glow_intensity() <= 0.001 {
+        return;
+    }
     ui.viewport(id, move |c2d, _s3d| {
         c2d.shader(shader_key, BG_GLOW_FRAG, &uniforms);
     })

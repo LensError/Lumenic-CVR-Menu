@@ -30,6 +30,7 @@ internal static class SettingsBridge
         public string Label = string.Empty;
         public string Tooltip = string.Empty;
         public string Category = string.Empty;
+        public string SubTab = string.Empty;
         public string Group = string.Empty;
         public int Order = int.MaxValue;
         public bool HasRange;
@@ -44,21 +45,27 @@ internal static class SettingsBridge
     private static readonly Dictionary<string, (string Val, string Label)[]> DynamicDropdowns =
         new Dictionary<string, (string Val, string Label)[]>(StringComparer.Ordinal);
 
+    private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(2);
+
     private static readonly Regex HtmlCommentRegex = new Regex(
         @"<!--.*?-->",
-        RegexOptions.Singleline | RegexOptions.Compiled);
+        RegexOptions.Singleline | RegexOptions.Compiled,
+        RegexTimeout);
 
     private static readonly Regex TokenRegex = new Regex(
         @"<div\s+id=""settings-(?<cat>[a-zA-Z0-9_-]+)""\s+class=""settings-categorie""|" +
+        @"<div[^>]*\bid=""(?<subtab>avatar-filter-tab|prop-filter-tab)""[^>]*>|" +
         @"<div\s+class=""subcategory-name""[^>]*>(?<subcat>[^<]*)</div>|" +
         @"<div\s+class=""option-caption""(?<capAttrs>(?:""[^""]*""|'[^']*'|[^>""'])*)>(?<capText>[^<]*)</div>\s*<div\s+class=""option-input""[^>]*>\s*<div\s+(?<inpAttrs>(?:""[^""]*""|'[^']*'|[^>""'])*)>",
-        RegexOptions.Singleline | RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        RegexOptions.Singleline | RegexOptions.IgnoreCase | RegexOptions.Compiled,
+        RegexTimeout);
 
-    private static readonly Regex WhitespaceRegex = new Regex(@"\s+", RegexOptions.Compiled);
+    private static readonly Regex WhitespaceRegex = new Regex(@"\s+", RegexOptions.Compiled, RegexTimeout);
 
     private static readonly Regex AttrRegex = new Regex(
         @"(?<name>[a-zA-Z0-9_-]+)\s*=\s*""(?<val>[^""]*)""",
-        RegexOptions.Singleline | RegexOptions.Compiled);
+        RegexOptions.Singleline | RegexOptions.Compiled,
+        RegexTimeout);
 
     private static string MapOgCategory(string ogCat)
     {
@@ -161,6 +168,7 @@ internal static class SettingsBridge
 
             string html = HtmlCommentRegex.Replace(File.ReadAllText(htmlPath, Encoding.UTF8), string.Empty);
             string curCat = string.Empty;
+            string curSubTab = string.Empty;
             string curGroup = string.Empty;
             int order = 0;
 
@@ -169,6 +177,15 @@ internal static class SettingsBridge
                 if (m.Groups["cat"].Success)
                 {
                     curCat = MapOgCategory(m.Groups["cat"].Value);
+                    curSubTab = string.Empty;
+                    curGroup = string.Empty;
+                    continue;
+                }
+                if (m.Groups["subtab"].Success)
+                {
+                    curSubTab = string.Equals(m.Groups["subtab"].Value, "prop-filter-tab", StringComparison.OrdinalIgnoreCase)
+                        ? "props"
+                        : "avatars";
                     curGroup = string.Empty;
                     continue;
                 }
@@ -193,6 +210,7 @@ internal static class SettingsBridge
                     Label = capText,
                     Tooltip = DecodeHtml(GetAttr(capAttrs, "data-tooltip")).Trim(),
                     Category = curCat,
+                    SubTab = curSubTab,
                     Group = curGroup,
                     Order = order++
                 };
@@ -247,11 +265,11 @@ internal static class SettingsBridge
         return string.Empty;
     }
 
-    private static object _cachedSnapshot;
+    private static List<object> _cachedItems;
 
     public static void InvalidateCache()
     {
-        _cachedSnapshot = null;
+        _cachedItems = null;
     }
 
     private static string DecodeHtml(string s)
@@ -357,22 +375,22 @@ internal static class SettingsBridge
         ("2", "All")
     };
 
-    public static object BuildSnapshot()
+    public static List<object> BuildItems()
     {
-        if (_cachedSnapshot != null)
-            return _cachedSnapshot;
+        if (_cachedItems != null)
+            return _cachedItems;
 
         EnsureOgMetadataLoaded();
         var items = new List<object>();
         var settings = MetaPort.Instance?.settings;
         if (settings == null || SettingsDictField == null)
         {
-            return new { items };
+            return items;
         }
 
         if (SettingsDictField.GetValue(settings) is not Dictionary<string, CVRSettingsValue> dict)
         {
-            return new { items };
+            return items;
         }
 
         var ordered = dict
@@ -392,6 +410,11 @@ internal static class SettingsBridge
                 continue;
             }
             string category = (og != null && !string.IsNullOrEmpty(og.Category)) ? og.Category : CategorizeKey(key);
+            string sub_tab = !string.IsNullOrEmpty(og?.SubTab)
+                ? og.SubTab
+                : (category == "safety"
+                    ? (key.IndexOf("Prop", StringComparison.OrdinalIgnoreCase) >= 0 ? "props" : "avatars")
+                    : string.Empty);
             string group = og != null ? (string.IsNullOrEmpty(og.Group) ? "General" : og.Group) : "Other";
             string label = (og != null && !string.IsNullOrWhiteSpace(og.Label)) ? og.Label : FormatLabel(key);
             string tooltip = og?.Tooltip ?? string.Empty;
@@ -405,6 +428,7 @@ internal static class SettingsBridge
                     label,
                     tooltip,
                     category,
+                    sub_tab,
                     group,
                     kind = "bool",
                     bool_val = curBool,
@@ -433,6 +457,7 @@ internal static class SettingsBridge
                         label,
                         tooltip,
                         category,
+                        sub_tab,
                         group,
                         kind = "int_choice",
                         bool_val = false,
@@ -455,6 +480,7 @@ internal static class SettingsBridge
                         label,
                         tooltip,
                         category,
+                        sub_tab,
                         group,
                         kind = "int_choice",
                         bool_val = false,
@@ -479,6 +505,7 @@ internal static class SettingsBridge
                         label,
                         tooltip,
                         category,
+                        sub_tab,
                         group,
                         kind = "int_slider",
                         bool_val = false,
@@ -500,6 +527,7 @@ internal static class SettingsBridge
                         label,
                         tooltip,
                         category,
+                        sub_tab,
                         group,
                         kind = "int_step",
                         bool_val = false,
@@ -523,6 +551,7 @@ internal static class SettingsBridge
                     label,
                     tooltip,
                     category,
+                    sub_tab,
                     group,
                     kind = "float_step",
                     bool_val = false,
@@ -551,6 +580,7 @@ internal static class SettingsBridge
                         label,
                         tooltip,
                         category,
+                        sub_tab,
                         group,
                         kind = "str_choice",
                         bool_val = false,
@@ -572,6 +602,7 @@ internal static class SettingsBridge
                         label,
                         tooltip,
                         category,
+                        sub_tab,
                         group,
                         kind = "string_ro",
                         bool_val = false,
@@ -588,9 +619,8 @@ internal static class SettingsBridge
             }
         }
 
-        var snapshot = new { items };
-        _cachedSnapshot = snapshot;
-        return snapshot;
+        _cachedItems = items;
+        return items;
     }
 
     public static void SetBool(string key, bool value)

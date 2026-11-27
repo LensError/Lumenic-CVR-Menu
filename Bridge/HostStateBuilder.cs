@@ -169,6 +169,10 @@ internal sealed class HostStateBuilder
         public string ui_sound_pack;
         public bool enable_recent_history;
         public bool qm_mod_tabs_icon_only;
+        public string qm_preset_confirm_mode;
+        public string theme_preset;
+        public float panel_opacity;
+        public bool cursor_glow;
         public bool disclaimer_accepted;
         public bool show_whats_new;
         public UpdateStatusDto update_status;
@@ -336,7 +340,11 @@ internal sealed class HostStateBuilder
 
         if (mainVisible && ((dirty & StateDomain.Settings) != 0 || string.IsNullOrEmpty(_lastSettingsJson)))
         {
-            string settingsJson = JsonConvert.SerializeObject(SettingsBridge.BuildSnapshot());
+            string settingsJson = JsonConvert.SerializeObject(new
+            {
+                items = SettingsBridge.BuildItems(),
+                legal_docs = mod.LegalDocs?.BuildSnapshot()
+            });
             PushIfChanged(bridge, NativeBridge.DomainSettings, "Settings", settingsJson, ref _lastSettingsJson);
         }
 
@@ -588,6 +596,10 @@ internal sealed class HostStateBuilder
             ui_sound_pack = Settings.UiSoundPack,
             enable_recent_history = Settings.EnableRecentHistory,
             qm_mod_tabs_icon_only = Settings.QmModTabsIconOnly,
+            qm_preset_confirm_mode = Settings.QmPresetConfirmMode,
+            theme_preset = Settings.ThemePreset,
+            panel_opacity = Settings.PanelOpacity,
+            cursor_glow = Settings.CursorGlow,
             disclaimer_accepted = Settings.DisclaimerAccepted,
             show_whats_new = !string.Equals(Settings.LastSeenVersion, LumenicMenuMod.ModVersion, StringComparison.OrdinalIgnoreCase),
             update_status = mod.Updates?.BuildSnapshot() ?? new UpdateStatusDto { current_version = LumenicMenuMod.ModVersion },

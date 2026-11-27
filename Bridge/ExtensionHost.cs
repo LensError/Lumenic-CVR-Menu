@@ -556,7 +556,17 @@ internal sealed class ExtensionHost
     }
 
     private static string NormalizeImageKey(string key)
-        => key.StartsWith("ext:", StringComparison.Ordinal) ? key : key;
+    {
+        if (string.Equals(key, "local_pfp", StringComparison.OrdinalIgnoreCase)
+            || key.StartsWith("uilib:", StringComparison.OrdinalIgnoreCase)
+            || key.StartsWith("thumb:", StringComparison.OrdinalIgnoreCase)
+            || key.StartsWith("url:", StringComparison.OrdinalIgnoreCase)
+            || key.StartsWith("coui:", StringComparison.OrdinalIgnoreCase))
+        {
+            return "ext:" + key;
+        }
+        return key;
+    }
 
     public void UnregisterMod(string modId)
     {
@@ -716,7 +726,7 @@ internal sealed class ExtensionHost
         {
             var theme = MergeThemeLocked();
 
-            var qmTabsDto = _qmTabs.Select(t => new
+            var qmTabsDto = _qmTabs.Where(t => !t.Options.HideFromTabBar).Select(t => new
             {
                 ext_id = t.ModId,
                 id = t.TabId,
@@ -727,7 +737,7 @@ internal sealed class ExtensionHost
                 priority = t.Options.Priority
             }).ToList();
 
-            var mmTabsDto = _mmTabs.Select(t => new
+            var mmTabsDto = _mmTabs.Where(t => !t.Options.HideFromTabBar).Select(t => new
             {
                 ext_id = t.ModId,
                 id = t.TabId,

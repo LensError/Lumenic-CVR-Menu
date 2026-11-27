@@ -39,7 +39,7 @@ internal static class SettingsAvatarActions
         map["AvatarSetAutoApply"] = (obj, mod) => { AvatarSettingsBridge.SetAutoApply(obj.Value<bool>("enabled")); mod.MarkStateDirty(StateDomain.AvatarSettings); };
         map["AvatarApplyStaged"] = (_, mod) => { AvatarSettingsBridge.ApplyStaged(); mod.MarkStateDirty(StateDomain.AvatarSettings); };
         map["AvatarDiscardStaged"] = (_, mod) => { AvatarSettingsBridge.DiscardStaged(); mod.MarkStateDirty(StateDomain.AvatarSettings); };
-        map["AvatarLoadProfile"] = (obj, mod) => { AvatarSettingsBridge.LoadProfile(obj.Value<string>("profile") ?? string.Empty); mod.MarkStateDirty(StateDomain.AvatarSettings); };
+        map["AvatarLoadProfile"] = (obj, mod) => { AvatarSettingsBridge.LoadProfile(obj.Value<string>("profile") ?? string.Empty, obj.Value<string>("mode") ?? string.Empty); mod.MarkStateDirty(StateDomain.AvatarSettings); };
         map["AvatarSaveProfile"] = (obj, mod) => { AvatarSettingsBridge.SaveProfile(obj.Value<string>("profile") ?? string.Empty); mod.MarkStateDirty(StateDomain.AvatarSettings); };
         map["AvatarDeleteProfile"] = (obj, mod) => { AvatarSettingsBridge.DeleteProfile(obj.Value<string>("profile") ?? string.Empty); mod.MarkStateDirty(StateDomain.AvatarSettings); };
         map["AvatarReorderProfiles"] = (obj, mod) =>
@@ -65,5 +65,8 @@ internal static class SettingsAvatarActions
             obj.Value<float>("w"),
             obj.Value<float>("h"));
         map["SyncStudioStage"] = (_, _) => { };
+        map["FetchLegalDoc"] = (obj, mod) => mod.LegalDocs?.FetchDoc(
+            obj.Value<string>("doc_id") ?? string.Empty,
+            obj.Value<bool>("force"));
     }
 }

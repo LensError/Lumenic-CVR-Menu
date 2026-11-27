@@ -459,6 +459,7 @@ pub fn render_avatar_settings_page(
                     push_click(actions);
                     actions.push(UiAction::AvatarLoadProfile {
                         profile: String::from("default"),
+                        mode: String::new(),
                     });
                 }
 
@@ -517,6 +518,7 @@ pub fn render_avatar_settings_page(
                             push_click(actions);
                             actions.push(UiAction::AvatarLoadProfile {
                                 profile: prof.clone(),
+                                mode: String::new(),
                             });
                         }
 
