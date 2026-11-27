@@ -1,4 +1,4 @@
-# LumenicMenu
+not as draft.# LumenicMenu
 
 A fast, modern replacement for ChilloutVR's **Main Menu**, **Quick Menu**, and **HUD**, built with a native Rust UI renderer ([Lumenic](https://github.com/LensError/Lumenic)) for smooth performance in both Desktop and VR.
 
@@ -45,6 +45,17 @@ All LumenicMenu options are available inside **Settings -> LumenicMenu** (and in
 
 > [!NOTE]
 > If you run into a base-game issue and want to verify whether it is caused by a mod, toggle LumenicMenu off or remove `LumenicMenu.dll` from `ChilloutVR/Mods/` and restart the game.
+
+## Official LumenicMenu Extensions
+
+Official companion extensions built with `LumenicMenu.Api` are available on the [Releases](https://github.com/LensError/Lumenic-CVR-Menu/releases) page. Drop any `.dll` into `ChilloutVR/Mods/` alongside `LumenicMenu.dll`:
+
+> [!NOTE]
+> These official extensions are currently in **pre-release**. Expect occasional bugs or rough edges while they are being polished, and report any issues on GitHub.
+
+- **VideoPlayer Remote (`VideoPlayerRemote.dll`):** Control world and prop video players from a dedicated Quick Menu tab. Includes YouTube search, favorites, custom playlists, grabbable local pickup screens, a 3D HUD/OSD screen, and automatic BTKUILib fallback if Lumenic Quick Menu is disabled.
+- **Event Calendar (`LumenicEventCalendar.dll`):** Browse the ChilloutVR community event schedule in your local timezone right from Main Menu Quick Tools, with live sync, day/status/tag filters, Discord invite links, and 15-minute / live start reminders.
+- **UI Showcase (`LumenicUiShowcase.dll` - Developer Reference):** Interactive example extension demonstrating all `LumenicMenu.Api` widgets, layouts, procedural textures, modals, section hooks, and theme overrides (all overrides default to off).
 
 ---
 
