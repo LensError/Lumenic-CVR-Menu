@@ -959,7 +959,16 @@ fn render_lumenic_settings(
     );
     let show_panel_opacity = m("Panel Opacity", "panel opacity transparency glass alpha");
     let show_cursor_glow = m("Cursor Glow", "cursor glow background shader hex");
-    if show_text_size || show_theme_preset || show_panel_opacity || show_cursor_glow {
+    let show_blend_player_color = m(
+        "Blend Player Color",
+        "blend player color tint panel background colorize accent",
+    );
+    if show_text_size
+        || show_theme_preset
+        || show_panel_opacity
+        || show_cursor_glow
+        || show_blend_player_color
+    {
         render_subcat_card(ui, "Appearance & Typography", None, accent, |_| {}, |ui| {
         if show_text_size {
         hits += 1;
@@ -1081,7 +1090,7 @@ fn render_lumenic_settings(
                 .bevel_rounded(6.0, 1.3);
             if row_resp.hovered() {
                 state.main_menu.hovered_tooltip = String::from(
-                    "Choose a built-in palette for all menus and the Lumenic HUD. Works alongside Colorize Menu.",
+                    "Built-in palette for menus & HUD. When Colorize Menu is ON, CVR Slate tints full panels while OLED Black, Frost Glass, and High Contrast keep clean surfaces and apply your Player Color to accents & borders.",
                 );
             }
         }
@@ -1134,6 +1143,27 @@ fn render_lumenic_settings(
             }
             if let Some(next_op) = emit_opacity {
                 actions.push(UiAction::SetPanelOpacity { opacity: next_op });
+            }
+        }
+
+        if show_blend_player_color {
+            hits += 1;
+            let (clicked, hov) = compact_toggle_cell(
+                ui,
+                "mm_set_lm_blend_player_color",
+                "Blend Player Color into Panels",
+                state.host.blend_player_color,
+            );
+            if hov {
+                state.main_menu.hovered_tooltip = String::from(
+                    "Tint menu cards and HUD panels with your Player Color when Colorize Menu is enabled. Disable for pure theme backgrounds with player-colored accents.",
+                );
+            }
+            if clicked {
+                push_click(actions);
+                actions.push(UiAction::SetBlendPlayerColor {
+                    enabled: !state.host.blend_player_color,
+                });
             }
         }
 

@@ -106,6 +106,8 @@ pub struct HostStateSnapshot {
     pub panel_opacity: f32,
     #[serde(default = "default_true")]
     pub cursor_glow: bool,
+    #[serde(default = "default_true")]
+    pub blend_player_color: bool,
     pub disclaimer_accepted: bool,
     pub show_whats_new: bool,
     pub whats_new_notes: String,
@@ -243,6 +245,8 @@ pub struct CoreStatePatch {
     pub panel_opacity: f32,
     #[serde(default = "default_true")]
     pub cursor_glow: bool,
+    #[serde(default = "default_true")]
+    pub blend_player_color: bool,
     pub disclaimer_accepted: bool,
     pub show_whats_new: bool,
     pub update_status: UpdateStatusDto,
@@ -343,6 +347,7 @@ impl HostStateSnapshot {
         self.theme_preset = patch.theme_preset;
         self.panel_opacity = patch.panel_opacity;
         self.cursor_glow = patch.cursor_glow;
+        self.blend_player_color = patch.blend_player_color;
         self.disclaimer_accepted = patch.disclaimer_accepted;
         self.show_whats_new = patch.show_whats_new;
         self.update_status = patch.update_status;
@@ -498,6 +503,7 @@ impl Default for HostStateSnapshot {
             theme_preset: default_theme_preset(),
             panel_opacity: 1.0,
             cursor_glow: true,
+            blend_player_color: true,
             disclaimer_accepted: true,
             show_whats_new: false,
             whats_new_notes: String::new(),

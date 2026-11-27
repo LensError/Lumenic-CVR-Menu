@@ -342,10 +342,11 @@ internal sealed class LumenicHudManager : IDisposable
     {
         string preset = Settings.ThemePreset;
         float opacity = Settings.PanelOpacity;
+        bool blendColor = Settings.BlendPlayerColor;
         bool colorize = MetaPort.Instance?.settings != null
             && MetaPort.Instance.settings.GetSettingsBool(PlayerColorsManager.ColourizeMenuSettingKey);
         Color32 p1 = PlayerColorsManager.CurrentColors.PrimaryColor;
-        string key = $"{preset}|{opacity:F2}|{colorize}|{p1.r},{p1.g},{p1.b}";
+        string key = $"{preset}|{opacity:F2}|{blendColor}|{colorize}|{p1.r},{p1.g},{p1.b}";
         if (string.Equals(key, _lastThemeKey, StringComparison.Ordinal))
             return;
         _lastThemeKey = key;
@@ -376,13 +377,23 @@ internal sealed class LumenicHudManager : IDisposable
         if (colorize && (p1.r | p1.g | p1.b) != 0)
         {
             accent = new Color(p1.r / 255f, p1.g / 255f, p1.b / 255f, 1f);
-            float luma = 0.299f * p1.r + 0.587f * p1.g + 0.114f * p1.b;
-            float tameScale = luma > 118f ? 118f / luma : 1f;
-            Color tame = new Color((p1.r * tameScale) / 255f, (p1.g * tameScale) / 255f, (p1.b * tameScale) / 255f, 1f);
-            glass = new Color(Mathf.Lerp(glass.r, tame.r, 0.20f), Mathf.Lerp(glass.g, tame.g, 0.20f), Mathf.Lerp(glass.b, tame.b, 0.20f), glass.a);
-            chip = new Color(Mathf.Lerp(chip.r, tame.r, 0.16f), Mathf.Lerp(chip.g, tame.g, 0.16f), Mathf.Lerp(chip.b, tame.b, 0.16f), chip.a);
-            float bScale = luma > 185f ? 185f / luma : 1f;
-            border = new Color((p1.r * bScale) / 255f, (p1.g * bScale) / 255f, (p1.b * bScale) / 255f, Mathf.Max(border.a, 0.23f));
+            if (blendColor)
+            {
+                float glassAmt = preset switch { "oled" => 0f, "frost" => 0.05f, "contrast" => 0f, _ => 0.20f };
+                float chipAmt = preset switch { "oled" => 0.03f, "frost" => 0.05f, "contrast" => 0f, _ => 0.16f };
+                float borderLuma = preset switch { "oled" => 175f, "frost" => 200f, "contrast" => 235f, _ => 185f };
+                float borderAlpha = preset switch { "oled" => 0.19f, "frost" => 0.28f, "contrast" => 0.54f, _ => 0.23f };
+
+                float luma = 0.299f * p1.r + 0.587f * p1.g + 0.114f * p1.b;
+                float tameScale = luma > 118f ? 118f / luma : 1f;
+                Color tame = new Color((p1.r * tameScale) / 255f, (p1.g * tameScale) / 255f, (p1.b * tameScale) / 255f, 1f);
+                if (glassAmt > 0f)
+                    glass = new Color(Mathf.Lerp(glass.r, tame.r, glassAmt), Mathf.Lerp(glass.g, tame.g, glassAmt), Mathf.Lerp(glass.b, tame.b, glassAmt), glass.a);
+                if (chipAmt > 0f)
+                    chip = new Color(Mathf.Lerp(chip.r, tame.r, chipAmt), Mathf.Lerp(chip.g, tame.g, chipAmt), Mathf.Lerp(chip.b, tame.b, chipAmt), chip.a);
+                float bScale = luma > borderLuma ? borderLuma / luma : 1f;
+                border = new Color((p1.r * bScale) / 255f, (p1.g * bScale) / 255f, (p1.b * bScale) / 255f, borderAlpha);
+            }
         }
 
         glass.a *= opacity;

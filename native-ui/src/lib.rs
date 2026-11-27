@@ -1235,6 +1235,7 @@ pub unsafe extern "C" fn lumenic_cvr_push_domain_json(
                         .map_err(|e| format!("avatar_settings JSON parse error: {e}"))?;
                 hnd.state.host.avatar_settings = avatar_settings;
                 hnd.mark_surface_dirty(SURFACE_MAIN);
+                hnd.mark_surface_dirty(SURFACE_QUICK);
             }
             DOMAIN_UIX => {
                 let uix: crate::state::UixDomainSnapshot = serde_json::from_slice(bytes)

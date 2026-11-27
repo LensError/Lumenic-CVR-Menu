@@ -173,6 +173,7 @@ internal sealed class HostStateBuilder
         public string theme_preset;
         public float panel_opacity;
         public bool cursor_glow;
+        public bool blend_player_color;
         public bool disclaimer_accepted;
         public bool show_whats_new;
         public UpdateStatusDto update_status;
@@ -348,7 +349,7 @@ internal sealed class HostStateBuilder
             PushIfChanged(bridge, NativeBridge.DomainSettings, "Settings", settingsJson, ref _lastSettingsJson);
         }
 
-        if (mainVisible && ((dirty & StateDomain.AvatarSettings) != 0 || string.IsNullOrEmpty(_lastAvatarSettingsJson)))
+        if ((mainVisible || quickVisible) && ((dirty & StateDomain.AvatarSettings) != 0 || string.IsNullOrEmpty(_lastAvatarSettingsJson)))
         {
             string avatarJson = JsonConvert.SerializeObject(AvatarSettingsBridge.BuildSnapshot());
             PushIfChanged(bridge, NativeBridge.DomainAvatarSettings, "AvatarSettings", avatarJson, ref _lastAvatarSettingsJson);
@@ -600,6 +601,7 @@ internal sealed class HostStateBuilder
             theme_preset = Settings.ThemePreset,
             panel_opacity = Settings.PanelOpacity,
             cursor_glow = Settings.CursorGlow,
+            blend_player_color = Settings.BlendPlayerColor,
             disclaimer_accepted = Settings.DisclaimerAccepted,
             show_whats_new = !string.Equals(Settings.LastSeenVersion, LumenicMenuMod.ModVersion, StringComparison.OrdinalIgnoreCase),
             update_status = mod.Updates?.BuildSnapshot() ?? new UpdateStatusDto { current_version = LumenicMenuMod.ModVersion },

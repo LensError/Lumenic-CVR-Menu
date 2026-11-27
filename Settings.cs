@@ -38,6 +38,7 @@ internal static class Settings
     private static MelonPreferences_Entry<string> _themePreset;
     private static MelonPreferences_Entry<float> _panelOpacity;
     private static MelonPreferences_Entry<bool> _cursorGlow;
+    private static MelonPreferences_Entry<bool> _blendPlayerColor;
     private static MelonPreferences_Entry<bool> _disclaimerAccepted;
     private static MelonPreferences_Entry<string> _lastSeenVersion;
     private static MelonPreferences_Entry<string> _dismissedUpdateVersion;
@@ -80,6 +81,7 @@ internal static class Settings
     public static string ThemePreset => NormalizeThemePreset(_themePreset?.Value);
     public static float PanelOpacity => Mathf.Clamp(_panelOpacity?.Value ?? 1.0f, 0.50f, 1.0f);
     public static bool CursorGlow => _cursorGlow?.Value ?? true;
+    public static bool BlendPlayerColor => _blendPlayerColor?.Value ?? true;
     public static bool DisclaimerAccepted => _disclaimerAccepted?.Value ?? false;
     public static string LastSeenVersion => _lastSeenVersion?.Value ?? string.Empty;
     public static string DismissedUpdateVersion => _dismissedUpdateVersion?.Value ?? string.Empty;
@@ -240,6 +242,12 @@ internal static class Settings
             "Menu Cursor Glow",
             "Render the subtle cursor-follow hex-glow shader behind menu cards.");
 
+        _blendPlayerColor = CreateHiddenEntry(
+            "BlendPlayerColor",
+            true,
+            "Blend Player Color into Panels",
+            "Tint menu cards and HUD panels with your Player Color when Colorize Menu is enabled.");
+
         _disclaimerAccepted = CreateHiddenEntry(
             "DisclaimerAccepted",
             false,
@@ -300,6 +308,7 @@ internal static class Settings
         _themePreset.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
         _panelOpacity.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
         _cursorGlow.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
+        _blendPlayerColor.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
         _disclaimerAccepted.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
         _lastSeenVersion.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
         _dismissedUpdateVersion.OnEntryValueChanged.Subscribe((_, _) => NotifyChanged());
@@ -475,6 +484,15 @@ internal static class Settings
         if (_cursorGlow != null && _cursorGlow.Value != enabled)
         {
             _cursorGlow.Value = enabled;
+            ScheduleSave();
+        }
+    }
+
+    public static void SetBlendPlayerColor(bool enabled)
+    {
+        if (_blendPlayerColor != null && _blendPlayerColor.Value != enabled)
+        {
+            _blendPlayerColor.Value = enabled;
             ScheduleSave();
         }
     }

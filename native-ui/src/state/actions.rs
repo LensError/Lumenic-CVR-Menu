@@ -333,6 +333,9 @@ pub enum UiAction {
     SetCursorGlow {
         enabled: bool,
     },
+    SetBlendPlayerColor {
+        enabled: bool,
+    },
     SetDesktopScrollMultiplier {
         value: f32,
     },

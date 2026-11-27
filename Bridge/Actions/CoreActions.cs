@@ -77,6 +77,7 @@ internal static class CoreActions
         map["SetThemePreset"] = (obj, mod) => { Settings.SetThemePreset(obj.Value<string>("preset") ?? "default"); mod.MarkStateDirty(StateDomain.Core); };
         map["SetPanelOpacity"] = (obj, mod) => { Settings.SetPanelOpacity(obj.Value<float>("opacity")); mod.MarkStateDirty(StateDomain.Core); };
         map["SetCursorGlow"] = (obj, mod) => { Settings.SetCursorGlow(obj.Value<bool>("enabled")); mod.MarkStateDirty(StateDomain.Core); };
+        map["SetBlendPlayerColor"] = (obj, mod) => { Settings.SetBlendPlayerColor(obj.Value<bool>("enabled")); mod.MarkStateDirty(StateDomain.Core); };
         map["SetDesktopScrollMultiplier"] = (obj, mod) => { Settings.SetDesktopScrollMultiplier(obj.Value<float>("value")); mod.MarkStateDirty(StateDomain.Core); };
         map["SetVrScrollMultiplier"] = (obj, mod) => { Settings.SetVrScrollMultiplier(obj.Value<float>("value")); mod.MarkStateDirty(StateDomain.Core); };
         map["SetHudSpread"] = (obj, mod) => { Settings.SetHudSpread(obj.Value<bool>("is_vr"), obj.Value<float>("value")); mod.Hud?.TriggerLayoutPreview(); mod.MarkStateDirty(StateDomain.Core); };

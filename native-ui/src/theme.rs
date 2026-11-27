@@ -204,8 +204,9 @@ fn base_palette_for_preset(preset: &str) -> PanelPalette {
 /// Computes the frame's panel palette and typography/density tokens from CVR's Colorize Menu setting,
 /// built-in user FontScale, theme preset, and any active `LumenicApi.Theme` overrides.
 pub fn begin_frame(state: &AppState) {
-    let base_preset = base_palette_for_preset(state.host.theme_preset.as_str());
-    let mut palette = if !state.host.colorize_menu {
+    let preset = state.host.theme_preset.as_str();
+    let base_preset = base_palette_for_preset(preset);
+    let mut palette = if !state.host.colorize_menu || !state.host.blend_player_color {
         base_preset
     } else {
         let pr = state.host.accent_r as f32;
@@ -214,19 +215,43 @@ pub fn begin_frame(state: &AppState) {
         if pr.max(pg).max(pb) < 12.0 {
             base_preset
         } else {
-            // Cap primary luminance so bright/white primaries remain dark and stylish on panels.
+            // Per-preset surface tint strengths so OLED/Frost/Contrast keep their identity
+            // while player colors still drive accents and crisp borders without clashing.
+            let (card_amt, inner_amt, tile_amt, hover_amt, border_luma, border_alpha) = match preset
+            {
+                "oled" => (0.0, 0.0, 0.03, 0.08, 175.0, 48u8),
+                "frost" => (0.05, 0.03, 0.05, 0.09, 200.0, 72u8),
+                "contrast" => (0.0, 0.0, 0.0, 0.06, 235.0, 138u8),
+                _ => (0.20, 0.14, 0.16, 0.22, 185.0, 58u8),
+            };
             let tame = clamp_luma_rgb(pr, pg, pb, 118.0);
-            let border_tint = clamp_luma_rgb(pr, pg, pb, 185.0);
+            let border_tint = clamp_luma_rgb(pr, pg, pb, border_luma);
             PanelPalette {
-                card_bg: mix_tinted(base_preset.card_bg, tame, 0.20),
-                card_inner_bg: mix_tinted(base_preset.card_inner_bg, tame, 0.14),
-                tile_idle_bg: mix_tinted(base_preset.tile_idle_bg, tame, 0.16),
-                tile_idle_hover: mix_tinted(base_preset.tile_idle_hover, tame, 0.22),
+                card_bg: if card_amt > 0.0 {
+                    mix_tinted(base_preset.card_bg, tame, card_amt)
+                } else {
+                    base_preset.card_bg
+                },
+                card_inner_bg: if inner_amt > 0.0 {
+                    mix_tinted(base_preset.card_inner_bg, tame, inner_amt)
+                } else {
+                    base_preset.card_inner_bg
+                },
+                tile_idle_bg: if tile_amt > 0.0 {
+                    mix_tinted(base_preset.tile_idle_bg, tame, tile_amt)
+                } else {
+                    base_preset.tile_idle_bg
+                },
+                tile_idle_hover: if hover_amt > 0.0 {
+                    mix_tinted(base_preset.tile_idle_hover, tame, hover_amt)
+                } else {
+                    base_preset.tile_idle_hover
+                },
                 border_subtle: Color::rgba(
                     border_tint.0.clamp(0.0, 255.0) as u8,
                     border_tint.1.clamp(0.0, 255.0) as u8,
                     border_tint.2.clamp(0.0, 255.0) as u8,
-                    base_preset.border_subtle.a.max(58),
+                    border_alpha,
                 ),
                 ..base_preset
             }

@@ -26,6 +26,9 @@ internal sealed class ModUpdateService
 {
     public const string BundledChangelog =
         "What's New in LumenicMenu v" + LumenicMenuMod.ModVersion + ":\n\n" +
+        "- Quick Menu Outfit Presets: preview and switch your avatar's outfit presets right from the Quick Menu next to the live 3D avatar preview, with a new QM Outfit Preset Confirm setting (Sync Main, Force On, or Force Off) under Settings -> LumenicMenu.\n" +
+        "- Theme Presets & HUD Sync: choose from built-in themes (CVR Slate, OLED Black, Frost Glass, High Contrast), adjust Panel Opacity, toggle Blend Player Color into Panels, and toggle the Cursor Glow background under Settings -> LumenicMenu. The Lumenic HUD automatically matches your theme, opacity, and player accent color.\n" +
+        "- TotallyWholesome Support: TotallyWholesome now appears directly in the Quick Menu tab bar with its own icon, live status indicators, and cleaner popup text.\n" +
         "- In-Game Legal Viewer: read ChilloutVR's official legal documents directly inside Main Menu -> Settings -> Legal.\n" +
         "- Cleaner Content Filter Layout: split Avatar and Prop filter settings into their own sub-tabs to match ChilloutVR's native layout.\n" +
         "- Less Clutter in Other Mod Menus: LumenicMenu's settings are now hidden from UIExpansionKit, Mowods, and other mod preference lists while continuing to save normally in Quick Menu toggles and Main Menu -> Settings -> LumenicMenu.\n" +
